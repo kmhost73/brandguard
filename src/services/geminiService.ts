@@ -1,8 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ComplianceReport, CustomRule, CheckItem } from '../types';
 
-// FIX: Corrected API key access to use `process.env.API_KEY` as per guidelines,
-// which resolves the `import.meta.env` TypeScript error.
+// Fix: Per @google/genai coding guidelines, the API key must be obtained exclusively from process.env.API_KEY
+// and the client should be initialized with it directly. This also resolves the TypeScript error on import.meta.env.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 
