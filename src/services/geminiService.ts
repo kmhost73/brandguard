@@ -1,15 +1,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ComplianceReport, CustomRule, CheckItem } from '../types';
 
-// Fix: Use process.env.API_KEY as per Gemini API guidelines. This resolves the TypeScript error with import.meta.env.
-const API_KEY = process.env.API_KEY;
+// FIX: Corrected API key access to use `process.env.API_KEY` as per guidelines,
+// which resolves the `import.meta.env` TypeScript error.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-if (!API_KEY) {
-  // This error will be caught if the API_KEY environment variable is not set.
-  throw new Error("API_KEY environment variable is not set.");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 const complianceSchema = {
   type: Type.OBJECT,
