@@ -1,11 +1,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ComplianceReport, CustomRule, CheckItem } from '../types';
 
-// Fix: Per coding guidelines, API key must come from process.env.API_KEY. This also resolves the TypeScript error.
+// Fix: Use process.env.API_KEY as per Gemini API guidelines. This resolves the TypeScript error with import.meta.env.
 const API_KEY = process.env.API_KEY;
 
 if (!API_KEY) {
-  throw new Error("The API_KEY environment variable is not set.");
+  // This error will be caught if the API_KEY environment variable is not set.
+  throw new Error("API_KEY environment variable is not set.");
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
@@ -65,13 +66,18 @@ const generateCustomRulesPrompt = (customRules?: CustomRule[]): string => {
 const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onload = () => {
+        const result = (reader.result as string).split(',')[1];
+        if (result) {
+            resolve(result);
+        } else {
+            reject(new Error("Failed to convert file to base64."));
+        }
+    };
     reader.onerror = (error) => reject(error);
 });
 
 export const analyzePostContent = async (postContent: string, customRules?: CustomRule[]): Promise<ComplianceReport> => {
-    const prompt = `Act as an expert social media compliance officer... [Prompt content omitted for brevity, it's the full text prompt] ... ${generateCustomRulesPrompt(customRules)}`;
-    // This is a simplified representation of the full prompt.
     const fullPrompt = `Act as an expert social media compliance officer for a major brand. Your task is to analyze the following sponsored post caption for compliance with FTC guidelines, brand safety, and specific campaign requirements.\n\n**Post Caption to Analyze:**\n"${postContent}"\n\n**Standard Compliance Rules:**\n1.  **FTC Disclosure:** The post MUST contain a clear and conspicuous disclosure, such as #ad, #sponsored, or "Paid partnership".\n2.  **Brand Safety:** The post must NOT contain any profanity, offensive language, or controversial topics.\n3.  **Claim Accuracy:** The post must accurately represent the product and mention "made with 100% organic materials".\n${generateCustomRulesPrompt(customRules)}\nPlease provide a strict analysis and return the results in the required JSON format.`;
     
     const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: fullPrompt, config: { responseMimeType: "application/json", responseSchema: complianceSchema }});
@@ -81,8 +87,6 @@ export const analyzePostContent = async (postContent: string, customRules?: Cust
 
 export const analyzeVideoContent = async (videoTranscript: string, videoFile: File, customRules?: CustomRule[]): Promise<ComplianceReport> => {
     const videoData64 = await fileToBase64(videoFile);
-    const fullPrompt = `Act as an expert social media compliance officer. Analyze the provided video and its transcript... [Prompt content omitted for brevity] ... ${generateCustomRulesPrompt(customRules)}`;
-    // This is a simplified representation of the full prompt.
     const actualFullPrompt = `Act as an expert social media compliance officer. Analyze the provided video and its transcript for compliance with FTC guidelines, brand safety, and custom campaign requirements. You must perform checks on BOTH the visual content of the video and the audio content from the transcript.\n\n**Video Transcript for Audio Analysis:**\n"${videoTranscript}"\n\n**Standard Compliance Rules (Check both Audio & Visuals):**\n1.  **FTC Disclosure:** Audio must contain a spoken disclosure, and visuals should have a text overlay.\n2.  **Brand Safety:** No profanity in audio, no inappropriate imagery in visuals.\n3.  **Brand Representation:** Speaker must mention "made with 100% organic materials", product must be clearly visible.\n${generateCustomRulesPrompt(customRules)}\nProvide a strict analysis covering both modalities and return the results in the required JSON format. For each check, specify the modality as 'audio' or 'visual'.`;
 
     const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: { parts: [{ text: actualFullPrompt }, { inlineData: { mimeType: videoFile.type, data: videoData64 } }] }, config: { responseMimeType: "application/json", responseSchema: videoComplianceSchema }});
