@@ -1,4 +1,4 @@
-# BrandGuard AI
+# BrandGuard AI (v1.0)
 
 **An AI-powered SaaS platform for automated influencer compliance monitoring.**
 
