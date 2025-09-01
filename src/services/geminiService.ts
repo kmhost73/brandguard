@@ -1,9 +1,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ComplianceReport, CustomRule, CheckItem } from '../types';
 
-// Fix: Per @google/genai coding guidelines, the API key must be obtained exclusively from process.env.API_KEY
-// and the client should be initialized with it directly. This also resolves the TypeScript error on import.meta.env.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// This is the correct way to access environment variables in a Vite project.
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+if (!apiKey) {
+    throw new Error("VITE_GEMINI_API_KEY is not set. Please add it to your .env file or Vercel environment variables.");
+}
+const ai = new GoogleGenAI({ apiKey });
 
 
 const complianceSchema = {
