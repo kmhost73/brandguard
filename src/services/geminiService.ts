@@ -1,7 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ComplianceReport, CustomRule, CheckItem } from '../types';
 
-// Fix: Use process.env.API_KEY to align with the coding guidelines.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 
