@@ -26,21 +26,21 @@ const complianceSchema = {
   required: ["overallScore", "summary", "checks"]
 };
 
-const videoComplianceSchema = {
+const multimodalComplianceSchema = {
     type: Type.OBJECT,
     properties: {
-      overallScore: { type: Type.INTEGER, description: "A compliance score from 0 to 100, where 100 is fully compliant, based on both visual and audio analysis." },
-      summary: { type: Type.STRING, description: "A brief, one-sentence summary of the compliance check results from both video and audio." },
+      overallScore: { type: Type.INTEGER, description: "A compliance score from 0 to 100, where 100 is fully compliant, based on analysis of all provided modalities (text, image, audio)." },
+      summary: { type: Type.STRING, description: "A brief, one-sentence summary of the compliance check results from all modalities." },
       checks: {
         type: Type.ARRAY,
-        description: "An array of specific compliance checks that were performed on the video and its transcript.",
+        description: "An array of specific compliance checks that were performed.",
         items: {
           type: Type.OBJECT,
           properties: {
-            name: { type: Type.STRING, description: "The name of the compliance check (e.g., 'Spoken Disclosure', 'Visual Brand Safety', 'Custom Rule: Mention 'Free Shipping''). Use the prefix 'Custom Rule:' for user-defined rules." },
+            name: { type: Type.STRING, description: "The name of the compliance check (e.g., 'Spoken Disclosure', 'Visual Brand Safety', 'Caption FTC Disclosure'). Use the prefix 'Custom Rule:' for user-defined rules." },
             status: { type: Type.STRING, description: "The result of the check. Must be one of: 'pass', 'fail', or 'warn'.", enum: ['pass', 'fail', 'warn'] },
             details: { type: Type.STRING, description: "A detailed explanation of why the check passed, failed, or has a warning. Provide specifics." },
-            modality: { type: Type.STRING, description: "The modality of the check. Use 'audio' for checks on the transcript and 'visual' for checks on the video frames.", enum: ['audio', 'visual'] }
+            modality: { type: Type.STRING, description: "The modality of the check. Must be one of 'audio', 'visual', or 'text'.", enum: ['audio', 'visual', 'text'] }
           },
           required: ["name", "status", "details", "modality"]
         }
@@ -95,18 +95,35 @@ export const analyzePostContent = async (postContent: string, customRules?: Cust
     return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: postContent, analysisType: 'text', customRulesApplied: customRules };
 };
 
+export const analyzeImageContent = async (caption: string, imageFile: File, customRules?: CustomRule[]): Promise<ComplianceReport> => {
+    const imageData64 = await fileToBase64(imageFile);
+    const prompt = `Act as an expert social media compliance officer. Analyze the provided image and its caption for compliance. You must check BOTH the visual content and the text content.\n\n**Image Caption for Text Analysis:**\n"${caption}"\n\n**Standard Compliance Rules:**\n1.  **FTC Disclosure (Text):** The caption must contain a clear disclosure (e.g., #ad, #sponsored).\n2.  **Brand Safety (Visual & Text):** No profanity in text, no inappropriate imagery.\n3.  **Brand Representation (Visual):** The product must be clearly visible and not depicted negatively.\n${generateCustomRulesPrompt(customRules)}\nProvide a strict analysis covering both modalities ('visual' for image, 'text' for caption) and return the results in the required JSON format.`;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: { parts: [{ text: prompt }, { inlineData: { mimeType: imageFile.type, data: imageData64 } }] },
+        config: { responseMimeType: "application/json", responseSchema: multimodalComplianceSchema }
+    });
+    const partialReport = JSON.parse(response.text);
+    return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: caption, analysisType: 'image', customRulesApplied: customRules, sourceMedia: { data: imageData64, mimeType: imageFile.type } };
+};
+
+
 export const analyzeVideoContent = async (videoTranscript: string, videoFile: File, customRules?: CustomRule[]): Promise<ComplianceReport> => {
     const videoData64 = await fileToBase64(videoFile);
     const actualFullPrompt = `Act as an expert social media compliance officer. Analyze the provided video and its transcript for compliance with FTC guidelines, brand safety, and custom campaign requirements. You must perform checks on BOTH the visual content of the video and the audio content from the transcript.\n\n**Video Transcript for Audio Analysis:**\n"${videoTranscript}"\n\n**Standard Compliance Rules (Check both Audio & Visuals):**\n1.  **FTC Disclosure:** Audio must contain a spoken disclosure, and visuals should have a text overlay.\n2.  **Brand Safety:** No profanity in audio, no inappropriate imagery in visuals.\n3.  **Brand Representation:** Speaker must mention "made with 100% organic materials", product must be clearly visible.\n${generateCustomRulesPrompt(customRules)}\nProvide a strict analysis covering both modalities and return the results in the required JSON format. For each check, specify the modality as 'audio' or 'visual'.`;
 
-    const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: { parts: [{ text: actualFullPrompt }, { inlineData: { mimeType: videoFile.type, data: videoData64 } }] }, config: { responseMimeType: "application/json", responseSchema: videoComplianceSchema }});
+    const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: { parts: [{ text: actualFullPrompt }, { inlineData: { mimeType: videoFile.type, data: videoData64 } }] }, config: { responseMimeType: "application/json", responseSchema: multimodalComplianceSchema }});
     const partialReport = JSON.parse(response.text);
-    return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: videoTranscript, analysisType: 'video', customRulesApplied: customRules };
+    return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: videoTranscript, analysisType: 'video', customRulesApplied: customRules, sourceMedia: { data: videoData64, mimeType: videoFile.type } };
 };
 
-export const generateCompliantRevision = async (originalContent: string, analysisType: 'text' | 'video', failedChecks: CheckItem[]): Promise<string> => {
-    const issues = failedChecks.map(check => `- ${check.name} (${check.modality || 'text'}): ${check.details}`).join('\n');
-    const prompt = `Act as an expert social media copywriter. Your task is to revise the following ${analysisType === 'text' ? 'Post Caption' : 'Video Script'} to make it fully compliant based on the issues identified.\n\n**Original Content:**\n"${originalContent}"\n\n**Identified Issues:**\n${issues}\n\n**Instructions:**\nRewrite the content to fix ALL issues. Maintain the original tone. Output ONLY the revised text.`;
+export const generateCompliantRevision = async (originalContent: string, analysisType: 'text' | 'video' | 'image', failedChecks: CheckItem[]): Promise<string> => {
+    const issues = failedChecks.filter(c => c.modality !== 'visual' && c.modality !== 'audio').map(check => `- ${check.name} (${check.modality || 'text'}): ${check.details}`).join('\n');
+    if (!issues) {
+        return "The identified issues are purely visual or audio-based and cannot be fixed by revising the text caption. Please address the media content directly.";
+    }
+    const prompt = `Act as an expert social media copywriter. Your task is to revise the following ${analysisType === 'text' ? 'Post Caption' : 'Image Caption or Video Script'} to make it fully compliant based on the text-based issues identified.\n\n**Original Content:**\n"${originalContent}"\n\n**Identified Issues:**\n${issues}\n\n**Instructions:**\nRewrite the content to fix ALL identified text-based issues. Maintain the original tone. Output ONLY the revised text.`;
     const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
     return response.text.trim();
 };
