@@ -2,6 +2,8 @@ export type ComplianceStatus = 'pass' | 'fail' | 'warn';
 
 export type AnalysisType = 'text' | 'video' | 'image';
 
+export type ReportStatus = 'pending' | 'approved' | 'revision';
+
 export interface CheckItem {
   name: string;
   status: ComplianceStatus;
@@ -26,5 +28,6 @@ export interface ComplianceReport {
   sourceMedia?: {
     data: string; // base64 encoded data
     mimeType: string;
-  }
+  };
+  status?: ReportStatus;
 }

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
-import type { ComplianceReport, CustomRule } from '../types';
+import type { ComplianceReport, CustomRule, ReportStatus } from '../types';
 import Loader from './Loader';
 import ReportCard from './ReportCard';
 import Analytics from './Analytics';
@@ -10,16 +10,15 @@ const examplePost = `Loving my new eco-friendly sneakers! They are so comfy and 
 
 type AnalysisType = 'text' | 'video' | 'image';
 
-const saveReportToHistory = (report: ComplianceReport) => {
-  const history = getReportHistory();
-  const newHistory = [report, ...history].slice(0, 10);
-  localStorage.setItem('brandGuardReportHistory', JSON.stringify(newHistory));
-};
-
 const getReportHistory = (): ComplianceReport[] => {
     try {
         const historyJson = localStorage.getItem('brandGuardReportHistory');
-        return historyJson ? JSON.parse(historyJson) : [];
+        const history = historyJson ? JSON.parse(historyJson) : [];
+        // Ensure all reports have a status for backward compatibility
+        return history.map((report: any) => ({
+            ...report,
+            status: report.status || 'pending'
+        }));
     } catch (e) { return []; }
 };
 
@@ -45,6 +44,7 @@ const Dashboard: React.FC = () => {
   const [report, setReport] = useState<ComplianceReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reportHistory, setReportHistory] = useState<ComplianceReport[]>([]);
+  const [historyFilter, setHistoryFilter] = useState<ReportStatus | 'all'>('all');
   const [customRules, setCustomRules] = useState<CustomRule[]>([]);
   const [newRuleText, setNewRuleText] = useState('');
   const [showRules, setShowRules] = useState(false);
@@ -56,8 +56,10 @@ const Dashboard: React.FC = () => {
 
   const handleAnalysisCompletion = (newReport: ComplianceReport) => {
     setReport(newReport);
-    saveReportToHistory(newReport);
-    setReportHistory(getReportHistory());
+    const history = getReportHistory();
+    const newHistory = [newReport, ...history].slice(0, 10);
+    localStorage.setItem('brandGuardReportHistory', JSON.stringify(newHistory));
+    setReportHistory(newHistory);
   }
 
   const handleScan = useCallback(async () => {
@@ -76,7 +78,10 @@ const Dashboard: React.FC = () => {
         if (!postContent.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
         result = await analyzeImageContent(postContent, selectedImageFile, customRules);
       }
-      if(result) handleAnalysisCompletion(result);
+      if(result) {
+        const reportWithStatus: ComplianceReport = { ...result, status: 'pending' };
+        handleAnalysisCompletion(reportWithStatus);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred.");
     } finally {
@@ -102,6 +107,16 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleStatusChange = (reportId: string, newStatus: ReportStatus) => {
+    const updatedHistory = reportHistory.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
+    setReportHistory(updatedHistory);
+    localStorage.setItem('brandGuardReportHistory', JSON.stringify(updatedHistory));
+
+    if (report?.id === reportId) {
+        setReport(prev => prev ? { ...prev, status: newStatus } : null);
+    }
+  };
+
   const resetState = (clearInputs = true) => { setReport(null); setError(null); if(clearInputs){ setPostContent(''); setVideoTranscript(''); setSelectedVideoFile(null); setSelectedImageFile(null); } };
   const switchTab = (type: AnalysisType) => { setAnalysisType(type); resetState(); };
   const viewHistoricReport = (historicReport: ComplianceReport) => { resetState(false); setReport(historicReport); window.scrollTo({ top: 0, behavior: 'smooth' }); };
@@ -117,6 +132,14 @@ const Dashboard: React.FC = () => {
         default: return 'text-gray-500';
     }
   }
+
+  const statusDisplayConfig: Record<ReportStatus, { tag: string, color: string, filterColor: string }> = {
+    pending: { tag: 'Pending', color: 'bg-yellow-100 text-yellow-800', filterColor: 'hover:bg-yellow-100 text-yellow-700' },
+    approved: { tag: 'Approved', color: 'bg-green-100 text-green-800', filterColor: 'hover:bg-green-100 text-green-700' },
+    revision: { tag: 'Needs Revision', color: 'bg-red-100 text-red-800', filterColor: 'hover:bg-red-100 text-red-700' },
+  };
+
+  const filteredHistory = reportHistory.filter(r => historyFilter === 'all' || r.status === historyFilter);
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
@@ -205,22 +228,31 @@ const Dashboard: React.FC = () => {
             <div className="mt-8">
                 {isLoading && <Loader />}
                 {error && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md" role="alert"><p className="font-bold">Error</p><p>{error}</p></div>}
-                {report && <ReportCard report={report} />}
+                {report && <ReportCard report={report} onStatusChange={handleStatusChange} />}
             </div>
         </div>
         
         <div className="lg:col-span-1">
           <div className="bg-white p-6 rounded-lg shadow-md sticky top-24">
             <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2"><HistoryIcon /> Analysis History</h2>
-            {reportHistory.length > 0 ? (
-              <ul className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                {reportHistory.map((r) => (
+            <div className="flex items-center gap-2 mb-4 border-b pb-3">
+                <button onClick={() => setHistoryFilter('all')} className={`px-2.5 py-1 text-sm font-medium rounded-full transition-colors ${historyFilter === 'all' ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-100'}`}>All</button>
+                {(Object.keys(statusDisplayConfig) as ReportStatus[]).map(status => (
+                    <button key={status} onClick={() => setHistoryFilter(status)} className={`px-2.5 py-1 text-sm font-medium rounded-full transition-colors ${historyFilter === status ? statusDisplayConfig[status].color : `text-gray-500 ${statusDisplayConfig[status].filterColor}`}`}>{statusDisplayConfig[status].tag}</button>
+                ))}
+            </div>
+            {filteredHistory.length > 0 ? (
+              <ul className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                {filteredHistory.map((r) => (
                   <li key={r.id} className="p-3 rounded-md border border-gray-200 hover:bg-gray-50 group">
                     <div className="flex justify-between items-start">
                       <div>
                         <button onClick={() => viewHistoricReport(r)} className="text-left">
-                          <p className={`text-xs font-bold uppercase ${getHistoryTagColor(r.analysisType)}`}>{r.analysisType} Analysis</p>
-                          <p className="text-sm text-gray-600 group-hover:text-primary">{new Date(r.timestamp).toLocaleString()}</p>
+                           <div className="flex items-center gap-2 flex-wrap">
+                                <p className={`text-xs font-bold uppercase ${getHistoryTagColor(r.analysisType)}`}>{r.analysisType} Analysis</p>
+                                <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${statusDisplayConfig[r.status || 'pending'].color}`}>{statusDisplayConfig[r.status || 'pending'].tag}</span>
+                           </div>
+                          <p className="text-sm text-gray-600 group-hover:text-primary mt-1">{new Date(r.timestamp).toLocaleString()}</p>
                           <p className="text-xs text-gray-500 mt-1 truncate max-w-48">{r.summary}</p>
                         </button>
                       </div>
@@ -232,7 +264,7 @@ const Dashboard: React.FC = () => {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-gray-500 text-center py-4">No reports in history.</p>
+              <p className="text-sm text-gray-500 text-center py-4">No reports match the current filter.</p>
             )}
           </div>
         </div>
