@@ -4,7 +4,7 @@
 
 BrandGuard AI helps marketing agencies and brands automatically scan sponsored content for FTC disclosure compliance, brand safety, and campaign-specific requirements. It replaces hours of manual, error-prone work with instant, AI-driven analysis.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkmhost73%2Fbrandguard&build-command=npm%20run%20build&install-command=npm%20install&env=VITE_GEMINI_API_KEY&envDescription=Your%20Google%20Gemini%20API%20Key&envLink=https%3A%2F%2Faistudio.google.com%2F&project-name=brandguard-ai&repository-name=brandguard-ai&framework=vite)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkmhost73%2Fbrandguard-ai1&build-command=vite%20build&install-command=npm%20install&env=VITE_GEMINI_API_KEY&envDescription=Your%20Google%20Gemini%20API%20Key&envLink=https%3A%2F%2Faistudio.google.com%2F&project-name=brandguard-ai1&repository-name=brandguard-ai1&framework=vite)
 
 ---
 
@@ -61,4 +61,4 @@ This is the automated sales and marketing plan to achieve our goal of **$1,000/d
 This plan is data-driven, focused, and designed for rapid execution.
 
 ---
-*Deployment Status: Awaiting final commit to resolve build issues.*
+*Deployment Status: Build configuration fixed. Ready for deployment.*
