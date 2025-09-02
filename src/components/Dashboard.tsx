@@ -1,12 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { analyzePostContent, analyzeVideoContent } from '../services/geminiService';
+import { analyzePostContent, analyzeVideoContent, transcribeVideo } from '../services/geminiService';
 import type { ComplianceReport, CustomRule } from '../types';
 import Loader from './Loader';
 import ReportCard from './ReportCard';
-import { HistoryIcon, TrashIcon, PlusIcon, ChevronDownIcon, CogIcon } from './icons/Icons';
+import { HistoryIcon, TrashIcon, PlusIcon, ChevronDownIcon, CogIcon, SparklesIcon } from './icons/Icons';
 
 const examplePost = `Loving my new eco-friendly sneakers! They are so comfy and stylish. Best part? They are made with 100% organic materials. You all have to check them out! #fashion #style`;
-const exampleVideoTranscript = `Hey everyone, welcome back to my channel! Today I wanted to show you these amazing new sneakers. They are just so comfortable. And what I love most is that they are made with 100% organic materials. I'm obsessed! Make sure you check them out, link is in the description!`;
 
 type AnalysisType = 'text' | 'video';
 
@@ -40,6 +39,7 @@ const Dashboard: React.FC = () => {
   const [videoTranscript, setVideoTranscript] = useState<string>('');
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [report, setReport] = useState<ComplianceReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reportHistory, setReportHistory] = useState<ComplianceReport[]>([]);
@@ -79,6 +79,24 @@ const Dashboard: React.FC = () => {
     }
   }, [analysisType, postContent, videoTranscript, selectedVideoFile, customRules]);
   
+  const handleGenerateTranscript = async () => {
+    if (!selectedVideoFile) {
+        setError("Please select a video file first.");
+        return;
+    }
+    setIsTranscribing(true);
+    setError(null);
+    setVideoTranscript('');
+    try {
+        const transcript = await transcribeVideo(selectedVideoFile);
+        setVideoTranscript(transcript);
+    } catch (err) {
+        setError(err instanceof Error ? err.message : "An unknown error occurred during transcription.");
+    } finally {
+        setIsTranscribing(false);
+    }
+  };
+
   const resetState = (clearInputs = true) => { setReport(null); setError(null); if(clearInputs){ setPostContent(''); setVideoTranscript(''); setSelectedVideoFile(null); } };
   const switchTab = (type: AnalysisType) => { setAnalysisType(type); resetState(); };
   const viewHistoricReport = (historicReport: ComplianceReport) => { resetState(false); setReport(historicReport); window.scrollTo({ top: 0, behavior: 'smooth' }); };
@@ -98,7 +116,63 @@ const Dashboard: React.FC = () => {
                 {showRules && (<div className="mt-4 space-y-4"><div className="flex gap-2"><input type="text" value={newRuleText} onChange={(e) => setNewRuleText(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addRule()} placeholder="e.g., Must include #BrandPartner" className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary" /><button onClick={addRule} className="px-4 py-2 bg-secondary text-white rounded-md hover:bg-primary flex items-center gap-1"><PlusIcon/> Add</button></div>{customRules.length > 0 ? (<ul className="space-y-2">{customRules.map(rule => (<li key={rule.id} className="flex justify-between items-center bg-white p-2 rounded-md border"><p className="text-sm text-gray-800">{rule.text}</p><button onClick={() => deleteRule(rule.id)} className="p-1 text-gray-400 hover:text-red-500"><TrashIcon/></button></li>))}</ul>) : (<p className="text-sm text-gray-500 text-center py-2">No custom rules defined.</p>)}</div>)}
             </div>
             {analysisType === 'text' && (<div className="bg-white p-6 rounded-lg shadow-md"><textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} placeholder="Paste influencer post caption here..." className="w-full h-40 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary" disabled={isLoading} /><div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4"><button onClick={() => setPostContent(examplePost)} disabled={isLoading} className="text-sm text-primary hover:underline disabled:text-gray-400">Load Example</button><button onClick={handleScan} disabled={isLoading} className="w-full sm:w-auto px-6 py-3 bg-primary text-white font-semibold rounded-md shadow-sm hover:bg-secondary disabled:bg-gray-400">{isLoading ? 'Analyzing...' : 'Scan Post'}</button></div></div>)}
-            {analysisType === 'video' && (<div className="bg-white p-6 rounded-lg shadow-md space-y-4"><div><label className="block text-sm font-medium text-gray-700 mb-1">Step 1: Choose Video File</label><input type="file" accept="video/*" onChange={(e) => setSelectedVideoFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" disabled={isLoading} />{selectedVideoFile && <p className="text-xs text-gray-500 mt-2">Selected: {selectedVideoFile.name}</p>}</div><div><label className="block text-sm font-medium text-gray-700 mb-1">Step 2: Paste Video Transcript</label><textarea value={videoTranscript} onChange={(e) => setVideoTranscript(e.target.value)} placeholder="Paste the full video transcript here..." className="w-full h-40 p-3 border border-gray-300 rounded-md" disabled={isLoading} /></div><div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4"><button onClick={() => setVideoTranscript(exampleVideoTranscript)} disabled={isLoading} className="text-sm text-primary hover:underline disabled:text-gray-400">Load Example</button><button onClick={handleScan} disabled={isLoading || !videoTranscript.trim() || !selectedVideoFile} className="w-full sm:w-auto px-6 py-3 bg-primary text-white font-semibold rounded-md shadow-sm hover:bg-secondary disabled:bg-gray-400">{isLoading ? 'Analyzing...' : 'Scan Video'}</button></div></div>)}
+            {analysisType === 'video' && (
+                <div className="bg-white p-6 rounded-lg shadow-md space-y-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Step 1: Choose Video File</label>
+                        <input 
+                            type="file" 
+                            accept="video/*" 
+                            onChange={(e) => {
+                                const file = e.target.files ? e.target.files[0] : null;
+                                setSelectedVideoFile(file);
+                                setVideoTranscript('');
+                                setReport(null);
+                                setError(null);
+                            }} 
+                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer" 
+                            disabled={isLoading || isTranscribing} 
+                        />
+                        {selectedVideoFile && <p className="text-xs text-gray-500 mt-2">Selected: {selectedVideoFile.name}</p>}
+                    </div>
+                    
+                    {selectedVideoFile && !videoTranscript && !isTranscribing && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Step 2: Generate Transcript</label>
+                            <button 
+                                onClick={handleGenerateTranscript} 
+                                disabled={!selectedVideoFile}
+                                className="w-full sm:w-auto px-4 py-2 bg-secondary text-white font-semibold rounded-md shadow-sm hover:bg-primary disabled:bg-gray-400 flex items-center justify-center gap-2 transition-colors"
+                            >
+                                <SparklesIcon />
+                                Generate Transcript with AI
+                            </button>
+                        </div>
+                    )}
+
+                    {isTranscribing && <Loader />}
+
+                    {videoTranscript && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Step 2: Review Generated Transcript</label>
+                            <div className="w-full h-40 p-3 border border-gray-200 bg-gray-50 rounded-md overflow-y-auto">
+                                <p className="text-sm text-gray-800 whitespace-pre-wrap">{videoTranscript}</p>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <div className="border-t pt-6 flex flex-col sm:flex-row items-center justify-end gap-4">
+                        <label className="text-sm font-medium text-gray-700 mb-1 sm:mb-0 mr-auto">Step 3: Run Compliance Scan</label>
+                        <button 
+                            onClick={handleScan} 
+                            disabled={isLoading || isTranscribing || !videoTranscript.trim() || !selectedVideoFile} 
+                            className="w-full sm:w-auto px-6 py-3 bg-primary text-white font-semibold rounded-md shadow-sm hover:bg-secondary disabled:bg-gray-400 transition-colors"
+                        >
+                            {isLoading ? 'Analyzing...' : 'Scan Video'}
+                        </button>
+                    </div>
+                </div>
+            )}
             <div className="mt-8">{isLoading && <Loader />}{error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg" role="alert">{error}</div>}{report && <ReportCard report={report} />}</div>
         </div>
         <aside className="lg:col-span-1">
