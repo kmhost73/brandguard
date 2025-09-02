@@ -3,6 +3,7 @@ import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcrib
 import type { ComplianceReport, CustomRule } from '../types';
 import Loader from './Loader';
 import ReportCard from './ReportCard';
+import Analytics from './Analytics';
 import { HistoryIcon, TrashIcon, PlusIcon, ChevronDownIcon, CogIcon, SparklesIcon } from './icons/Icons';
 
 const examplePost = `Loving my new eco-friendly sneakers! They are so comfy and stylish. Best part? They are made with 100% organic materials. You all have to check them out! #fashion #style`;
@@ -12,9 +13,7 @@ type AnalysisType = 'text' | 'video' | 'image';
 const saveReportToHistory = (report: ComplianceReport) => {
   const history = getReportHistory();
   const newHistory = [report, ...history].slice(0, 10);
-  // For privacy and storage efficiency, don't save large media files in history
-  const historyToStore = newHistory.map(({ sourceMedia, ...rest }) => rest);
-  localStorage.setItem('brandGuardReportHistory', JSON.stringify(historyToStore));
+  localStorage.setItem('brandGuardReportHistory', JSON.stringify(newHistory));
 };
 
 const getReportHistory = (): ComplianceReport[] => {
@@ -121,7 +120,9 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <Analytics reportHistory={reportHistory} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
         <div className="lg:col-span-2 space-y-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-800 mb-2">Compliance Dashboard</h1>

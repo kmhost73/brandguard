@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { ComplianceReport, CheckItem } from '../types';
 import { generateCompliantRevision } from '../services/geminiService';
-import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, ShareIcon } from './icons/Icons';
+import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, ShareIcon, FilmIcon } from './icons/Icons';
 import Loader from './Loader';
 
 const statusConfig = {
@@ -16,8 +16,6 @@ const getScoreColor = (score: number) => {
   return 'text-danger';
 };
 
-// FIX: Update ModalityTag to handle all possible modality types ('audio', 'visual', 'text', or undefined).
-// It will now only render a tag for 'audio' and 'visual', returning null for others.
 const ModalityTag: React.FC<{ modality: CheckItem['modality'] }> = ({ modality }) => {
   if (modality !== 'audio' && modality !== 'visual') {
     return null;
@@ -56,6 +54,23 @@ const ReportCard: React.FC<{ report: ComplianceReport }> = ({ report }) => {
 
   return (
     <div className="bg-white shadow-lg rounded-lg overflow-hidden animate-fade-in">
+       {report.sourceMedia?.mimeType.startsWith('image/') && (
+            <div className="bg-gray-100 p-4 flex justify-center border-b">
+                <img
+                    src={`data:${report.sourceMedia.mimeType};base64,${report.sourceMedia.data}`}
+                    alt="Analyzed content"
+                    className="max-h-72 rounded-lg object-contain shadow-md"
+                />
+            </div>
+        )}
+        {report.sourceMedia?.mimeType.startsWith('video/') && (
+             <div className="bg-gray-100 p-4 flex flex-col justify-center items-center h-72 border-b">
+                <div className="w-20 h-20 text-gray-400">
+                    <FilmIcon />
+                </div>
+                <p className="text-gray-500 font-medium mt-2">Video Content Analyzed</p>
+            </div>
+        )}
       <div className="p-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Analysis Report</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6"><div className="bg-gray-100 p-4 rounded-lg text-center"><h3 className="text-sm font-medium text-gray-500 uppercase">Compliance Score</h3><p className={`text-5xl font-bold ${getScoreColor(report.overallScore)}`}>{report.overallScore}</p></div><div className="md:col-span-2 bg-gray-100 p-4 rounded-lg"><h3 className="text-sm font-medium text-gray-500 uppercase mb-2">AI Summary</h3><p className="text-gray-700">{report.summary}</p></div></div>
