@@ -16,7 +16,12 @@ const getScoreColor = (score: number) => {
   return 'text-danger';
 };
 
-const ModalityTag: React.FC<{ modality: 'audio' | 'visual' }> = ({ modality }) => {
+// FIX: Update ModalityTag to handle all possible modality types ('audio', 'visual', 'text', or undefined).
+// It will now only render a tag for 'audio' and 'visual', returning null for others.
+const ModalityTag: React.FC<{ modality: CheckItem['modality'] }> = ({ modality }) => {
+  if (modality !== 'audio' && modality !== 'visual') {
+    return null;
+  }
   const config = {
     audio: { text: 'Audio', className: 'bg-blue-100 text-blue-800' },
     visual: { text: 'Visual', className: 'bg-purple-100 text-purple-800' }
@@ -31,7 +36,7 @@ const CheckItemCard: React.FC<{ item: CheckItem }> = ({ item }) => {
     <div className={`p-4 rounded-lg border ${config.bgColor} ${config.borderColor} flex items-start space-x-4`}>
       <div className={`flex-shrink-0 w-6 h-6 ${config.color}`}>{config.icon}</div>
       <div>
-        <h4 className="font-semibold text-gray-800 flex items-center">{item.name}{item.modality && <ModalityTag modality={item.modality} />}</h4>
+        <h4 className="font-semibold text-gray-800 flex items-center">{item.name}<ModalityTag modality={item.modality} /></h4>
         <p className="text-gray-600">{item.details}</p>
       </div>
     </div>
