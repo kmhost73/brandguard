@@ -1,14 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ComplianceReport, CustomRule, CheckItem } from '../types';
 
-// FIX: Use `process.env.API_KEY` to access the Gemini API key as per project guidelines.
-// This resolves the TypeScript error "Property 'env' does not exist on type 'ImportMeta'"
-// by switching from Vite-specific `import.meta.env` to the mandated `process.env`.
+// FIX: Adhere to the API key guideline by using process.env.API_KEY. This resolves the TypeScript error related to 'import.meta.env'.
 const apiKey = process.env.API_KEY;
 
 if (!apiKey) {
-    // This error will be thrown if the API_KEY environment variable is not set.
-    throw new Error("API_KEY is not set. Please configure it in your environment.");
+    throw new Error("The API_KEY environment variable is not set.");
 }
 
 const ai = new GoogleGenAI({ apiKey });
