@@ -1,11 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ComplianceReport, CustomRule, CheckItem } from '../types';
 
-// FIX: Adhere to the API key guideline by using process.env.API_KEY. This resolves the TypeScript error related to 'import.meta.env'.
+// FIX: Switched to process.env.API_KEY to align with @google/genai guidelines and fix TypeScript error.
+// The execution environment is assumed to have this variable available.
 const apiKey = process.env.API_KEY;
 
 if (!apiKey) {
-    throw new Error("The API_KEY environment variable is not set.");
+    // This error will now be more informative if the Vercel environment variable is missing.
+    throw new Error("API_KEY is not set in the environment. Please check your Vercel deployment settings.");
 }
 
 const ai = new GoogleGenAI({ apiKey });
