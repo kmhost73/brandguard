@@ -1,17 +1,9 @@
-// FIX: Removed reference to vite/client types, which was causing an error,
-// as it is not needed when using process.env for the API key.
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ComplianceReport, CustomRule, CheckItem } from '../types';
 
-// FIX: Per coding guidelines, the API key must be obtained from process.env.API_KEY.
-// This resolves the error regarding 'import.meta.env'.
-const apiKey = process.env.API_KEY;
-
-if (!apiKey) {
-  // FIX: Updated error message to correspond with the change to process.env.API_KEY.
-  throw new Error("API_KEY environment variable not set. Please ensure it is configured in your deployment environment variables.");
-}
-const ai = new GoogleGenAI({ apiKey });
+// FIX: Per coding guidelines, initialize GoogleGenAI with process.env.API_KEY and assume it's set.
+// This resolves TypeScript errors related to `import.meta.env` and `vite/client` types.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 
 const complianceSchema = {

@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview",
-    "test-ai": "vite-node src/run-tests.ts"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@google/genai": "^1.16.0",
@@ -28,7 +27,6 @@
     "postcss": "^8.4.40",
     "tailwindcss": "^3.4.6",
     "typescript": "^5.5.4",
-    "vite": "^5.3.4",
-    "vite-node": "^2.0.4"
+    "vite": "^5.3.4"
   }
 }
