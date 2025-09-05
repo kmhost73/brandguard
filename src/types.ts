@@ -31,3 +31,20 @@ export interface ComplianceReport {
   };
   status?: ReportStatus;
 }
+
+// Type definition for a single test case in the QA Sandbox
+export interface TestCase {
+  id: string;
+  title: string;
+  description: string;
+  type: AnalysisType;
+  content: {
+    text?: string;
+  };
+  expected: {
+    score: (actual: number) => boolean;
+    scoreText: string;
+    summary: (actual: string) => boolean;
+    checks: (actual: CheckItem[]) => boolean;
+  };
+}

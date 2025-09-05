@@ -1,19 +1,14 @@
-// FIX: Add a triple-slash directive to include Vite's client types, which resolves the error on `import.meta.env`.
-/// <reference types="vite/client" />
-
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ComplianceReport, CustomRule, CheckItem } from '../types';
 
-// CORRECTED: In a Vite client-side application, environment variables must be
-// accessed via `import.meta.env` and must be prefixed with `VITE_` to be
-// exposed in the build. Using `process.env` is for Node.js environments and
-// was causing the application to crash, resulting in a blank screen.
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+// FIX: Per @google/genai guidelines, the API key must be obtained from process.env.API_KEY.
+// This change also resolves the reported TypeScript errors by removing the use of `import.meta.env` and the vite/client reference.
+const apiKey = process.env.API_KEY;
+
 
 if (!apiKey) {
-    // This error now points to the correct environment variable name,
-    // matching the Vercel deployment configuration.
-    throw new Error("VITE_GEMINI_API_KEY is not set. Please ensure it is configured in your Vercel deployment environment variables.");
+    // FIX: Updated error message to reflect the new environment variable.
+    throw new Error("API_KEY is not set. Please ensure it is configured in your environment.");
 }
 
 const ai = new GoogleGenAI({ apiKey });
