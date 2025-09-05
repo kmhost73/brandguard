@@ -26,6 +26,18 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Effect to manage body class for dark/light themes
+  useEffect(() => {
+    const body = document.body;
+    if (view === 'landing' && !sharedReport) {
+      body.classList.remove('bg-light');
+      body.classList.add('bg-dark');
+    } else {
+      body.classList.remove('bg-dark');
+      body.classList.add('bg-light');
+    }
+  }, [view, sharedReport]);
+
 
   const navigateTo = useCallback((newView: View) => {
     if (window.location.search) {
@@ -40,8 +52,8 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header navigateTo={navigateTo} />
+    <div className={`min-h-screen font-sans ${view === 'landing' ? 'bg-dark text-gray-300' : 'bg-light text-gray-800'}`}>
+      <Header navigateTo={navigateTo} currentView={view} />
       <main>
         {view === 'landing' ? (
           <>
@@ -52,8 +64,10 @@ const App: React.FC = () => {
           <Dashboard />
         )}
       </main>
-      <footer className="text-center p-4 text-gray-500 text-sm">
-        <p>&copy; 2024 BrandGuard AI. All rights reserved. An AI-founded company.</p>
+      <footer className="text-center p-8 mt-12 border-t border-white/10">
+        <p className={`text-sm ${view === 'landing' ? 'text-gray-400' : 'text-gray-500'}`}>
+          &copy; 2024 BrandGuard. All rights reserved.
+        </p>
       </footer>
     </div>
   );
