@@ -1,6 +1,6 @@
 import React from 'react';
-import type { ComplianceReport } from '../types';
-import { TrendingUpIcon, CalculatorIcon, ScaleIcon } from './icons/Icons';
+import type { ComplianceReport, CheckItem } from '../types';
+import { TrendingUpIcon, CalculatorIcon, ScaleIcon, AlertTriangleIcon } from './icons/Icons';
 
 interface AnalyticsProps {
   reportHistory: ComplianceReport[];
@@ -13,10 +13,53 @@ const StatCard: React.FC<{ icon: React.ReactNode; title: string; value: string |
     </div>
     <div>
       <p className="text-sm text-gray-400 font-medium">{title}</p>
-      <p className="text-3xl font-bold text-white">{value}</p>
+      <p className="text-2xl font-bold text-white">{value}</p>
     </div>
   </div>
 );
+
+const ComplianceLineChart: React.FC<{ data: ComplianceReport[] }> = ({ data }) => {
+    if (data.length < 2) {
+        return <div className="h-64 flex items-center justify-center text-gray-500">Not enough data to display a trend.</div>;
+    }
+
+    const chartHeight = 256;
+    const chartWidth = 500; // An arbitrary width for path calculation, SVG will scale
+    const points = data.map((report, i) => {
+        const x = (i / (data.length - 1)) * chartWidth;
+        const y = chartHeight - (report.overallScore / 100) * chartHeight;
+        return { x, y, score: report.overallScore };
+    });
+
+    const pathD = "M" + points.map(p => `${p.x},${p.y}`).join(" L");
+    
+    const areaPathD = `${pathD} L ${chartWidth},${chartHeight} L 0,${chartHeight} Z`;
+
+    return (
+        <div className="h-64 w-full">
+            <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
+                <defs>
+                    <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#38B2AC" stopOpacity="0.4" />
+                        <stop offset="100%" stopColor="#38B2AC" stopOpacity="0" />
+                    </linearGradient>
+                </defs>
+                <path d={areaPathD} fill="url(#areaGradient)" />
+                <path d={pathD} fill="none" stroke="#38B2AC" strokeWidth="2" />
+                {points.map((p, i) => (
+                    <g key={i} className="group">
+                        <circle cx={p.x} cy={p.y} r="8" fill="#38B2AC" fillOpacity="0" className="cursor-pointer" />
+                        <circle cx={p.x} cy={p.y} r="4" fill="#38B2AC" className="transition-transform duration-200 group-hover:scale-150" />
+                        <g className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                           <rect x={p.x - 20} y={p.y - 35} width="40" height="25" rx="4" fill="#1A202C" stroke="#4A5568" strokeWidth="1" />
+                           <text x={p.x} y={p.y - 18} textAnchor="middle" fill="#FFFFFF" fontSize="12" fontWeight="bold">{p.score}%</text>
+                        </g>
+                    </g>
+                ))}
+            </svg>
+        </div>
+    );
+};
 
 const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
   if (reportHistory.length === 0) {
@@ -31,38 +74,60 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
   const totalScans = reportHistory.length;
   const averageScore = Math.round(reportHistory.reduce((acc, r) => acc + r.overallScore, 0) / totalScans);
   const passRate = Math.round((reportHistory.filter(r => r.overallScore >= 90).length / totalScans) * 100);
+  
+  const allFailedChecks = reportHistory.flatMap(r => r.checks.filter(c => c.status === 'fail'));
+  const failureCounts = allFailedChecks.reduce((acc, check) => {
+    const checkName = check.name.split(':')[0].trim(); // Group custom rules together
+    acc[checkName] = (acc[checkName] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const mostCommonIssue = Object.entries(failureCounts).sort(([, a], [, b]) => b - a)[0];
+  const failureAnalysis = Object.entries(failureCounts)
+        .map(([name, count]) => ({ name, count, percentage: Math.round((count / allFailedChecks.length) * 100) }))
+        .sort((a, b) => b.count - a.count);
+
 
   const chartData = reportHistory.slice(0, 7).reverse();
 
   return (
     <div className="space-y-6">
        <h2 className="text-2xl font-bold text-white">Performance Analytics</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard icon={<ScaleIcon />} title="Total Scans" value={totalScans} color="bg-primary/10 text-primary-light" />
         <StatCard icon={<CalculatorIcon />} title="Average Score" value={`${averageScore}%`} color="bg-yellow-500/10 text-warning" />
         <StatCard icon={<TrendingUpIcon />} title="Overall Pass Rate" value={`${passRate}%`} color="bg-green-500/10 text-success" />
+        <StatCard 
+            icon={<AlertTriangleIcon />} 
+            title="Most Common Issue" 
+            value={mostCommonIssue ? mostCommonIssue[0] : 'None'} 
+            color="bg-red-500/10 text-danger" 
+        />
       </div>
-      <div className="bg-secondary-dark p-6 rounded-lg shadow-sm border border-gray-700">
-        <h3 className="text-lg font-semibold text-white mb-4">Compliance Over Time (Last 7 Reports)</h3>
-        <div className="h-64 flex items-end justify-around space-x-2 pt-4 border-t border-gray-700">
-            {chartData.map(report => {
-                const barColor = report.overallScore >= 90 ? 'bg-success' : report.overallScore >= 60 ? 'bg-warning' : 'bg-danger';
-                return (
-                    <div key={report.id} className="flex-1 flex flex-col items-center group">
-                         <div className="relative w-full h-full flex items-end">
-                            <div
-                                className={`w-full rounded-t-md transition-all duration-300 ${barColor}`}
-                                style={{ height: `${report.overallScore}%` }}
-                            >
-                                <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {report.overallScore}%
-                                </span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-secondary-dark p-6 rounded-lg shadow-sm border border-gray-700">
+            <h3 className="text-lg font-semibold text-white mb-4">Compliance Over Time (Last 7 Reports)</h3>
+            <ComplianceLineChart data={chartData} />
+        </div>
+        <div className="bg-secondary-dark p-6 rounded-lg shadow-sm border border-gray-700">
+            <h3 className="text-lg font-semibold text-white mb-4">Failure Analysis</h3>
+             {failureAnalysis.length > 0 ? (
+                <div className="space-y-3">
+                    {failureAnalysis.map(({ name, percentage, count }) => (
+                         <div key={name}>
+                            <div className="flex justify-between mb-1">
+                                <span className="text-sm font-medium text-gray-300">{name} ({count})</span>
+                                <span className="text-sm font-medium text-gray-400">{percentage}%</span>
+                            </div>
+                            <div className="w-full bg-gray-700 rounded-full h-2.5">
+                                <div className="bg-danger h-2.5 rounded-full" style={{ width: `${percentage}%` }}></div>
                             </div>
                         </div>
-                        <p className={`mt-2 text-xs text-gray-500 font-medium`}>{report.analysisType.charAt(0).toUpperCase()}</p>
-                    </div>
-                );
-            })}
+                    ))}
+                </div>
+            ) : (
+                <div className="h-full flex items-center justify-center text-gray-500">No failed checks recorded.</div>
+            )}
         </div>
       </div>
     </div>
