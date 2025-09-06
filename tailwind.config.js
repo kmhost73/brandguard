@@ -7,14 +7,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        dark: '#101010',
-        primary: '#6D28D9', // A strong indigo/purple for accents
-        secondary: '#4C1D95', // A darker shade for hover states
-        light: '#F9FAFB', // Light gray for dashboard/app background
-        accent: '#2196F3', // Kept for potential secondary actions
-        success: '#4CAF50',
-        warning: '#FFC107',
-        danger: '#F44336',
+        dark: '#1A202C', // Deep charcoal for dark mode background
+        'slate': {
+          DEFAULT: '#4A5568', // Primary slate blue
+          'light': '#718096',
+          'dark': '#2D3748',
+        },
+        'accent': {
+          DEFAULT: '#38B2AC', // Vibrant teal for accents
+          'light': '#4FD1C5',
+          'dark': '#319795',
+        },
+        light: '#F7FAFC', // Very light gray for light mode background
+        success: '#38A169',
+        warning: '#D69E2E',
+        danger: '#E53E3E',
       }
     },
   },

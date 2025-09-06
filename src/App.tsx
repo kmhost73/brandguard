@@ -52,7 +52,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen font-sans ${view === 'landing' ? 'bg-dark text-gray-300' : 'bg-light text-gray-800'}`}>
+    <div className={`min-h-screen font-sans ${view === 'landing' ? 'bg-dark text-gray-300' : 'bg-light text-slate-dark'}`}>
       <Header navigateTo={navigateTo} currentView={view} />
       <main>
         {view === 'landing' ? (
@@ -66,7 +66,7 @@ const App: React.FC = () => {
       </main>
       <footer className="text-center p-8 mt-12 border-t border-white/10">
         <p className={`text-sm ${view === 'landing' ? 'text-gray-400' : 'text-gray-500'}`}>
-          &copy; 2024 BrandGuard. All rights reserved.
+          &copy; 2024 Clarity. All rights reserved.
         </p>
       </footer>
     </div>

@@ -9,16 +9,16 @@ const Hero: React.FC<HeroProps> = ({ navigateToDashboard }) => {
     <div className="bg-dark relative overflow-hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32 text-center">
         <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 leading-tight tracking-tighter">
-          <span className="block">Ship Influencer Content.</span>
-          <span className="block">With Confidence.</span>
+          <span className="block">Compliance, Simplified.</span>
+          <span className="block">Review with Clarity.</span>
         </h1>
         <p className="mt-6 max-w-2xl mx-auto text-lg sm:text-xl text-gray-400">
-          BrandGuard is the automated pre-publication review platform that catches compliance and brand safety issues before they go live.
+          Clarity is the AI-powered pre-publication review platform that catches compliance and brand safety issues before they go live.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <button
             onClick={navigateToDashboard}
-            className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-md text-white bg-primary hover:bg-secondary transition-transform transform hover:scale-105 shadow-lg shadow-primary/30"
+            className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-md text-white bg-accent hover:bg-accent-dark transition-transform transform hover:scale-105 shadow-lg shadow-accent/20"
           >
             Explore the Dashboard
             <svg className="ml-2 -mr-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

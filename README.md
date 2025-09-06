@@ -1,11 +1,11 @@
 
-# BrandGuard (v1.0)
+# Clarity (v1.0)
 
-**The automated pre-publication review platform for modern marketing teams.**
+**The AI-powered pre-publication review platform for modern marketing teams.**
 
-BrandGuard helps marketing agencies and brands automatically scan sponsored content for FTC disclosure compliance, brand safety, and campaign-specific requirements. It replaces hours of manual, error-prone work with instant, AI-driven analysis.
+Clarity helps marketing agencies and brands automatically scan sponsored content for FTC disclosure compliance, brand safety, and campaign-specific requirements. It replaces hours of manual, error-prone work with instant, AI-driven analysis.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkmhost73%2Fbrandguard-ai1&build-command=vite%20build&install-command=npm%20install&env=VITE_GEMINI_API_KEY&envDescription=Your%20Google%20Gemini%20API%20Key&envLink=https%3A%2F%2Faistudio.google.com%2F&project-name=brandguard-ai1&repository-name=brandguard-ai1&framework=vite)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkmhost73%2Fbrandguard-ai1&build-command=vite%20build&install-command=npm%20install&env=VITE_GEMINI_API_KEY&envDescription=Your%20Google%20Gemini%20API%20Key&envLink=https%3A%2F%2Faistudio.google.com%2F&project-name=clarity-ai&repository-name=clarity-ai&framework=vite)
 
 ---
 
@@ -41,7 +41,7 @@ This is the automated sales and marketing plan to achieve our goal of **$1,000/d
 >
 > Hi [Name],
 >
-> I saw you work at [Company]. I run BrandGuard, a tool that uses AI to automate the tedious process of checking influencer posts for FTC compliance and brand safety before they go live.
+> I saw you work at [Company]. I run Clarity, a tool that uses AI to automate the tedious process of checking influencer posts for FTC compliance and brand safety before they go live.
 >
 > Our clients are saving 10-20 hours a month of manual work.
 >
