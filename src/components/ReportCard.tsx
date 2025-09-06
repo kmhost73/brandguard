@@ -50,9 +50,10 @@ const CheckItemCard: React.FC<{ item: CheckItem }> = ({ item }) => {
 interface ReportCardProps {
     report: ComplianceReport;
     onStatusChange?: (reportId: string, newStatus: ReportStatus) => void;
+    onAcceptRevision?: (revisedContent: string) => void;
 }
 
-const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange }) => {
+const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAcceptRevision }) => {
   const hasCustomRules = report.customRulesApplied && report.customRulesApplied.length > 0;
   const failedChecks = report.checks.filter(c => c.status === 'fail');
   const [isRevising, setIsRevising] = useState(false);
@@ -122,22 +123,29 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange }) => {
         <h3 className="text-lg font-semibold text-white mb-4">Detailed Checks</h3>
         <div className="space-y-4">{report.checks.map((item, index) => (<CheckItemCard key={index} item={item} />))}</div>
       </div>
-      <div className="p-6 border-t border-gray-700 bg-dark">
-        <div className="flex flex-col sm:flex-row gap-4 p-4 rounded-lg bg-secondary-dark items-center">
-            <div className="flex-grow">
-                <h3 className="text-lg font-bold text-white">Unlock "Magic Fix" & More</h3>
-                <p className="text-sm text-white/80">This is a demo. Upgrade to Pro for full features.</p>
+      {onAcceptRevision && (
+          <div className="p-6 border-t border-gray-700 bg-dark">
+            <div className="flex flex-col sm:flex-row gap-4">
+                <button onClick={handleGenerateRevision} disabled={isRevising || failedChecks.length === 0} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-all shadow-sm" title={failedChecks.length === 0 ? "No failing checks to fix!" : "AI-powered content revision"}><SparklesIcon /> {isRevising ? 'Generating...' : 'Magic Fix'}</button>
+                <button onClick={handleShareReport} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-secondary-dark hover:bg-gray-700 transition-all shadow-sm"><ShareIcon /> {shareConfirmation ? shareConfirmation : 'Share Report'}</button>
             </div>
-             <button disabled className="flex-shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2 border border-transparent text-sm font-medium rounded-md text-secondary-dark bg-white cursor-not-allowed opacity-70" title="This is a demo feature."><SparklesIcon /> Upgrade to Pro</button>
-        </div>
-        <div className="mt-4 flex flex-col sm:flex-row gap-4">
-            <button onClick={handleGenerateRevision} disabled={isRevising || failedChecks.length === 0} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-secondary hover:bg-secondary-light disabled:bg-gray-600 disabled:cursor-not-allowed transition-all shadow-sm" title={failedChecks.length === 0 ? "No failing checks to fix!" : "AI-powered content revision"}><SparklesIcon /> {isRevising ? 'Generating...' : 'Magic Fix (Demo)'}</button>
-            <button onClick={handleShareReport} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-secondary-dark hover:bg-gray-700 transition-all shadow-sm"><ShareIcon /> {shareConfirmation ? shareConfirmation : 'Share Report'}</button>
-        </div>
-        {isRevising && <div className="mt-4"><Loader/></div>}
-        {revisionError && <div className="mt-4 bg-red-900/50 border border-danger text-red-300 px-4 py-3 rounded-lg" role="alert">{revisionError}</div>}
-        {revisedContent && (<div className="mt-6"><h4 className="font-semibold text-gray-200">AI-Generated Compliant Revision:</h4><div className="mt-2 p-4 bg-green-900/30 border-l-4 border-success text-gray-200 rounded-r-lg"><p className="whitespace-pre-wrap font-mono text-sm">{revisedContent}</p></div></div>)}
-      </div>
+            {isRevising && <div className="mt-4"><Loader/></div>}
+            {revisionError && <div className="mt-4 bg-red-900/50 border border-danger text-red-300 px-4 py-3 rounded-lg" role="alert">{revisionError}</div>}
+            {revisedContent && (
+                <div className="mt-6 animate-fade-in">
+                    <h4 className="font-semibold text-gray-200">AI-Generated Compliant Revision:</h4>
+                    <div className="mt-2 p-4 bg-green-900/30 border-l-4 border-success text-gray-200 rounded-r-lg">
+                        <p className="whitespace-pre-wrap font-mono text-sm">{revisedContent}</p>
+                    </div>
+                    <button 
+                        onClick={() => onAcceptRevision(revisedContent)}
+                        className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-success text-white font-semibold rounded-md hover:bg-green-600 transition-colors">
+                        <CheckIcon /> Accept Revision & Re-Scan
+                    </button>
+                </div>
+            )}
+          </div>
+      )}
     </div>
   );
 };

@@ -57,24 +57,24 @@ const Dashboard: React.FC = () => {
     setCustomRules(getCustomRules());
   }, []);
   
-  useEffect(() => {
-    if (analysisType === 'video' && selectedVideoFile) {
-      const generateTranscript = async () => {
-        setLoadingStatus('transcribing');
-        setError(null);
-        setVideoTranscript('');
-        try {
-          const transcript = await transcribeVideo(selectedVideoFile);
+  const handleVideoUpload = useCallback((file: File | null) => {
+    if (file) {
+      setSelectedVideoFile(file);
+      setLoadingStatus('transcribing');
+      setError(null);
+      setVideoTranscript('');
+      transcribeVideo(file)
+        .then(transcript => {
           setVideoTranscript(transcript);
-        } catch (err) {
+        })
+        .catch(err => {
           setError(err instanceof Error ? err.message : "An unknown error occurred during transcription.");
-        } finally {
+        })
+        .finally(() => {
           setLoadingStatus('idle');
-        }
-      };
-      generateTranscript();
+        });
     }
-  }, [selectedVideoFile, analysisType]);
+  }, []);
 
 
   const showWelcomeGuide = currentView === 'dashboard' && !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && loadingStatus === 'idle';
@@ -128,6 +128,15 @@ const Dashboard: React.FC = () => {
         setReport(prev => prev ? { ...prev, status: newStatus } : null);
     }
   };
+  
+  const handleAcceptRevision = (revisedContent: string) => {
+      setPostContent(revisedContent);
+      setReport(null);
+      // Automatically trigger a re-scan after a short delay to allow state to update
+      setTimeout(() => {
+          handleScan();
+      }, 100);
+  };
 
   const resetState = (clearInputs = true) => { setReport(null); setError(null); if(clearInputs){ setPostContent(''); setVideoTranscript(''); setSelectedVideoFile(null); setSelectedImageFile(null); } };
   const switchTab = (type: AnalysisType) => { setAnalysisType(type); resetState(); };
@@ -161,6 +170,12 @@ const Dashboard: React.FC = () => {
 
   const filteredHistory = reportHistory.filter(r => historyFilter === 'all' || r.status === historyFilter);
 
+  const getStatusCount = (status: ReportStatus | 'all') => {
+      if (status === 'all') return reportHistory.length;
+      return reportHistory.filter(r => r.status === status).length;
+  }
+
+
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-gray-300">
 
@@ -192,7 +207,7 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
                 
-                {report ? <ReportCard report={report} onStatusChange={handleStatusChange} /> : (
+                {report ? <ReportCard report={report} onStatusChange={handleStatusChange} onAcceptRevision={handleAcceptRevision} /> : (
                   <>
                     {showWelcomeGuide && <WelcomeGuide onStartExample={handleStartExample} />}
 
@@ -206,7 +221,7 @@ const Dashboard: React.FC = () => {
                       </div>
 
                        <div className="space-y-4">
-                           {analysisType !== 'video' && <textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} placeholder={analysisType === 'image' ? 'Paste associated caption here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition" />}
+                           {analysisType !== 'video' && <textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} placeholder={analysisType === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition" />}
                            {analysisType === 'image' && (
                                <div>
                                   <label htmlFor="image-upload" className="block text-sm font-medium text-gray-400 mb-2">Upload Image</label>
@@ -218,12 +233,14 @@ const Dashboard: React.FC = () => {
                                <div className="space-y-4">
                                   <div>
                                      <label htmlFor="video-upload" className="block text-sm font-medium text-gray-400 mb-2">Upload Video</label>
-                                     <input id="video-upload" type="file" accept="video/mp4, video/quicktime, video/webm" onChange={(e) => setSelectedVideoFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20 cursor-pointer" disabled={isLoading}/>
+                                     <input id="video-upload" type="file" accept="video/mp4, video/quicktime, video/webm" onChange={(e) => handleVideoUpload(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20 cursor-pointer" disabled={isLoading}/>
                                      {selectedVideoFile && <p className="text-xs text-gray-500 mt-2">Selected: {selectedVideoFile.name}</p>}
                                   </div>
                                   <div className="bg-dark p-3 rounded-md border border-gray-600 min-h-[100px]">
                                       <p className="text-sm font-medium text-gray-400">Generated Transcript:</p>
-                                      {loadingStatus === 'transcribing' ? <Loader/> : <p className="text-gray-300 whitespace-pre-wrap text-sm mt-2">{videoTranscript || "Transcript will appear here after video is selected."}</p>}
+                                      {loadingStatus === 'transcribing' 
+                                          ? <div className="text-center py-4 text-sm text-gray-400">Transcribing video, please wait...</div> 
+                                          : <p className="text-gray-300 whitespace-pre-wrap text-sm mt-2">{videoTranscript || "Transcript will appear here after video is selected."}</p>}
                                   </div>
                                </div>
                            )}
@@ -267,12 +284,18 @@ const Dashboard: React.FC = () => {
                 <div className="flex justify-between items-center mb-4">
                     <span className="text-sm text-gray-400">Filter by status:</span>
                     <div className="flex space-x-1 p-1 bg-dark rounded-md">
-                        <button onClick={() => setHistoryFilter('all')} className={`px-2 py-1 text-xs rounded ${historyFilter === 'all' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-gray-700'}`}>All</button>
-                        {(Object.keys(statusDisplayConfig) as ReportStatus[]).map(status => (
-                            <button key={status} onClick={() => setHistoryFilter(status)} className={`px-2 py-1 text-xs rounded ${historyFilter === status ? `${statusDisplayConfig[status].color} !text-white` : statusDisplayConfig[status].filterColor}`}>
-                                {statusDisplayConfig[status].tag}
-                            </button>
-                        ))}
+                         <button onClick={() => setHistoryFilter('all')} className={`px-2 py-1 text-xs rounded ${historyFilter === 'all' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-gray-700'}`}>
+                             All ({getStatusCount('all')})
+                        </button>
+                        {(Object.keys(statusDisplayConfig) as ReportStatus[]).map(status => {
+                            const count = getStatusCount(status);
+                            if (count === 0) return null;
+                            return (
+                                <button key={status} onClick={() => setHistoryFilter(status)} className={`px-2 py-1 text-xs rounded ${historyFilter === status ? `${statusDisplayConfig[status].color} !text-white` : statusDisplayConfig[status].filterColor}`}>
+                                    {statusDisplayConfig[status].tag} ({count})
+                                </button>
+                            )
+                        })}
                     </div>
                 </div>
                 <div className="space-y-3">
