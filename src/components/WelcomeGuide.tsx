@@ -8,7 +8,7 @@ interface WelcomeGuideProps {
 const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onStartExample }) => {
   return (
     <div className="bg-secondary-dark/50 border-2 border-dashed border-primary/20 p-6 rounded-lg text-center mb-6 animate-fade-in">
-      <h2 className="text-2xl font-bold text-white">Welcome to the BrandGuard AI Demo!</h2>
+      <h2 className="text-2xl font-bold text-white">Welcome to the BrandGuard Demo!</h2>
       <p className="mt-2 text-gray-400 max-w-2xl mx-auto">
         Not sure where to start? We've got you covered. Click the button below to load a sample influencer post with a few compliance issues. You can then scan it to see the AI analysis in action.
       </p>

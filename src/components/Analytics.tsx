@@ -7,7 +7,7 @@ interface AnalyticsProps {
 }
 
 const StatCard: React.FC<{ icon: React.ReactNode; title: string; value: string | number; color: string; }> = ({ icon, title, value, color }) => (
-  <div className="bg-secondary-dark p-6 rounded-lg shadow-sm border border-gray-700 flex items-center space-x-4">
+  <div className="bg-secondary-dark p-4 rounded-lg shadow-sm border border-gray-700 flex items-center space-x-4">
     <div className={`rounded-full p-3 ${color}`}>
       {icon}
     </div>
@@ -20,10 +20,10 @@ const StatCard: React.FC<{ icon: React.ReactNode; title: string; value: string |
 
 const ComplianceLineChart: React.FC<{ data: ComplianceReport[] }> = ({ data }) => {
     if (data.length < 2) {
-        return <div className="h-64 flex items-center justify-center text-gray-500">Not enough data to display a trend.</div>;
+        return <div className="h-56 flex items-center justify-center text-gray-500">Not enough data to display a trend.</div>;
     }
 
-    const chartHeight = 256;
+    const chartHeight = 224; // Corresponds to h-56
     const chartWidth = 500; // An arbitrary width for path calculation, SVG will scale
     const points = data.map((report, i) => {
         const x = (i / (data.length - 1)) * chartWidth;
@@ -36,7 +36,7 @@ const ComplianceLineChart: React.FC<{ data: ComplianceReport[] }> = ({ data }) =
     const areaPathD = `${pathD} L ${chartWidth},${chartHeight} L 0,${chartHeight} Z`;
 
     return (
-        <div className="h-64 w-full">
+        <div className="h-56 w-full">
             <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
                 <defs>
                     <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
@@ -65,7 +65,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
   if (reportHistory.length === 0) {
     return (
       <div className="bg-secondary-dark rounded-lg shadow-sm border border-gray-700 p-8 text-center">
-        <h2 className="text-2xl font-bold text-white mb-2">Performance Analytics</h2>
+        <h2 className="text-xl font-bold text-white mb-2">Performance Analytics</h2>
         <p className="text-gray-400">Run your first analysis to see your compliance stats here.</p>
       </div>
     );
@@ -84,7 +84,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
 
   const mostCommonIssue = Object.entries(failureCounts).sort(([, a], [, b]) => b - a)[0];
   const failureAnalysis = Object.entries(failureCounts)
-        .map(([name, count]) => ({ name, count, percentage: Math.round((count / allFailedChecks.length) * 100) }))
+        .map(([name, count]) => ({ name, count, percentage: allFailedChecks.length > 0 ? Math.round((count / allFailedChecks.length) * 100) : 0 }))
         .sort((a, b) => b.count - a.count);
 
 
@@ -92,7 +92,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
 
   return (
     <div className="space-y-6">
-       <h2 className="text-2xl font-bold text-white">Performance Analytics</h2>
+       <h2 className="text-xl font-bold text-white">Performance Analytics</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard icon={<ScaleIcon />} title="Total Scans" value={totalScans} color="bg-primary/10 text-primary-light" />
         <StatCard icon={<CalculatorIcon />} title="Average Score" value={`${averageScore}%`} color="bg-yellow-500/10 text-warning" />
