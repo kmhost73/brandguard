@@ -106,21 +106,23 @@ const Dashboard: React.FC = () => {
     setReportHistory(newHistory);
   }
 
-  const handleScan = useCallback(async () => {
+  const handleScan = useCallback(async (contentOverride?: string) => {
     setLoadingStatus('analyzing');
     setReport(null);
     setError(null);
     try {
       let result;
+      const contentToScan = contentOverride !== undefined ? contentOverride : postContent;
+
       if (analysisType === 'text') {
-        if (!postContent.trim()) throw new Error("Please enter post content to analyze.");
-        result = await analyzePostContent(postContent, customRules);
+        if (!contentToScan.trim()) throw new Error("Please enter post content to analyze.");
+        result = await analyzePostContent(contentToScan, customRules);
       } else if (analysisType === 'video') {
         if (!videoTranscript.trim() || !selectedVideoFile) throw new Error("Please provide a video file and its transcript.");
         result = await analyzeVideoContent(videoTranscript, selectedVideoFile, customRules);
       } else if (analysisType === 'image') {
-        if (!postContent.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
-        result = await analyzeImageContent(postContent, selectedImageFile, customRules);
+        if (!contentToScan.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
+        result = await analyzeImageContent(contentToScan, selectedImageFile, customRules);
       }
       if(result) {
         const reportWithStatus: ComplianceReport = { ...result, status: 'pending' };
@@ -146,10 +148,7 @@ const Dashboard: React.FC = () => {
   const handleAcceptRevision = (revisedContent: string) => {
       setPostContent(revisedContent);
       setReport(null);
-      // Automatically trigger a re-scan after a short delay to allow state to update
-      setTimeout(() => {
-          handleScan();
-      }, 100);
+      handleScan(revisedContent);
   };
 
   const resetState = (clearInputs = true) => { setReport(null); setError(null); if(clearInputs){ setPostContent(''); setVideoTranscript(''); setSelectedVideoFile(null); setSelectedImageFile(null); } };
@@ -282,7 +281,7 @@ const Dashboard: React.FC = () => {
                                 )}
                             </div>
 
-                           <button onClick={handleScan} disabled={isScanDisabled()} className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20">
+                           <button onClick={() => handleScan()} disabled={isScanDisabled()} className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20">
                                {getButtonText()}
                            </button>
                        </div>
