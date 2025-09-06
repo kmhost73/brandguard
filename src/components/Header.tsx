@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheckIcon } from './icons/Icons';
+import { BrandGuardLogoIcon } from './icons/Icons';
 
 interface HeaderProps {
   navigateTo: (view: 'landing' | 'dashboard') => void;
@@ -17,7 +17,7 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView }) => {
             className="flex-shrink-0 flex items-center gap-3 cursor-pointer"
             onClick={() => navigateTo('landing')}
           >
-            <ShieldCheckIcon />
+            <BrandGuardLogoIcon />
             <span className={`text-2xl font-bold ${isLanding ? 'text-white' : 'text-gray-900'}`}>BrandGuard</span>
           </div>
           <nav className="hidden md:flex md:space-x-8">

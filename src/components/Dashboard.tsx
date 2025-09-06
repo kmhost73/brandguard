@@ -136,10 +136,10 @@ const Dashboard: React.FC = () => {
 
   const getHistoryTagColor = (type: AnalysisType) => {
     switch(type) {
-        case 'text': return 'text-blue-500';
-        case 'video': return 'text-purple-500';
-        case 'image': return 'text-green-500';
-        default: return 'text-gray-500';
+        case 'text': return 'text-blue-600';
+        case 'video': return 'text-purple-600';
+        case 'image': return 'text-green-600';
+        default: return 'text-gray-600';
     }
   }
 
@@ -275,17 +275,17 @@ const Dashboard: React.FC = () => {
                     ))}
                 </div>
                 {filteredHistory.length > 0 ? (
-                <ul className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                <ul className="space-y-3 max-h-96 overflow-y-auto pr-2">
                     {filteredHistory.map((r) => (
                     <li key={r.id} className="p-3 rounded-md border border-gray-200 hover:bg-gray-50 group">
                         <div className="flex justify-between items-start">
                         <div>
                             <button onClick={() => viewHistoricReport(r)} className="text-left">
                             <div className="flex items-center gap-2 flex-wrap">
-                                    <p className={`text-xs font-bold uppercase ${getHistoryTagColor(r.analysisType)}`}>{r.analysisType} Analysis</p>
+                                    <p className={`text-xs font-bold uppercase tracking-wider ${getHistoryTagColor(r.analysisType)}`}>{r.analysisType} Analysis</p>
                                     <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${statusDisplayConfig[r.status || 'pending'].color}`}>{statusDisplayConfig[r.status || 'pending'].tag}</span>
                             </div>
-                            <p className="text-sm text-gray-500 group-hover:text-primary mt-1">{new Date(r.timestamp).toLocaleString()}</p>
+                            <p className="text-sm text-gray-600 group-hover:text-primary mt-1">{new Date(r.timestamp).toLocaleString()}</p>
                             <p className="text-xs text-gray-500 mt-1 truncate max-w-48">{r.summary}</p>
                             </button>
                         </div>
