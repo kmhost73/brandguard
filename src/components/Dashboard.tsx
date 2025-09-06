@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
 import type { ComplianceReport, CustomRule, ReportStatus } from '../types';
 import Loader from './Loader';
@@ -51,11 +51,24 @@ const Dashboard: React.FC = () => {
   const [newRuleText, setNewRuleText] = useState('');
   const [showRules, setShowRules] = useState(false);
   const [currentView, setCurrentView] = useState<DashboardView>('dashboard');
+  const [newReportId, setNewReportId] = useState<string | null>(null);
+  const reportCardRef = useRef<HTMLDivElement>(null);
+
 
   useEffect(() => {
     setReportHistory(getReportHistory());
     setCustomRules(getCustomRules());
   }, []);
+
+  useEffect(() => {
+    if (report && report.id === newReportId) {
+      reportCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const timer = setTimeout(() => {
+        setNewReportId(null);
+      }, 2000); 
+      return () => clearTimeout(timer);
+    }
+  }, [report, newReportId]);
   
   const handleVideoUpload = useCallback((file: File | null) => {
     if (file) {
@@ -86,6 +99,7 @@ const Dashboard: React.FC = () => {
 
   const handleAnalysisCompletion = (newReport: ComplianceReport) => {
     setReport(newReport);
+    setNewReportId(newReport.id);
     const history = getReportHistory();
     const newHistory = [newReport, ...history].slice(0, 10);
     localStorage.setItem('brandGuardReportHistory', JSON.stringify(newHistory));
@@ -205,7 +219,7 @@ const Dashboard: React.FC = () => {
         <TestingSandbox />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-6">
+            <div ref={reportCardRef} className="lg:col-span-2 space-y-6">
                 
                 {report ? <ReportCard report={report} onStatusChange={handleStatusChange} onAcceptRevision={handleAcceptRevision} /> : (
                   <>
@@ -301,7 +315,7 @@ const Dashboard: React.FC = () => {
                 <div className="space-y-3">
                     {filteredHistory.length > 0 ? (
                         filteredHistory.map(r => (
-                            <div key={r.id} className="p-3 bg-dark rounded-md hover:bg-gray-800 transition-colors group">
+                            <div key={r.id} className={`p-3 bg-dark rounded-md hover:bg-gray-800 transition-colors group ${r.id === newReportId ? 'highlight-new' : ''}`}>
                                 <div className="flex justify-between items-center">
                                     <button onClick={() => viewHistoricReport(r)} className="text-left flex-grow">
                                         <p className="text-sm font-medium text-white truncate">{r.analysisType.charAt(0).toUpperCase() + r.analysisType.slice(1)} Post - {new Date(r.timestamp).toLocaleString()}</p>
