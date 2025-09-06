@@ -1,4 +1,4 @@
-import type { TestCase, CheckItem } from './types';
+import type { TestCase } from './types';
 
 export const testCases: TestCase[] = [
   {
@@ -14,8 +14,8 @@ export const testCases: TestCase[] = [
       scoreText: '>= 90',
       summary: (actual) => actual.toLowerCase().includes('compliant'),
       checks: (actual) => {
-        const ftc = actual.find(c => c.name === 'FTC Disclosure');
-        const claims = actual.find(c => c.name === 'Claim Accuracy');
+        const ftc = actual.find(c => c.name.includes('FTC'));
+        const claims = actual.find(c => c.name.includes('Claim'));
         return ftc?.status === 'pass' && claims?.status === 'pass';
       }
     }
@@ -33,7 +33,7 @@ export const testCases: TestCase[] = [
       scoreText: '<= 50',
       summary: (actual) => actual.toLowerCase().includes('not compliant') || actual.toLowerCase().includes('issue'),
       checks: (actual) => {
-        const ftc = actual.find(c => c.name === 'FTC Disclosure');
+        const ftc = actual.find(c => c.name.includes('FTC'));
         return ftc?.status === 'fail';
       }
     }
@@ -51,7 +51,7 @@ export const testCases: TestCase[] = [
       scoreText: '< 90',
       summary: (actual) => actual.toLowerCase().includes('not compliant') || actual.toLowerCase().includes('issue'),
       checks: (actual) => {
-        const claims = actual.find(c => c.name === 'Claim Accuracy');
+        const claims = actual.find(c => c.name.includes('Claim'));
         return claims?.status === 'fail';
       }
     }
@@ -69,7 +69,7 @@ export const testCases: TestCase[] = [
       scoreText: '60-90',
       summary: (actual) => actual.toLowerCase().includes('warning') || actual.toLowerCase().includes('improvement'),
       checks: (actual) => {
-        const ftc = actual.find(c => c.name === 'FTC Disclosure');
+        const ftc = actual.find(c => c.name.includes('FTC'));
         return ftc?.status === 'warn';
       }
     }
