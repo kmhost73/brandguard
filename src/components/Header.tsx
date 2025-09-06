@@ -3,14 +3,11 @@ import { BrandGuardLogoIcon } from './icons/Icons';
 
 interface HeaderProps {
   navigateTo: (view: 'landing' | 'dashboard') => void;
-  currentView: 'landing' | 'dashboard';
 }
 
-const Header: React.FC<HeaderProps> = ({ navigateTo, currentView }) => {
-  const isLanding = currentView === 'landing';
-  
+const Header: React.FC<HeaderProps> = ({ navigateTo }) => {
   return (
-    <header className={`sticky top-0 z-50 ${isLanding ? 'bg-dark/80 backdrop-blur-md' : 'bg-white shadow-sm'}`}>
+    <header className="sticky top-0 z-50 bg-dark/80 backdrop-blur-md">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div 
@@ -18,18 +15,18 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView }) => {
             onClick={() => navigateTo('landing')}
           >
             <BrandGuardLogoIcon />
-            <span className={`text-2xl font-bold ${isLanding ? 'text-white' : 'text-gray-900'}`}>BrandGuard</span>
+            <span className="text-2xl font-bold text-white">BrandGuard</span>
           </div>
           <nav className="hidden md:flex md:space-x-8">
             <button 
               onClick={() => navigateTo('landing')}
-              className={`font-medium transition-colors ${isLanding ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-primary'}`}
+              className="font-medium transition-colors text-gray-300 hover:text-white"
             >
               Home
             </button>
             <button 
               onClick={() => navigateTo('dashboard')}
-              className={`font-medium transition-colors ${isLanding ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-primary'}`}
+              className="font-medium transition-colors text-gray-300 hover:text-white"
             >
               Dashboard
             </button>
