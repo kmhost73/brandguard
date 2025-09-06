@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { ComplianceReport, CheckItem, ReportStatus } from '../types';
 import { generateCompliantRevision } from '../services/geminiService';
-import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, ShareIcon, FilmIcon, TagIcon, ChevronDownIcon } from './icons/Icons';
+import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, FilmIcon, TagIcon, ChevronDownIcon } from './icons/Icons';
 import Loader from './Loader';
 
 const statusConfig = {
@@ -59,11 +59,8 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
   const [isRevising, setIsRevising] = useState(false);
   const [revisedContent, setRevisedContent] = useState<string | null>(null);
   const [revisionError, setRevisionError] = useState<string | null>(null);
-  const [shareConfirmation, setShareConfirmation] = useState<string>('');
-
 
   const handleGenerateRevision = async () => { if (failedChecks.length === 0) { setRevisionError("No failing checks to revise."); return; } setIsRevising(true); setRevisedContent(null); setRevisionError(null); try { const revision = await generateCompliantRevision(report.sourceContent, report.analysisType, failedChecks); setRevisedContent(revision); } catch (err) { setRevisionError(err instanceof Error ? err.message : "An unknown error occurred."); } finally { setIsRevising(false); } };
-  const handleShareReport = () => { try { const data = btoa(JSON.stringify(report)); const url = `${window.location.origin}${window.location.pathname}?report=${data}`; navigator.clipboard.writeText(url); setShareConfirmation('Link copied!'); setTimeout(() => setShareConfirmation(''), 3000); } catch (error) { setShareConfirmation('Could not create link.'); setTimeout(() => setShareConfirmation(''), 3000); }};
 
   return (
     <div className="bg-secondary-dark shadow-lg rounded-lg overflow-hidden animate-fade-in border border-gray-700">
@@ -126,8 +123,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
       {onAcceptRevision && (
           <div className="p-6 border-t border-gray-700 bg-dark">
             <div className="flex flex-col sm:flex-row gap-4">
-                <button onClick={handleGenerateRevision} disabled={isRevising || failedChecks.length === 0} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-all shadow-sm" title={failedChecks.length === 0 ? "No failing checks to fix!" : "AI-powered content revision"}><SparklesIcon /> {isRevising ? 'Generating...' : 'Magic Fix'}</button>
-                <button onClick={handleShareReport} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-secondary-dark hover:bg-gray-700 transition-all shadow-sm"><ShareIcon /> {shareConfirmation ? shareConfirmation : 'Share Report'}</button>
+                <button onClick={handleGenerateRevision} disabled={isRevising || failedChecks.length === 0} className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-all shadow-sm" title={failedChecks.length === 0 ? "No failing checks to fix!" : "AI-powered content revision"}><SparklesIcon /> {isRevising ? 'Generating...' : 'Magic Fix'}</button>
             </div>
             {isRevising && <div className="mt-4"><Loader/></div>}
             {revisionError && <div className="mt-4 bg-red-900/50 border border-danger text-red-300 px-4 py-3 rounded-lg" role="alert">{revisionError}</div>}

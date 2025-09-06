@@ -6,7 +6,7 @@ import ReportCard from './ReportCard';
 import Analytics from './Analytics';
 import WelcomeGuide from './WelcomeGuide';
 import TestingSandbox from './TestingSandbox';
-import { HistoryIcon, TrashIcon, PlusIcon, ChevronDownIcon, CogIcon, TestTubeIcon, FilmIcon } from './icons/Icons';
+import { HistoryIcon, TrashIcon, PlusIcon, ChevronDownIcon, CogIcon, TestTubeIcon, FilmIcon, EllipsisHorizontalIcon, ShareIcon } from './icons/Icons';
 
 const examplePost = `Loving my new eco-friendly sneakers! They are so comfy and stylish. Best part? They are made with 100% organic materials. You all have to check them out! #fashion #style`;
 
@@ -52,6 +52,9 @@ const Dashboard: React.FC = () => {
   const [showRules, setShowRules] = useState(false);
   const [currentView, setCurrentView] = useState<DashboardView>('dashboard');
   const [newReportId, setNewReportId] = useState<string | null>(null);
+  const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
+  const [shareConfirmation, setShareConfirmation] = useState('');
+  const [visibleHistoryCount, setVisibleHistoryCount] = useState(10);
   const reportCardRef = useRef<HTMLDivElement>(null);
 
 
@@ -101,7 +104,7 @@ const Dashboard: React.FC = () => {
     setReport(newReport);
     setNewReportId(newReport.id);
     const history = getReportHistory();
-    const newHistory = [newReport, ...history].slice(0, 10);
+    const newHistory = [newReport, ...history];
     localStorage.setItem('brandGuardReportHistory', JSON.stringify(newHistory));
     setReportHistory(newHistory);
   }
@@ -153,11 +156,24 @@ const Dashboard: React.FC = () => {
 
   const resetState = (clearInputs = true) => { setReport(null); setError(null); if(clearInputs){ setPostContent(''); setVideoTranscript(''); setSelectedVideoFile(null); setSelectedImageFile(null); } };
   const switchTab = (type: AnalysisType) => { setAnalysisType(type); resetState(); };
-  const viewHistoricReport = (historicReport: ComplianceReport) => { setCurrentView('dashboard'); resetState(false); setReport(historicReport); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const deleteReport = (reportId: string) => { const newHistory = reportHistory.filter(r => r.id !== reportId); localStorage.setItem('brandGuardReportHistory', JSON.stringify(newHistory)); setReportHistory(newHistory); if (report?.id === reportId) { setReport(null); } };
+  const viewHistoricReport = (historicReport: ComplianceReport) => { setActiveActionMenu(null); setCurrentView('dashboard'); resetState(false); setReport(historicReport); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const deleteReport = (reportId: string) => { setActiveActionMenu(null); const newHistory = reportHistory.filter(r => r.id !== reportId); localStorage.setItem('brandGuardReportHistory', JSON.stringify(newHistory)); setReportHistory(newHistory); if (report?.id === reportId) { setReport(null); } };
   const addRule = () => { if(newRuleText.trim()) { const newRule = { id: crypto.randomUUID(), text: newRuleText.trim() }; const updatedRules = [...customRules, newRule]; setCustomRules(updatedRules); saveCustomRules(updatedRules); setNewRuleText(''); } };
   const deleteRule = (ruleId: string) => { const updatedRules = customRules.filter(r => r.id !== ruleId); setCustomRules(updatedRules); saveCustomRules(updatedRules); };
-  
+  const handleShareReport = (reportToShare: ComplianceReport) => {
+    setActiveActionMenu(null);
+    try {
+        const data = btoa(JSON.stringify(reportToShare));
+        const url = `${window.location.origin}${window.location.pathname}?report=${data}`;
+        navigator.clipboard.writeText(url);
+        setShareConfirmation('Link Copied!');
+        setTimeout(() => setShareConfirmation(''), 2000);
+    } catch (error) {
+        setShareConfirmation('Error!');
+        setTimeout(() => setShareConfirmation(''), 2000);
+    }
+  };
+
   const isLoading = loadingStatus !== 'idle';
   const getButtonText = () => {
     if (loadingStatus === 'analyzing') return 'Analyzing...';
@@ -313,22 +329,43 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div className="space-y-3">
                     {filteredHistory.length > 0 ? (
-                        filteredHistory.map(r => (
+                        filteredHistory.slice(0, visibleHistoryCount).map(r => (
                             <div key={r.id} className={`p-3 bg-dark rounded-md hover:bg-gray-800 transition-colors group ${r.id === newReportId ? 'highlight-new' : ''}`}>
                                 <div className="flex justify-between items-center">
-                                    <button onClick={() => viewHistoricReport(r)} className="text-left flex-grow">
+                                    <button onClick={() => viewHistoricReport(r)} className="text-left flex-grow truncate pr-2">
                                         <p className="text-sm font-medium text-white truncate">{r.analysisType.charAt(0).toUpperCase() + r.analysisType.slice(1)} Post - {new Date(r.timestamp).toLocaleString()}</p>
-                                        <p className="text-xs text-gray-400">{r.summary}</p>
+                                        <p className="text-xs text-gray-400 truncate">{r.summary}</p>
                                     </button>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-shrink-0">
                                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusDisplayConfig[r.status || 'pending'].color}`}>{statusDisplayConfig[r.status || 'pending'].tag}</span>
-                                        <button onClick={() => deleteReport(r.id)} className="text-gray-600 hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"><TrashIcon /></button>
+                                        <div className="relative">
+                                            <button onClick={() => setActiveActionMenu(activeActionMenu === r.id ? null : r.id)} className="text-gray-500 hover:text-white transition-colors">
+                                                <EllipsisHorizontalIcon />
+                                            </button>
+                                            {activeActionMenu === r.id && (
+                                                <div className="absolute right-0 mt-2 w-48 bg-dark border border-gray-700 rounded-md shadow-lg z-10 animate-fade-in">
+                                                    <button onClick={() => viewHistoricReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">View Report</button>
+                                                    <button onClick={() => handleShareReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">{shareConfirmation && activeActionMenu === r.id ? shareConfirmation : 'Share Report'}</button>
+                                                    <button onClick={() => deleteReport(r.id)} className="block w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger/20">Delete Report</button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         ))
                     ) : <p className="text-center text-gray-500 text-sm py-4">No reports match the current filter.</p>}
                 </div>
+                 {filteredHistory.length > visibleHistoryCount && (
+                    <div className="mt-4">
+                        <button
+                            onClick={() => setVisibleHistoryCount(prev => prev + 10)}
+                            className="w-full px-4 py-2 bg-gray-700 text-sm font-semibold text-gray-300 rounded-md hover:bg-gray-600 transition-colors"
+                        >
+                            Load More
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
       )}
