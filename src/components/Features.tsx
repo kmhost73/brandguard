@@ -4,13 +4,13 @@ import { CheckIcon, SparklesIcon, WarningIcon } from './icons/Icons';
 const FeatureDetail: React.FC<{ icon: React.ReactNode; title: string; description: string; reverse?: boolean }> = ({ icon, title, description, reverse = false }) => (
   <div className={`flex flex-col md:flex-row items-center gap-12 ${reverse ? 'md:flex-row-reverse' : ''}`}>
     <div className="md:w-1/2 text-center md:text-left">
-      <div className="inline-flex items-center justify-center h-12 w-12 rounded-lg bg-accent/10 text-accent mb-4">
+      <div className="inline-flex items-center justify-center h-12 w-12 rounded-lg bg-primary/10 text-primary mb-4">
         {icon}
       </div>
       <h3 className="text-2xl font-bold text-white">{title}</h3>
       <p className="mt-4 text-lg text-gray-400">{description}</p>
     </div>
-    <div className="md:w-1/2 p-8 bg-slate-dark/30 rounded-lg border border-slate-light/20">
+    <div className="md:w-1/2 p-8 bg-gray-800/30 rounded-lg border border-gray-700/50">
       {/* Placeholder for a visual element, like a stylized code/report snippet */}
        <div className="w-full h-48 flex items-center justify-center">
         <p className="text-gray-600 italic">Visual representation coming soon</p>
@@ -44,7 +44,7 @@ const Features: React.FC = () => {
         <div className="text-center mb-16">
           <h2 className="text-4xl font-extrabold text-white">Never Approve a Bad Post Again.</h2>
           <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-400">
-            Clarity provides the safety net you need to move fast and stay compliant.
+            BrandGuard provides the safety net you need to move fast and stay compliant.
           </p>
         </div>
         <div className="space-y-20">

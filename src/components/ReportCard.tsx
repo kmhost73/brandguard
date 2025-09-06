@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { ComplianceReport, CheckItem, ReportStatus } from '../types';
 import { generateCompliantRevision } from '../services/geminiService';
-import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, ShareIcon, FilmIcon, TagIcon, ChevronDownIcon, DocumentTextIcon } from './icons/Icons';
+import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, ShareIcon, FilmIcon, TagIcon, ChevronDownIcon } from './icons/Icons';
 import Loader from './Loader';
 
 const statusConfig = {
@@ -40,8 +40,8 @@ const CheckItemCard: React.FC<{ item: CheckItem }> = ({ item }) => {
     <div className={`p-4 rounded-lg border ${config.bgColor} ${config.borderColor} flex items-start space-x-4`}>
       <div className={`flex-shrink-0 w-6 h-6 ${config.color}`}>{config.icon}</div>
       <div>
-        <h4 className="font-semibold text-slate-dark flex items-center">{item.name}<ModalityTag modality={item.modality} /></h4>
-        <p className="text-slate-light">{item.details}</p>
+        <h4 className="font-semibold text-gray-800 flex items-center">{item.name}<ModalityTag modality={item.modality} /></h4>
+        <p className="text-gray-600">{item.details}</p>
       </div>
     </div>
   );
@@ -49,19 +49,16 @@ const CheckItemCard: React.FC<{ item: CheckItem }> = ({ item }) => {
 
 interface ReportCardProps {
     report: ComplianceReport;
-    // FIX: Made onStatusChange optional to support read-only views.
     onStatusChange?: (reportId: string, newStatus: ReportStatus) => void;
 }
 
 const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange }) => {
   const hasCustomRules = report.customRulesApplied && report.customRulesApplied.length > 0;
-  const hasCreativeBrief = report.creativeBrief && report.creativeBrief.trim().length > 0;
   const failedChecks = report.checks.filter(c => c.status === 'fail');
   const [isRevising, setIsRevising] = useState(false);
   const [revisedContent, setRevisedContent] = useState<string | null>(null);
   const [revisionError, setRevisionError] = useState<string | null>(null);
   const [shareConfirmation, setShareConfirmation] = useState<string>('');
-  const [showBrief, setShowBrief] = useState(false);
 
 
   const handleGenerateRevision = async () => { if (failedChecks.length === 0) { setRevisionError("No failing checks to revise."); return; } setIsRevising(true); setRevisedContent(null); setRevisionError(null); try { const revision = await generateCompliantRevision(report.sourceContent, report.analysisType, failedChecks); setRevisedContent(revision); } catch (err) { setRevisionError(err instanceof Error ? err.message : "An unknown error occurred."); } finally { setIsRevising(false); } };
@@ -88,10 +85,9 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange }) => {
         )}
       <div className="p-6">
         <div className="flex justify-between items-start mb-4">
-            <h2 className="text-2xl font-bold text-slate-dark">Analysis Report</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Analysis Report</h2>
             <div className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold ${statusDisplayConfig[report.status || 'pending'].className}`}>
                 <TagIcon/>
-                {/* FIX: Conditionally render status control based on onStatusChange prop. */}
                 {onStatusChange ? (
                     <>
                         <select
@@ -111,35 +107,27 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange }) => {
                 )}
             </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6"><div className="bg-gray-100 p-4 rounded-lg text-center"><h3 className="text-sm font-medium text-slate-light uppercase">Compliance Score</h3><p className={`text-5xl font-bold ${getScoreColor(report.overallScore)}`}>{report.overallScore}</p></div><div className="md:col-span-2 bg-gray-100 p-4 rounded-lg"><h3 className="text-sm font-medium text-slate-light uppercase mb-2">AI Summary</h3><p className="text-slate-dark">{report.summary}</p></div></div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6"><div className="bg-gray-100 p-4 rounded-lg text-center"><h3 className="text-sm font-medium text-gray-500 uppercase">Compliance Score</h3><p className={`text-5xl font-bold ${getScoreColor(report.overallScore)}`}>{report.overallScore}</p></div><div className="md:col-span-2 bg-gray-100 p-4 rounded-lg"><h3 className="text-sm font-medium text-gray-500 uppercase mb-2">AI Summary</h3><p className="text-gray-800">{report.summary}</p></div></div>
         
-        {hasCreativeBrief && (
-            <div className="mb-6">
-                <button onClick={() => setShowBrief(!showBrief)} className="w-full flex justify-between items-center text-left text-lg font-semibold text-slate-dark mb-3">
-                    <span className="flex items-center gap-2"><DocumentTextIcon/> Creative Brief Applied</span>
-                    <ChevronDownIcon className={`transform transition-transform ${showBrief ? 'rotate-180' : ''}`} />
-                </button>
-                {showBrief && (
-                    <div className="bg-gray-100 p-4 rounded-lg border animate-fade-in">
-                        <p className="whitespace-pre-wrap text-sm text-slate-light">{report.creativeBrief}</p>
-                    </div>
-                )}
-            </div>
-        )}
-
-        {hasCustomRules && (<div className="mb-6"><h3 className="text-lg font-semibold text-slate-dark mb-3 flex items-center gap-2"><CogIcon/> Custom Rules Applied</h3><div className="bg-gray-100 p-4 rounded-lg border"><ul className="list-disc list-inside space-y-1 text-sm text-slate-light">{report.customRulesApplied?.map(rule => (<li key={rule.id}>{rule.text}</li>))}</ul></div></div>)}
-        <h3 className="text-lg font-semibold text-slate-dark mb-4">Detailed Checks</h3>
+        {hasCustomRules && (<div className="mb-6"><h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2"><CogIcon/> Custom Rules Applied</h3><div className="bg-gray-100 p-4 rounded-lg border"><ul className="list-disc list-inside space-y-1 text-sm text-gray-600">{report.customRulesApplied?.map(rule => (<li key={rule.id}>{rule.text}</li>))}</ul></div></div>)}
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Detailed Checks</h3>
         <div className="space-y-4">{report.checks.map((item, index) => (<CheckItemCard key={index} item={item} />))}</div>
       </div>
       <div className="p-6 border-t border-gray-200 bg-gray-50">
-        <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold text-slate">Pro Features</h3><a href="#" className="text-xs font-semibold text-accent-dark hover:underline" title="A real app would link to a payment page here!">Upgrade</a></div>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <button onClick={handleGenerateRevision} disabled={isRevising || failedChecks.length === 0} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-slate hover:bg-slate-dark disabled:bg-gray-400 disabled:cursor-not-allowed transition-all shadow-sm" title={failedChecks.length === 0 ? "No failing checks to fix!" : "AI-powered content revision"}><SparklesIcon /> {isRevising ? 'Generating...' : 'Magic Fix'}</button>
-          <button onClick={handleShareReport} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 text-sm font-medium rounded-md text-slate-dark bg-white hover:bg-gray-100 transition-all shadow-sm"><ShareIcon /> {shareConfirmation ? shareConfirmation : 'Share Report'}</button>
+        <div className="flex flex-col sm:flex-row gap-4 p-4 rounded-lg bg-gradient-to-r from-primary to-secondary">
+            <div className="flex-grow">
+                <h3 className="text-lg font-bold text-white">Unlock "Magic Fix" & More</h3>
+                <p className="text-sm text-white/80">Upgrade to Pro to automatically revise content and get priority support.</p>
+            </div>
+             <button disabled className="flex-shrink-0 inline-flex items-center justify-center gap-2 px-4 py-3 border border-transparent text-sm font-medium rounded-md text-primary bg-white cursor-not-allowed opacity-70" title="This is a demo feature."><SparklesIcon /> Upgrade to Pro</button>
+        </div>
+        <div className="mt-4 flex flex-col sm:flex-row gap-4">
+            <button onClick={handleGenerateRevision} disabled={isRevising || failedChecks.length === 0} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-gray-800 hover:bg-black disabled:bg-gray-400 disabled:cursor-not-allowed transition-all shadow-sm" title={failedChecks.length === 0 ? "No failing checks to fix!" : "AI-powered content revision"}><SparklesIcon /> {isRevising ? 'Generating...' : 'Magic Fix (Demo)'}</button>
+            <button onClick={handleShareReport} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 text-sm font-medium rounded-md text-gray-800 bg-white hover:bg-gray-100 transition-all shadow-sm"><ShareIcon /> {shareConfirmation ? shareConfirmation : 'Share Report'}</button>
         </div>
         {isRevising && <div className="mt-4"><Loader/></div>}
         {revisionError && <div className="mt-4 bg-red-100 border border-danger text-red-700 px-4 py-3 rounded-lg" role="alert">{revisionError}</div>}
-        {revisedContent && (<div className="mt-6"><h4 className="font-semibold text-slate-dark">AI-Generated Compliant Revision:</h4><div className="mt-2 p-4 bg-green-50 border-l-4 border-success text-slate-dark rounded-r-lg"><p className="whitespace-pre-wrap font-mono text-sm">{revisedContent}</p></div></div>)}
+        {revisedContent && (<div className="mt-6"><h4 className="font-semibold text-gray-800">AI-Generated Compliant Revision:</h4><div className="mt-2 p-4 bg-green-50 border-l-4 border-success text-gray-800 rounded-r-lg"><p className="whitespace-pre-wrap font-mono text-sm">{revisedContent}</p></div></div>)}
       </div>
     </div>
   );

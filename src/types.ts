@@ -25,7 +25,6 @@ export interface ComplianceReport {
   sourceContent: string;
   analysisType: AnalysisType;
   customRulesApplied?: CustomRule[];
-  creativeBrief?: string;
   sourceMedia?: {
     data: string; // base64 encoded data
     mimeType: string;
