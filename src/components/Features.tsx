@@ -4,7 +4,7 @@ import { CheckIcon, SparklesIcon, WarningIcon } from './icons/Icons';
 const FeatureDetail: React.FC<{ icon: React.ReactNode; title: string; description: string; reverse?: boolean }> = ({ icon, title, description, reverse = false }) => (
   <div className={`flex flex-col md:flex-row items-center gap-12 ${reverse ? 'md:flex-row-reverse' : ''}`}>
     <div className="md:w-1/2 text-center md:text-left">
-      <div className="inline-flex items-center justify-center h-12 w-12 rounded-lg bg-primary/10 text-primary mb-4">
+      <div className="inline-flex items-center justify-center h-12 w-12 rounded-lg bg-primary/20 text-primary-light mb-4">
         {icon}
       </div>
       <h3 className="text-2xl font-bold text-white">{title}</h3>

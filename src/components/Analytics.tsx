@@ -38,7 +38,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
     <div className="space-y-6">
        <h2 className="text-2xl font-bold text-gray-800">Performance Analytics</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatCard icon={<ScaleIcon />} title="Total Scans" value={totalScans} color="bg-blue-100 text-secondary-dark" />
+        <StatCard icon={<ScaleIcon />} title="Total Scans" value={totalScans} color="bg-primary/10 text-primary-dark" />
         <StatCard icon={<CalculatorIcon />} title="Average Score" value={`${averageScore}%`} color="bg-yellow-100 text-warning" />
         <StatCard icon={<TrendingUpIcon />} title="Overall Pass Rate" value={`${passRate}%`} color="bg-green-100 text-success" />
       </div>

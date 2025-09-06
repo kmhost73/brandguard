@@ -23,13 +23,13 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView }) => {
           <nav className="hidden md:flex md:space-x-8">
             <button 
               onClick={() => navigateTo('landing')}
-              className={`font-medium transition-colors ${isLanding ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-primary-dark'}`}
+              className={`font-medium transition-colors ${isLanding ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-primary'}`}
             >
               Home
             </button>
             <button 
               onClick={() => navigateTo('dashboard')}
-              className={`font-medium transition-colors ${isLanding ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-primary-dark'}`}
+              className={`font-medium transition-colors ${isLanding ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-primary'}`}
             >
               Dashboard
             </button>

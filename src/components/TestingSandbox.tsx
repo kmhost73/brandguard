@@ -60,13 +60,13 @@ const TestCaseCard: React.FC<{ testCase: TestCase }> = ({ testCase }) => {
                 {testCase.type === 'image' && (
                      <div className="mt-2">
                         <label htmlFor={`image-upload-${testCase.id}`} className="block text-xs font-semibold text-gray-500 uppercase">Required Action</label>
-                        <input id={`image-upload-${testCase.id}`} type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="mt-1 block w-full max-w-sm text-sm text-gray-500 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" disabled={isLoading}/>
+                        <input id={`image-upload-${testCase.id}`} type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="mt-1 block w-full max-w-sm text-sm text-gray-500 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-dark hover:file:bg-primary/20" disabled={isLoading}/>
                         {selectedImageFile && <p className="text-xs text-gray-500 mt-1">Selected: {selectedImageFile.name}</p>}
                     </div>
                 )}
             </div>
 
-            <button onClick={runTest} disabled={isLoading || (testCase.type === 'image' && !selectedImageFile)} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md shadow-sm hover:bg-primary disabled:bg-gray-400 disabled:cursor-not-allowed">
+            <button onClick={runTest} disabled={isLoading || (testCase.type === 'image' && !selectedImageFile)} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md shadow-sm hover:bg-secondary-dark disabled:bg-gray-400 disabled:cursor-not-allowed">
                 <SparklesIcon /> {isLoading ? "Running..." : "Run Test"}
             </button>
 

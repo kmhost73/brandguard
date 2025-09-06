@@ -18,7 +18,7 @@ const Hero: React.FC<HeroProps> = ({ navigateToDashboard }) => {
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <button
             onClick={navigateToDashboard}
-            className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-md text-white bg-primary hover:bg-primary-dark transition-transform transform hover:scale-105 shadow-lg shadow-primary/20"
+            className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-md text-white bg-primary hover:bg-primary-dark transition-transform transform hover:scale-105 shadow-lg shadow-primary/30"
           >
             Explore the Dashboard
             <svg className="ml-2 -mr-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

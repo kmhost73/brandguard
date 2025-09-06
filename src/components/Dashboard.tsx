@@ -249,7 +249,7 @@ const Dashboard: React.FC = () => {
                         </div>
                         <div>
                             <label htmlFor="video-transcript" className="block text-sm font-medium text-gray-700 mb-1">Step 2: Generate or Provide Transcript</label>
-                            <button onClick={handleGenerateTranscript} disabled={!selectedVideoFile || isTranscribing || isLoading} className="w-full mb-2 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md border border-secondary text-secondary hover:bg-secondary/5 disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed"><SparklesIcon/>{isTranscribing ? 'Generating...' : 'Generate Transcript with AI'}</button>
+                            <button onClick={handleGenerateTranscript} disabled={!selectedVideoFile || isTranscribing || isLoading} className="w-full mb-2 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md border border-primary text-primary hover:bg-primary/5 disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed"><SparklesIcon/>{isTranscribing ? 'Generating...' : 'Generate Transcript with AI'}</button>
                             <textarea id="video-transcript" value={videoTranscript} onChange={(e) => setVideoTranscript(e.target.value)} placeholder={isTranscribing ? "AI is working..." : "Video transcript will appear here..."} className="w-full h-28 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary" disabled={isLoading || isTranscribing} />
                         </div>
                         <div className="mt-4 flex justify-end">
@@ -285,7 +285,7 @@ const Dashboard: React.FC = () => {
                                     <p className={`text-xs font-bold uppercase ${getHistoryTagColor(r.analysisType)}`}>{r.analysisType} Analysis</p>
                                     <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${statusDisplayConfig[r.status || 'pending'].color}`}>{statusDisplayConfig[r.status || 'pending'].tag}</span>
                             </div>
-                            <p className="text-sm text-gray-500 group-hover:text-primary-dark mt-1">{new Date(r.timestamp).toLocaleString()}</p>
+                            <p className="text-sm text-gray-500 group-hover:text-primary mt-1">{new Date(r.timestamp).toLocaleString()}</p>
                             <p className="text-xs text-gray-500 mt-1 truncate max-w-48">{r.summary}</p>
                             </button>
                         </div>

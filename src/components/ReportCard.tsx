@@ -114,12 +114,12 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange }) => {
         <div className="space-y-4">{report.checks.map((item, index) => (<CheckItemCard key={index} item={item} />))}</div>
       </div>
       <div className="p-6 border-t border-gray-200 bg-gray-50">
-        <div className="flex flex-col sm:flex-row gap-4 p-4 rounded-lg bg-gradient-to-r from-primary to-secondary">
+        <div className="flex flex-col sm:flex-row gap-4 p-4 rounded-lg bg-secondary-dark">
             <div className="flex-grow">
                 <h3 className="text-lg font-bold text-white">Unlock "Magic Fix" & More</h3>
                 <p className="text-sm text-white/80">Upgrade to Pro to automatically revise content and get priority support.</p>
             </div>
-             <button disabled className="flex-shrink-0 inline-flex items-center justify-center gap-2 px-4 py-3 border border-transparent text-sm font-medium rounded-md text-primary bg-white cursor-not-allowed opacity-70" title="This is a demo feature."><SparklesIcon /> Upgrade to Pro</button>
+             <button disabled className="flex-shrink-0 inline-flex items-center justify-center gap-2 px-4 py-3 border border-transparent text-sm font-medium rounded-md text-secondary-dark bg-white cursor-not-allowed opacity-70" title="This is a demo feature."><SparklesIcon /> Upgrade to Pro</button>
         </div>
         <div className="mt-4 flex flex-col sm:flex-row gap-4">
             <button onClick={handleGenerateRevision} disabled={isRevising || failedChecks.length === 0} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-gray-800 hover:bg-black disabled:bg-gray-400 disabled:cursor-not-allowed transition-all shadow-sm" title={failedChecks.length === 0 ? "No failing checks to fix!" : "AI-powered content revision"}><SparklesIcon /> {isRevising ? 'Generating...' : 'Magic Fix (Demo)'}</button>
