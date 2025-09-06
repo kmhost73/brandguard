@@ -48,9 +48,9 @@ const CheckItemCard: React.FC<{ item: CheckItem }> = ({ item }) => {
 };
 
 interface ReportCardProps {
-    report: ComplianceReport;
-    onStatusChange?: (reportId: string, newStatus: ReportStatus) => void;
-    onAcceptRevision?: (revisedContent: string) => void;
+  report: ComplianceReport;
+  onStatusChange?: (reportId: string, newStatus: ReportStatus) => void;
+  onAcceptRevision?: (revisedContent: string) => void;
 }
 
 const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAcceptRevision }) => {
