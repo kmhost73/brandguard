@@ -6,13 +6,17 @@ import ReportCard from './ReportCard';
 import Analytics from './Analytics';
 import WelcomeGuide from './WelcomeGuide';
 import TestingSandbox from './TestingSandbox';
-import { HistoryIcon, TrashIcon, PlusIcon, ChevronDownIcon, CogIcon, TestTubeIcon, FilmIcon, EllipsisHorizontalIcon, ShareIcon } from './icons/Icons';
+import { HistoryIcon, TrashIcon, PlusIcon, ChevronDownIcon, CogIcon, TestTubeIcon, FilmIcon, EllipsisHorizontalIcon } from './icons/Icons';
 
 const examplePost = `Loving my new eco-friendly sneakers! They are so comfy and stylish. Best part? They are made with 100% organic materials. You all have to check them out! #fashion #style`;
 
 type AnalysisType = 'text' | 'video' | 'image';
 type DashboardView = 'dashboard' | 'sandbox';
 type LoadingStatus = 'idle' | 'transcribing' | 'analyzing';
+
+interface DashboardProps {
+    currentUser: string | null;
+}
 
 const getReportHistory = (): ComplianceReport[] => {
     try {
@@ -36,7 +40,7 @@ const saveCustomRules = (rules: CustomRule[]) => {
     localStorage.setItem('brandGuardCustomRules', JSON.stringify(rules));
 }
 
-const Dashboard: React.FC = () => {
+const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [analysisType, setAnalysisType] = useState<AnalysisType>('text');
   const [postContent, setPostContent] = useState<string>('');
   const [videoTranscript, setVideoTranscript] = useState<string>('');
@@ -116,16 +120,17 @@ const Dashboard: React.FC = () => {
     try {
       let result;
       const contentToScan = contentOverride !== undefined ? contentOverride : postContent;
+      const userName = currentUser || 'Anonymous';
 
       if (analysisType === 'text') {
         if (!contentToScan.trim()) throw new Error("Please enter post content to analyze.");
-        result = await analyzePostContent(contentToScan, customRules);
+        result = await analyzePostContent(contentToScan, customRules, userName);
       } else if (analysisType === 'video') {
         if (!videoTranscript.trim() || !selectedVideoFile) throw new Error("Please provide a video file and its transcript.");
-        result = await analyzeVideoContent(videoTranscript, selectedVideoFile, customRules);
+        result = await analyzeVideoContent(videoTranscript, selectedVideoFile, customRules, userName);
       } else if (analysisType === 'image') {
         if (!contentToScan.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
-        result = await analyzeImageContent(contentToScan, selectedImageFile, customRules);
+        result = await analyzeImageContent(contentToScan, selectedImageFile, customRules, userName);
       }
       if(result) {
         const reportWithStatus: ComplianceReport = { ...result, status: 'pending' };
@@ -136,7 +141,7 @@ const Dashboard: React.FC = () => {
     } finally {
       setLoadingStatus('idle');
     }
-  }, [analysisType, postContent, videoTranscript, selectedVideoFile, selectedImageFile, customRules]);
+  }, [analysisType, postContent, videoTranscript, selectedVideoFile, selectedImageFile, customRules, currentUser]);
   
   const handleStatusChange = (reportId: string, newStatus: ReportStatus) => {
     const updatedHistory = reportHistory.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
@@ -331,10 +336,11 @@ const Dashboard: React.FC = () => {
                     {filteredHistory.length > 0 ? (
                         filteredHistory.slice(0, visibleHistoryCount).map(r => (
                             <div key={r.id} className={`p-3 bg-dark rounded-md hover:bg-gray-800 transition-colors group ${r.id === newReportId ? 'highlight-new' : ''}`}>
-                                <div className="flex justify-between items-center">
+                                <div className="flex justify-between items-start">
                                     <button onClick={() => viewHistoricReport(r)} className="text-left flex-grow truncate pr-2">
                                         <p className="text-sm font-medium text-white truncate">{r.analysisType.charAt(0).toUpperCase() + r.analysisType.slice(1)} Post - {new Date(r.timestamp).toLocaleString()}</p>
                                         <p className="text-xs text-gray-400 truncate">{r.summary}</p>
+                                         {r.userName && <p className="text-xs text-gray-500 truncate mt-1">Run by: {r.userName}</p>}
                                     </button>
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusDisplayConfig[r.status || 'pending'].color}`}>{statusDisplayConfig[r.status || 'pending'].tag}</span>

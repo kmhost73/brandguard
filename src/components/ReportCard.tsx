@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { ComplianceReport, CheckItem, ReportStatus } from '../types';
 import { generateCompliantRevision } from '../services/geminiService';
-import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, FilmIcon, TagIcon, ChevronDownIcon } from './icons/Icons';
+import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, FilmIcon, TagIcon, ChevronDownIcon, UserIcon } from './icons/Icons';
 import Loader from './Loader';
 
 const statusConfig = {
@@ -83,7 +83,15 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
         )}
       <div className="p-6">
         <div className="flex justify-between items-start mb-4">
-            <h2 className="text-2xl font-bold text-white">Analysis Report</h2>
+            <div>
+                <h2 className="text-2xl font-bold text-white">Analysis Report</h2>
+                {report.userName && (
+                    <p className="text-sm text-gray-400 flex items-center gap-2 mt-1">
+                        <UserIcon />
+                        Report run by: <span className="font-semibold text-gray-300">{report.userName}</span>
+                    </p>
+                )}
+            </div>
             <div className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold ${statusDisplayConfig[report.status || 'pending'].className}`}>
                 <TagIcon/>
                 {onStatusChange ? (

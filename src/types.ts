@@ -30,6 +30,7 @@ export interface ComplianceReport {
     mimeType: string;
   };
   status?: ReportStatus;
+  userName?: string;
 }
 
 // Type definition for a single test case in the QA Sandbox
