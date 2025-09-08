@@ -104,15 +104,15 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
             color="bg-red-500/10 text-danger" 
         />
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-secondary-dark p-4 rounded-lg shadow-sm border border-gray-700">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-secondary-dark p-4 rounded-lg shadow-sm border border-gray-700">
             <h3 className="text-md font-semibold text-white mb-2">Compliance Over Time (Last 7 Reports)</h3>
             <ComplianceLineChart data={chartData} />
         </div>
         <div className="bg-secondary-dark p-4 rounded-lg shadow-sm border border-gray-700">
             <h3 className="text-md font-semibold text-white mb-4">Failure Analysis</h3>
              {failureAnalysis.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2">
                     {failureAnalysis.map(({ name, percentage, count }) => (
                          <div key={name}>
                             <div className="flex justify-between mb-1">

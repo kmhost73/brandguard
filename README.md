@@ -1,5 +1,5 @@
 
-# BrandGuard (v1.0)
+# BrandGuard (v1.0) - VERIFICATION TEST
 
 **The AI-powered pre-publication review platform for modern marketing teams.**
 
