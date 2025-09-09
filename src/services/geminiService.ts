@@ -73,6 +73,13 @@ const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reje
     reader.onerror = (error) => reject(error);
 });
 
+// Helper to get user name for demo purposes.
+// In a real app, this would be handled server-side with the authenticated user ID.
+const getUserName = (): string => {
+    return localStorage.getItem('brandGuardUser') || 'Anonymous';
+}
+
+
 export const transcribeVideo = async (videoFile: File): Promise<string> => {
     const videoData64 = await fileToBase64(videoFile);
     const prompt = "Provide a full and accurate transcript of the audio in the provided video file. Return only the transcribed text, with no additional commentary or formatting.";
@@ -90,7 +97,8 @@ export const transcribeVideo = async (videoFile: File): Promise<string> => {
     return response.text.trim();
 };
 
-export const analyzePostContent = async (postContent: string, customRules?: CustomRule[], userName?: string): Promise<ComplianceReport> => {
+export const analyzePostContent = async (postContent: string, customRules?: CustomRule[]): Promise<ComplianceReport> => {
+    const userName = getUserName();
     const fullPrompt = `Act as an expert social media compliance officer for a major brand. Your task is to analyze the following sponsored post caption for compliance with FTC guidelines, brand safety, and specific campaign requirements.\n\n**Post Caption to Analyze:**\n"${postContent}"\n\n**Standard Compliance Rules:**\n1.  **FTC Disclosure:** The post MUST contain a clear and conspicuous disclosure, such as #ad, #sponsored, or "Paid partnership".\n2.  **Brand Safety:** The post must NOT contain any profanity, offensive language, or controversial topics.\n3.  **Claim Accuracy:** The post must accurately represent the product and mention "made with 100% organic materials".\n${generateCustomRulesPrompt(customRules)}\nPlease provide a strict analysis and return the results in the required JSON format.`;
     
     const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: fullPrompt, config: { responseMimeType: "application/json", responseSchema: complianceSchema }});
@@ -115,7 +123,8 @@ export const analyzePostContent = async (postContent: string, customRules?: Cust
     return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: postContent, analysisType: 'text', customRulesApplied: customRules, userName };
 };
 
-export const analyzeImageContent = async (caption: string, imageFile: File, customRules?: CustomRule[], userName?: string): Promise<ComplianceReport> => {
+export const analyzeImageContent = async (caption: string, imageFile: File, customRules?: CustomRule[]): Promise<ComplianceReport> => {
+    const userName = getUserName();
     const imageData64 = await fileToBase64(imageFile);
     const prompt = `Act as an expert social media compliance officer. Analyze the provided image and its caption for compliance. You must check BOTH the visual content and the text content.\n\n**Image Caption for Text Analysis:**\n"${caption}"\n\n**Standard Compliance Rules:**\n1.  **FTC Disclosure (Text):** The caption must contain a clear disclosure (e.g., #ad, #sponsored).\n2.  **Brand Safety (Visual & Text):** No profanity in text, no inappropriate imagery.\n3.  **Brand Representation (Visual):** The product must be clearly visible and not depicted negatively.\n${generateCustomRulesPrompt(customRules)}\nProvide a strict analysis covering both modalities ('visual' for image, 'text' for caption) and return the results in the required JSON format.`;
 
@@ -146,7 +155,8 @@ export const analyzeImageContent = async (caption: string, imageFile: File, cust
 };
 
 
-export const analyzeVideoContent = async (videoTranscript: string, videoFile: File, customRules?: CustomRule[], userName?: string): Promise<ComplianceReport> => {
+export const analyzeVideoContent = async (videoTranscript: string, videoFile: File, customRules?: CustomRule[]): Promise<ComplianceReport> => {
+    const userName = getUserName();
     const videoData64 = await fileToBase64(videoFile);
     const actualFullPrompt = `Act as an expert social media compliance officer. Analyze the provided video and its transcript for compliance with FTC guidelines, brand safety, and custom campaign requirements. You must perform checks on BOTH the visual content of the video and the audio content from the transcript.\n\n**Video Transcript for Audio Analysis:**\n"${videoTranscript}"\n\n**Standard Compliance Rules (Check both Audio & Visuals):**\n1.  **FTC Disclosure:** Audio must contain a spoken disclosure, and visuals should have a text overlay.\n2.  **Brand Safety:** No profanity in audio, no inappropriate imagery in visuals.\n3.  **Brand Representation:** Speaker must mention "made with 100% organic materials", product must be clearly visible.\n${generateCustomRulesPrompt(customRules)}\nProvide a strict analysis covering both modalities and return the results in the required JSON format. For each check, specify the modality as 'audio' or 'visual'.`;
 

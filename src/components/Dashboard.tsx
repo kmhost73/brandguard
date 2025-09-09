@@ -14,10 +14,6 @@ type AnalysisType = 'text' | 'video' | 'image';
 type DashboardView = 'dashboard' | 'sandbox';
 type LoadingStatus = 'idle' | 'transcribing' | 'analyzing';
 
-interface DashboardProps {
-    currentUser: string | null;
-}
-
 const getReportHistory = (): ComplianceReport[] => {
     try {
         const historyJson = localStorage.getItem('brandGuardReportHistory');
@@ -40,7 +36,7 @@ const saveCustomRules = (rules: CustomRule[]) => {
     localStorage.setItem('brandGuardCustomRules', JSON.stringify(rules));
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
+const Dashboard: React.FC = () => {
   const [analysisType, setAnalysisType] = useState<AnalysisType>('text');
   const [postContent, setPostContent] = useState<string>('');
   const [videoTranscript, setVideoTranscript] = useState<string>('');
@@ -120,17 +116,16 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     try {
       let result;
       const contentToScan = contentOverride !== undefined ? contentOverride : postContent;
-      const userName = currentUser || 'Anonymous';
 
       if (analysisType === 'text') {
         if (!contentToScan.trim()) throw new Error("Please enter post content to analyze.");
-        result = await analyzePostContent(contentToScan, customRules, userName);
+        result = await analyzePostContent(contentToScan, customRules);
       } else if (analysisType === 'video') {
         if (!videoTranscript.trim() || !selectedVideoFile) throw new Error("Please provide a video file and its transcript.");
-        result = await analyzeVideoContent(videoTranscript, selectedVideoFile, customRules, userName);
+        result = await analyzeVideoContent(videoTranscript, selectedVideoFile, customRules);
       } else if (analysisType === 'image') {
         if (!contentToScan.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
-        result = await analyzeImageContent(contentToScan, selectedImageFile, customRules, userName);
+        result = await analyzeImageContent(contentToScan, selectedImageFile, customRules);
       }
       if(result) {
         const reportWithStatus: ComplianceReport = { ...result, status: 'pending' };
@@ -141,7 +136,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     } finally {
       setLoadingStatus('idle');
     }
-  }, [analysisType, postContent, videoTranscript, selectedVideoFile, selectedImageFile, customRules, currentUser]);
+  }, [analysisType, postContent, videoTranscript, selectedVideoFile, selectedImageFile, customRules]);
   
   const handleStatusChange = (reportId: string, newStatus: ReportStatus) => {
     const updatedHistory = reportHistory.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
