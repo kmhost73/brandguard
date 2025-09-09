@@ -82,9 +82,11 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
     return acc;
   }, {} as Record<string, number>);
 
-  const mostCommonIssue = Object.entries(failureCounts).sort(([, a], [, b]) => b - a)[0];
+  // FIX: Explicitly cast values to Number to resolve TypeScript errors with arithmetic operations.
+  const mostCommonIssue = Object.entries(failureCounts).sort(([, a], [, b]) => Number(b) - Number(a))[0];
   const failureAnalysis = Object.entries(failureCounts)
-        .map(([name, count]) => ({ name, count, percentage: allFailedChecks.length > 0 ? Math.round((count / allFailedChecks.length) * 100) : 0 }))
+        // FIX: Explicitly cast `count` to Number to resolve TypeScript errors with arithmetic operations.
+        .map(([name, count]) => ({ name, count, percentage: allFailedChecks.length > 0 ? Math.round((Number(count) / allFailedChecks.length) * 100) : 0 }))
         .sort((a, b) => b.count - a.count);
 
 
