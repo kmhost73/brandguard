@@ -24,7 +24,7 @@ const Features: React.FC = () => {
       description: 'Automatically scan for FTC disclosures like #ad or #sponsored, mandatory product claims, and custom campaign rules to mitigate legal risks before publication.',
       visual: (
         <div className="w-full p-4 font-mono text-sm text-left bg-dark rounded-md">
-          <p className="text-gray-400">&gt; Analyzing post...</p>
+          <p className="text-gray-400">> Analyzing post...</p>
           <div className="flex items-center gap-2 mt-2">
             <CheckIcon className="w-5 h-5 text-success" />
             <span className="text-gray-300">Brand Safety: Pass</span>

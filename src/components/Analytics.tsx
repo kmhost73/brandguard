@@ -82,7 +82,6 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
     return acc;
   }, {});
 
-  // FIX: Ensured `failureCounts` is correctly typed to prevent arithmetic errors.
   const mostCommonIssue = Object.entries(failureCounts).sort(([, a], [, b]) => b - a)[0];
   const failureAnalysis = Object.entries(failureCounts)
         .map(([name, count]) => ({ name, count, percentage: allFailedChecks.length > 0 ? Math.round((count / allFailedChecks.length) * 100) : 0 }))
