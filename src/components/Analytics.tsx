@@ -76,17 +76,16 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
   const passRate = Math.round((reportHistory.filter(r => r.overallScore >= 90).length / totalScans) * 100);
   
   const allFailedChecks = reportHistory.flatMap(r => r.checks.filter(c => c.status === 'fail'));
-  const failureCounts = allFailedChecks.reduce((acc, check) => {
+  const failureCounts = allFailedChecks.reduce((acc: Record<string, number>, check) => {
     const checkName = check.name.split(':')[0].trim(); // Group custom rules together
     acc[checkName] = (acc[checkName] || 0) + 1;
     return acc;
-  }, {} as Record<string, number>);
+  }, {});
 
-  // FIX: Explicitly cast values to Number to resolve TypeScript errors with arithmetic operations.
-  const mostCommonIssue = Object.entries(failureCounts).sort(([, a], [, b]) => Number(b) - Number(a))[0];
+  // FIX: Ensured `failureCounts` is correctly typed to prevent arithmetic errors.
+  const mostCommonIssue = Object.entries(failureCounts).sort(([, a], [, b]) => b - a)[0];
   const failureAnalysis = Object.entries(failureCounts)
-        // FIX: Explicitly cast `count` to Number to resolve TypeScript errors with arithmetic operations.
-        .map(([name, count]) => ({ name, count, percentage: allFailedChecks.length > 0 ? Math.round((Number(count) / allFailedChecks.length) * 100) : 0 }))
+        .map(([name, count]) => ({ name, count, percentage: allFailedChecks.length > 0 ? Math.round((count / allFailedChecks.length) * 100) : 0 }))
         .sort((a, b) => b.count - a.count);
 
 
