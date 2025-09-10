@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
 import type { ComplianceReport, CustomRule, ReportStatus } from '../types';
@@ -57,6 +58,7 @@ const Dashboard: React.FC = () => {
   const [shareConfirmation, setShareConfirmation] = useState('');
   const [visibleHistoryCount, setVisibleHistoryCount] = useState(10);
   const reportCardRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
 
   useEffect(() => {
@@ -74,24 +76,28 @@ const Dashboard: React.FC = () => {
     }
   }, [report, newReportId]);
   
-  const handleVideoUpload = useCallback((file: File | null) => {
+  const handleVideoUpload = useCallback(async (file: File | null) => {
     if (file) {
-      setSelectedVideoFile(file);
-      setLoadingStatus('transcribing');
-      setError(null);
-      setVideoTranscript('');
-      transcribeVideo(file)
-        .then(transcript => {
-          setVideoTranscript(transcript);
-        })
-        .catch(err => {
-          setError(err instanceof Error ? err.message : "An unknown error occurred during transcription.");
-        })
-        .finally(() => {
-          setLoadingStatus('idle');
-        });
+        setSelectedVideoFile(file);
+        setLoadingStatus('transcribing');
+        setError(null);
+        setReport(null);
+        setVideoTranscript('');
+        try {
+            const transcript = await transcribeVideo(file);
+            setVideoTranscript(transcript);
+
+            setLoadingStatus('analyzing');
+            const result = await analyzeVideoContent(transcript, file, customRules);
+            const reportWithStatus: ComplianceReport = { ...result, status: 'pending' };
+            handleAnalysisCompletion(reportWithStatus);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "An unknown error occurred during video processing.");
+        } finally {
+            setLoadingStatus('idle');
+        }
     }
-  }, []);
+  }, [customRules]);
 
 
   const showWelcomeGuide = currentView === 'dashboard' && !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && loadingStatus === 'idle';
@@ -122,8 +128,10 @@ const Dashboard: React.FC = () => {
         if (!contentToScan.trim()) throw new Error("Please enter post content to analyze.");
         result = await analyzePostContent(contentToScan, customRules);
       } else if (analysisType === 'video') {
-        if (!videoTranscript.trim() || !selectedVideoFile) throw new Error("Please provide a video file and its transcript.");
-        result = await analyzeVideoContent(videoTranscript, selectedVideoFile, customRules);
+         if (fileInputRef.current) {
+            fileInputRef.current.click(); // Open file dialog
+         }
+         return; // The rest of the logic is in handleVideoUpload
       } else if (analysisType === 'image') {
         if (!contentToScan.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
         result = await analyzeImageContent(contentToScan, selectedImageFile, customRules);
@@ -132,12 +140,14 @@ const Dashboard: React.FC = () => {
         const reportWithStatus: ComplianceReport = { ...result, status: 'pending' };
         handleAnalysisCompletion(reportWithStatus);
       }
-    } catch (err) {
+    } catch (err) => {
       setError(err instanceof Error ? err.message : "An unknown error occurred.");
     } finally {
-      setLoadingStatus('idle');
+       if (analysisType !== 'video') {
+        setLoadingStatus('idle');
+      }
     }
-  }, [analysisType, postContent, videoTranscript, selectedVideoFile, selectedImageFile, customRules]);
+  }, [analysisType, postContent, selectedImageFile, customRules]);
   
   const handleStatusChange = (reportId: string, newStatus: ReportStatus) => {
     const updatedHistory = reportHistory.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
@@ -155,12 +165,51 @@ const Dashboard: React.FC = () => {
       handleScan(revisedContent);
   };
 
-  const resetState = (clearInputs = true) => { setReport(null); setError(null); if(clearInputs){ setPostContent(''); setVideoTranscript(''); setSelectedVideoFile(null); setSelectedImageFile(null); } };
-  const switchTab = (type: AnalysisType) => { setAnalysisType(type); resetState(); };
-  const viewHistoricReport = (historicReport: ComplianceReport) => { setActiveActionMenu(null); setCurrentView('dashboard'); resetState(false); setReport(historicReport); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const deleteReport = (reportId: string) => { setActiveActionMenu(null); const newHistory = reportHistory.filter(r => r.id !== reportId); localStorage.setItem('brandGuardReportHistory', JSON.stringify(newHistory)); setReportHistory(newHistory); if (report?.id === reportId) { setReport(null); } };
-  const addRule = () => { if(newRuleText.trim()) { const newRule = { id: crypto.randomUUID(), text: newRuleText.trim() }; const updatedRules = [...customRules, newRule]; setCustomRules(updatedRules); saveCustomRules(updatedRules); setNewRuleText(''); } };
-  const deleteRule = (ruleId: string) => { const updatedRules = customRules.filter(r => r.id !== ruleId); setCustomRules(updatedRules); saveCustomRules(updatedRules); };
+  // FIX: Converted one-liner arrow functions with block bodies to multi-line functions to prevent parsing errors.
+  const resetState = (clearInputs = true) => {
+    setReport(null);
+    setError(null);
+    if (clearInputs) {
+      setPostContent('');
+      setVideoTranscript('');
+      setSelectedVideoFile(null);
+      setSelectedImageFile(null);
+    }
+  };
+  const switchTab = (type: AnalysisType) => {
+    setAnalysisType(type);
+    resetState();
+  };
+  const viewHistoricReport = (historicReport: ComplianceReport) => {
+    setActiveActionMenu(null);
+    setCurrentView('dashboard');
+    resetState(false);
+    setReport(historicReport);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const deleteReport = (reportId: string) => {
+    setActiveActionMenu(null);
+    const newHistory = reportHistory.filter(r => r.id !== reportId);
+    localStorage.setItem('brandGuardReportHistory', JSON.stringify(newHistory));
+    setReportHistory(newHistory);
+    if (report?.id === reportId) {
+      setReport(null);
+    }
+  };
+  const addRule = () => {
+    if (newRuleText.trim()) {
+      const newRule = { id: crypto.randomUUID(), text: newRuleText.trim() };
+      const updatedRules = [...customRules, newRule];
+      setCustomRules(updatedRules);
+      saveCustomRules(updatedRules);
+      setNewRuleText('');
+    }
+  };
+  const deleteRule = (ruleId: string) => {
+    const updatedRules = customRules.filter(r => r.id !== ruleId);
+    setCustomRules(updatedRules);
+    saveCustomRules(updatedRules);
+  };
   const handleShareReport = (reportToShare: ComplianceReport) => {
     setActiveActionMenu(null);
     try {
@@ -179,7 +228,7 @@ const Dashboard: React.FC = () => {
   const getButtonText = () => {
     if (loadingStatus === 'analyzing') return 'Analyzing...';
     if (loadingStatus === 'transcribing') return 'Transcribing...';
-    if (analysisType === 'video') return 'Scan Video';
+    if (analysisType === 'video') return 'Select & Analyze Video';
     if (analysisType === 'image') return 'Scan Image & Caption';
     return 'Scan Post';
   }
@@ -188,7 +237,7 @@ const Dashboard: React.FC = () => {
       if (isLoading) return true;
       if (analysisType === 'text' && !postContent.trim()) return true;
       if (analysisType === 'image' && (!postContent.trim() || !selectedImageFile)) return true;
-      if (analysisType === 'video' && (!videoTranscript.trim() || !selectedVideoFile)) return true;
+      // For video, the button just opens the file dialog, it's never disabled unless loading
       return false;
   }
 
@@ -261,16 +310,19 @@ const Dashboard: React.FC = () => {
                            )}
                            {analysisType === 'video' && (
                                <div className="space-y-4">
-                                  <div>
-                                     <label htmlFor="video-upload" className="block text-sm font-medium text-gray-400 mb-2">Upload Video</label>
-                                     <input id="video-upload" type="file" accept="video/mp4, video/quicktime, video/webm" onChange={(e) => handleVideoUpload(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20 cursor-pointer" disabled={isLoading}/>
-                                     {selectedVideoFile && <p className="text-xs text-gray-500 mt-2">Selected: {selectedVideoFile.name}</p>}
+                                  <div className="text-center p-4 border-2 border-dashed border-gray-600 rounded-lg">
+                                    <FilmIcon />
+                                    <p className="mt-2 text-sm text-gray-400">The "Select & Analyze Video" button below will open a file dialog.</p>
+                                    <p className="text-xs text-gray-500">The video will be automatically transcribed and analyzed in one step.</p>
+                                    {selectedVideoFile && <p className="text-xs text-gray-400 mt-2 font-semibold">Selected: {selectedVideoFile.name}</p>}
                                   </div>
+                                   <input ref={fileInputRef} id="video-upload" type="file" accept="video/mp4, video/quicktime, video/webm" onChange={(e) => handleVideoUpload(e.target.files ? e.target.files[0] : null)} className="hidden" disabled={isLoading}/>
+
                                   <div className="bg-dark p-3 rounded-md border border-gray-600 min-h-[100px]">
                                       <p className="text-sm font-medium text-gray-400">Generated Transcript:</p>
                                       {loadingStatus === 'transcribing' 
                                           ? <div className="text-center py-4 text-sm text-gray-400">Transcribing video, please wait...</div> 
-                                          : <p className="text-gray-300 whitespace-pre-wrap text-sm mt-2">{videoTranscript || "Transcript will appear here after video is selected."}</p>}
+                                          : <p className="text-gray-300 whitespace-pre-wrap text-sm mt-2">{videoTranscript || "Transcript will appear here after video processing."}</p>}
                                   </div>
                                </div>
                            )}
