@@ -140,7 +140,7 @@ const Dashboard: React.FC = () => {
         const reportWithStatus: ComplianceReport = { ...result, status: 'pending' };
         handleAnalysisCompletion(reportWithStatus);
       }
-    } catch (err) => {
+    } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred.");
     } finally {
        if (analysisType !== 'video') {
