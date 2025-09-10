@@ -1,14 +1,14 @@
 
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
+import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo, generateCompliantRevision } from '../services/geminiService';
 import type { ComplianceReport, CustomRule, ReportStatus } from '../types';
 import Loader from './Loader';
 import ReportCard from './ReportCard';
 import Analytics from './Analytics';
 import WelcomeGuide from './WelcomeGuide';
 import TestingSandbox from './TestingSandbox';
-import { HistoryIcon, TrashIcon, PlusIcon, ChevronDownIcon, CogIcon, TestTubeIcon, FilmIcon, EllipsisHorizontalIcon } from './icons/Icons';
+import { HistoryIcon, TrashIcon, PlusIcon, ChevronDownIcon, CogIcon, TestTubeIcon, FilmIcon, EllipsisHorizontalIcon, SparklesIcon } from './icons/Icons';
 
 const examplePost = `Loving my new eco-friendly sneakers! They are so comfy and stylish. Best part? They are made with 100% organic materials. You all have to check them out! #fashion #style`;
 
@@ -162,6 +162,28 @@ const Dashboard: React.FC = () => {
       setPostContent(revisedContent);
       setReport(null);
       handleScan(revisedContent);
+  };
+
+  const handleMagicFixFromLog = async (reportToFix: ComplianceReport) => {
+    setActiveActionMenu(null);
+    viewHistoricReport(reportToFix); // Show the report card
+    
+    const failedChecks = reportToFix.checks.filter(c => c.status === 'fail');
+    if (failedChecks.length === 0) {
+        setError("This report has no failing checks to fix.");
+        return;
+    }
+
+    try {
+        // This logic is a simplified version of what's in ReportCard.tsx
+        // A more robust solution might involve a shared state management (e.g., context)
+        // to trigger this from the ReportCard component itself.
+        const revision = await generateCompliantRevision(reportToFix.sourceContent, reportToFix.analysisType, failedChecks);
+        const updatedReport = { ...reportToFix, revisedContent: revision };
+        setReport(updatedReport); // Update the currently viewed report with the revision
+    } catch (err) {
+        setError(err instanceof Error ? err.message : "An unknown revision error occurred.");
+    }
   };
 
   // FIX: Converted one-liner arrow functions with block bodies to multi-line functions to prevent parsing errors.
@@ -398,6 +420,7 @@ const Dashboard: React.FC = () => {
                                             {activeActionMenu === r.id && (
                                                 <div className="absolute right-0 mt-2 w-48 bg-dark border border-gray-700 rounded-md shadow-lg z-10 animate-fade-in">
                                                     <button onClick={() => viewHistoricReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">View Report</button>
+                                                    {r.status === 'revision' && <button onClick={() => handleMagicFixFromLog(r)} className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-primary-light hover:bg-gray-700"><SparklesIcon/> Magic Fix</button>}
                                                     <button onClick={() => handleShareReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">{shareConfirmation && activeActionMenu === r.id ? shareConfirmation : 'Share Certificate'}</button>
                                                     <button onClick={() => deleteReport(r.id)} className="block w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger/20">Delete Report</button>
                                                 </div>
