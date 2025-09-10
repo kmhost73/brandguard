@@ -31,6 +31,7 @@ export interface ComplianceReport {
   };
   status?: ReportStatus;
   userName?: string;
+  recommendedStatus?: ReportStatus;
 }
 
 // Type definition for a single test case in the QA Sandbox

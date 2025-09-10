@@ -76,6 +76,16 @@ const Dashboard: React.FC = () => {
     }
   }, [report, newReportId]);
   
+  const handleAnalysisCompletion = (newReport: ComplianceReport) => {
+    const reportWithInitialStatus = { ...newReport, status: newReport.recommendedStatus || 'pending' };
+    setReport(reportWithInitialStatus);
+    setNewReportId(reportWithInitialStatus.id);
+    const history = getReportHistory();
+    const newHistory = [reportWithInitialStatus, ...history];
+    localStorage.setItem('brandGuardReportHistory', JSON.stringify(newHistory));
+    setReportHistory(newHistory);
+  };
+
   const handleVideoUpload = useCallback(async (file: File | null) => {
     if (file) {
         setSelectedVideoFile(file);
@@ -89,8 +99,7 @@ const Dashboard: React.FC = () => {
 
             setLoadingStatus('analyzing');
             const result = await analyzeVideoContent(transcript, file, customRules);
-            const reportWithStatus: ComplianceReport = { ...result, status: 'pending' };
-            handleAnalysisCompletion(reportWithStatus);
+            handleAnalysisCompletion(result);
         } catch (err) {
             setError(err instanceof Error ? err.message : "An unknown error occurred during video processing.");
         } finally {
@@ -106,15 +115,6 @@ const Dashboard: React.FC = () => {
     setAnalysisType('text');
     setPostContent(examplePost);
   };
-
-  const handleAnalysisCompletion = (newReport: ComplianceReport) => {
-    setReport(newReport);
-    setNewReportId(newReport.id);
-    const history = getReportHistory();
-    const newHistory = [newReport, ...history];
-    localStorage.setItem('brandGuardReportHistory', JSON.stringify(newHistory));
-    setReportHistory(newHistory);
-  }
 
   const handleScan = useCallback(async (contentOverride?: string) => {
     setLoadingStatus('analyzing');
@@ -137,8 +137,7 @@ const Dashboard: React.FC = () => {
         result = await analyzeImageContent(contentToScan, selectedImageFile, customRules);
       }
       if(result) {
-        const reportWithStatus: ComplianceReport = { ...result, status: 'pending' };
-        handleAnalysisCompletion(reportWithStatus);
+        handleAnalysisCompletion(result);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred.");
