@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
 import type { ComplianceReport, CustomRule, ReportStatus } from '../types';
@@ -166,7 +167,7 @@ const Dashboard: React.FC = () => {
         const data = btoa(JSON.stringify(reportToShare));
         const url = `${window.location.origin}${window.location.pathname}?report=${data}`;
         navigator.clipboard.writeText(url);
-        setShareConfirmation('Link Copied!');
+        setShareConfirmation('Certificate Link Copied!');
         setTimeout(() => setShareConfirmation(''), 2000);
     } catch (error) {
         setShareConfirmation('Error!');
@@ -309,7 +310,7 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div className="bg-secondary-dark p-6 rounded-lg border border-gray-700 shadow-lg">
-                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><HistoryIcon /> Analysis History</h2>
+                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><HistoryIcon /> Greenlight Log</h2>
                 <div className="flex justify-between items-center mb-4">
                     <span className="text-sm text-gray-400">Filter by status:</span>
                     <div className="flex space-x-1 p-1 bg-dark rounded-md">
@@ -346,7 +347,7 @@ const Dashboard: React.FC = () => {
                                             {activeActionMenu === r.id && (
                                                 <div className="absolute right-0 mt-2 w-48 bg-dark border border-gray-700 rounded-md shadow-lg z-10 animate-fade-in">
                                                     <button onClick={() => viewHistoricReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">View Report</button>
-                                                    <button onClick={() => handleShareReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">{shareConfirmation && activeActionMenu === r.id ? shareConfirmation : 'Share Report'}</button>
+                                                    <button onClick={() => handleShareReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">{shareConfirmation && activeActionMenu === r.id ? shareConfirmation : 'Share Certificate'}</button>
                                                     <button onClick={() => deleteReport(r.id)} className="block w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger/20">Delete Report</button>
                                                 </div>
                                             )}

@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { CheckIcon, SparklesIcon, WarningIcon, XIcon } from './icons/Icons';
+import { CheckIcon, SparklesIcon, ShieldCheckIcon, XIcon } from './icons/Icons';
 
 const FeatureDetail: React.FC<{ icon: React.ReactNode; title: string; description: string; visual: React.ReactNode; reverse?: boolean }> = ({ icon, title, description, visual, reverse = false }) => (
   <div className={`flex flex-col md:flex-row items-center gap-12 ${reverse ? 'md:flex-row-reverse' : ''}`}>
@@ -20,44 +21,27 @@ const Features: React.FC = () => {
   const features = [
     {
       icon: <CheckIcon className="w-7 h-7"/>,
-      title: 'Catch Compliance Errors Instantly',
-      description: 'Automatically scan for FTC disclosures like #ad or #sponsored, mandatory product claims, and custom campaign rules to mitigate legal risks before publication.',
+      title: 'Instant Greenlight Analysis',
+      description: 'Stop waiting on legal. Our AI scans content for FTC disclosures, brand safety, and custom rules, giving you a definitive GO/STOP answer in seconds. Kill the delays.',
       visual: (
         <div className="w-full p-4 font-mono text-sm text-left bg-dark rounded-md">
-          <p className="text-gray-400">&gt; Analyzing post...</p>
+          <p className="text-gray-400">&gt; Requesting Greenlight...</p>
           <div className="flex items-center gap-2 mt-2">
             <CheckIcon className="w-5 h-5 text-success" />
-            <span className="text-gray-300">Brand Safety: Pass</span>
+            <span className="text-gray-300">Result: GO</span>
           </div>
           <div className="flex items-center gap-2 mt-2">
             <XIcon className="w-5 h-5 text-danger" />
-            <span className="text-gray-300">FTC Disclosure: Fail</span>
+            <span className="text-gray-300">Result: STOP</span>
           </div>
-           <p className="text-danger ml-7 text-xs">Missing required disclosure #ad</p>
-        </div>
-      )
-    },
-    {
-      icon: <WarningIcon/>,
-      title: 'Protect Your Brand\'s Reputation',
-      description: 'Our AI analyzes content for profanity, sensitive topics, and competitor mentions, ensuring every collaboration aligns perfectly with your brand values.',
-      visual: (
-        <div className="w-full p-4 flex flex-col items-center justify-center text-center">
-            <p className="text-lg font-semibold text-gray-300">Brand Safety Scan</p>
-            <div className="flex flex-wrap gap-2 justify-center mt-3">
-                <span className="px-2 py-1 text-sm bg-green-500/20 text-green-300 rounded">Positive</span>
-                <span className="px-2 py-1 text-sm bg-green-500/20 text-green-300 rounded">On-Brand</span>
-                <span className="px-2 py-1 text-sm bg-red-500/20 text-red-400 rounded line-through">Profanity</span>
-                <span className="px-2 py-1 text-sm bg-green-500/20 text-green-300 rounded">Safe</span>
-                <span className="px-2 py-1 text-sm bg-red-500/20 text-red-400 rounded line-through">Controversial</span>
-            </div>
+           <p className="text-success ml-7 text-xs">Reason: All clear. Ship it.</p>
         </div>
       )
     },
     {
       icon: <SparklesIcon/>,
-      title: 'Fix Issues in One Click',
-      description: 'Don\'t just find problems—solve them. Instantly generate compliant revisions of problematic captions with "Magic Fix" and eliminate hours of back-and-forth.',
+      title: 'One-Click "Magic Fix"',
+      description: 'Don\'t just find problems—solve them. Instantly generate compliant revisions of problematic captions and eliminate the soul-crushing back-and-forth that kills creativity and momentum.',
        visual: (
         <div className="w-full p-2 font-mono text-xs text-left">
           <div className="p-2 bg-red-900/40 rounded border border-danger/50">
@@ -70,6 +54,19 @@ const Features: React.FC = () => {
           </div>
         </div>
       )
+    },
+    {
+      icon: <ShieldCheckIcon />,
+      title: 'Issue Certificates of Confidence',
+      description: 'Replace ambiguous email chains and verbal approvals. Generate and share authoritative, professional certificates of compliance to provide undeniable proof that due diligence is complete.',
+      visual: (
+        <div className="w-full p-4 flex flex-col items-center justify-center text-center bg-dark rounded-lg border border-primary/50">
+            <ShieldCheckIcon />
+            <p className="text-lg font-semibold text-white mt-2">Certificate of Compliance</p>
+            <p className="text-sm text-gray-400">Status: <span className="text-success font-bold">GREENLIT</span></p>
+            <p className="text-xs text-gray-500 mt-2">Certified by BrandGuard AI</p>
+        </div>
+      )
     }
   ];
 
@@ -77,9 +74,9 @@ const Features: React.FC = () => {
     <div className="py-24 bg-dark">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-extrabold text-white">Never Approve a Bad Post Again.</h2>
+          <h2 className="text-4xl font-extrabold text-white">Your Velocity is Your Weapon.</h2>
           <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-400">
-            BrandGuard provides the safety net you need to move fast and stay compliant.
+            BrandGuard is the safety net that lets you move at the speed of the market.
           </p>
         </div>
         <div className="space-y-20">

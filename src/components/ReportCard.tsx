@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { ComplianceReport, CheckItem, ReportStatus } from '../types';
 import { generateCompliantRevision } from '../services/geminiService';
@@ -84,7 +85,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
       <div className="p-6">
         <div className="flex justify-between items-start mb-4">
             <div>
-                <h2 className="text-2xl font-bold text-white">Analysis Report</h2>
+                <h2 className="text-2xl font-bold text-white">Greenlight Report</h2>
                 {report.userName && (
                     <p className="text-sm text-gray-400 flex items-center gap-2 mt-1">
                         <UserIcon />
