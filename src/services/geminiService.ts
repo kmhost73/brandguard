@@ -3,12 +3,18 @@ import type { ComplianceReport, CustomRule, CheckItem } from '../types';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
-if (!API_KEY) {
-  throw new Error("VITE_GEMINI_API_KEY is not set in the environment.");
-}
+const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
-
+const createErrorResponse = (summary: string, details: string): ComplianceReport => ({
+    id: crypto.randomUUID(),
+    timestamp: new Date().toISOString(),
+    overallScore: 0,
+    summary,
+    checks: [{ name: "Configuration Error", status: "fail", details }],
+    sourceContent: "",
+    analysisType: 'text',
+    userName: getUserName(),
+});
 
 const complianceSchema = {
   type: Type.OBJECT,
@@ -83,6 +89,8 @@ const getUserName = (): string => {
 
 
 export const transcribeVideo = async (videoFile: File): Promise<string> => {
+    if (!ai) return Promise.reject(new Error("VITE_GEMINI_API_KEY is not configured."));
+
     const videoData64 = await fileToBase64(videoFile);
     const prompt = "Provide a full and accurate transcript of the audio in the provided video file. Return only the transcribed text, with no additional commentary or formatting.";
     
@@ -100,6 +108,8 @@ export const transcribeVideo = async (videoFile: File): Promise<string> => {
 };
 
 export const analyzePostContent = async (postContent: string, customRules?: CustomRule[]): Promise<ComplianceReport> => {
+    if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
+
     const userName = getUserName();
     const fullPrompt = `Act as an expert social media compliance officer for a major brand. Your task is to analyze the following sponsored post caption for compliance with FTC guidelines, brand safety, and specific campaign requirements.\n\n**Post Caption to Analyze:**\n"${postContent}"\n\n**Standard Compliance Rules:**\n1.  **FTC Disclosure:** The post MUST contain a clear and conspicuous disclosure, such as #ad, #sponsored, or "Paid partnership".\n2.  **Brand Safety:** The post must NOT contain any profanity, offensive language, or controversial topics.\n3.  **Claim Accuracy:** The post must accurately represent the product and mention "made with 100% organic materials".\n${generateCustomRulesPrompt(customRules)}\nPlease provide a strict analysis and return the results in the required JSON format.`;
     
@@ -123,6 +133,8 @@ export const analyzePostContent = async (postContent: string, customRules?: Cust
 };
 
 export const analyzeImageContent = async (caption: string, imageFile: File, customRules?: CustomRule[]): Promise<ComplianceReport> => {
+    if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
+    
     const userName = getUserName();
     const imageData64 = await fileToBase64(imageFile);
     const prompt = `Act as an expert social media compliance officer. Analyze the provided image and its caption for compliance. You must check BOTH the visual content and the text content.\n\n**Image Caption for Text Analysis:**\n"${caption}"\n\n**Standard Compliance Rules:**\n1.  **FTC Disclosure (Text):** The caption must contain a clear disclosure (e.g., #ad, #sponsored).\n2.  **Brand Safety (Visual & Text):** No profanity in text, no inappropriate imagery.\n3.  **Brand Representation (Visual):** The product must be clearly visible and not depicted negatively.\n${generateCustomRulesPrompt(customRules)}\nProvide a strict analysis covering both modalities ('visual' for image, 'text' for caption) and return the results in the required JSON format.`;
@@ -152,6 +164,8 @@ export const analyzeImageContent = async (caption: string, imageFile: File, cust
 
 
 export const analyzeVideoContent = async (videoTranscript: string, videoFile: File, customRules?: CustomRule[]): Promise<ComplianceReport> => {
+    if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
+    
     const userName = getUserName();
     const videoData64 = await fileToBase64(videoFile);
     const actualFullPrompt = `Act as an expert social media compliance officer. Analyze the provided video and its transcript for compliance with FTC guidelines, brand safety, and custom campaign requirements. You must perform checks on BOTH the visual content of the video and the audio content from the transcript.\n\n**Video Transcript for Audio Analysis:**\n"${videoTranscript}"\n\n**Standard Compliance Rules (Check both Audio & Visuals):**\n1.  **FTC Disclosure:** Audio must contain a spoken disclosure, and visuals should have a text overlay.\n2.  **Brand Safety:** No profanity in audio, no inappropriate imagery in visuals.\n3.  **Brand Representation:** Speaker must mention "made with 100% organic materials", product must be clearly visible.\n${generateCustomRulesPrompt(customRules)}\nProvide a strict analysis covering both modalities and return the results in the required JSON format. For each check, specify the modality as 'audio' or 'visual'.`;
@@ -172,10 +186,13 @@ export const analyzeVideoContent = async (videoTranscript: string, videoFile: Fi
             }]
         };
     }
+    // FIX: Corrected typo `new D ate()` to `new Date()`.
     return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: videoTranscript, analysisType: 'video', customRulesApplied: customRules, sourceMedia: { data: videoData64, mimeType: videoFile.type }, userName };
 };
 
 export const generateCompliantRevision = async (originalContent: string, analysisType: 'text' | 'video' | 'image', failedChecks: CheckItem[]): Promise<string> => {
+    if (!ai) return Promise.resolve("Cannot generate revision: API Key is missing.");
+
     const issues = failedChecks.filter(c => c.modality !== 'visual' && c.modality !== 'audio').map(check => `- ${check.name} (${check.modality || 'text'}): ${check.details}`).join('\n');
     if (!issues) {
         return "The identified issues are purely visual or audio-based and cannot be fixed by revising the text caption. Please address the media content directly.";
