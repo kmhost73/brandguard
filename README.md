@@ -1,4 +1,3 @@
-
 # BrandGuard: The Greenlight Engine
 
 **Our Mission: To make manual pre-publication review unthinkable.**
