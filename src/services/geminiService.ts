@@ -1,3 +1,6 @@
+// FIX: Add a triple-slash directive to include Vite's client types for `import.meta.env`.
+/// <reference types="vite/client" />
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ComplianceReport, CustomRule, CheckItem } from '../types';
 

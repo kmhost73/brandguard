@@ -1,12 +1,13 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo, generateCompliantRevision } from '../services/geminiService';
 import type { ComplianceReport, CustomRule, ReportStatus } from '../types';
 import Loader from './Loader';
 import ReportCard from './ReportCard';
 import Analytics from './Analytics';
 import WelcomeGuide from './WelcomeGuide';
-import TestingSandbox from './TestingSandbox';
 import { HistoryIcon, TrashIcon, PlusIcon, ChevronDownIcon, CogIcon, TestTubeIcon, FilmIcon, EllipsisHorizontalIcon, SparklesIcon } from './icons/Icons';
+
+const TestingSandbox = lazy(() => import('./TestingSandbox'));
 
 type AnalysisType = 'text' | 'video' | 'image';
 type DashboardView = 'dashboard' | 'sandbox';
@@ -304,7 +305,9 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId }) => {
       </div>
       
       {currentView === 'sandbox' ? (
-        <TestingSandbox />
+        <Suspense fallback={<Loader />}>
+          <TestingSandbox />
+        </Suspense>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div ref={reportCardRef} className="lg:col-span-2 space-y-6">

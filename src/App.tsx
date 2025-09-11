@@ -1,11 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { SignedIn, SignedOut, UserButton, useUser } from '@clerk/clerk-react';
 import Header from './components/Header';
-import Hero from './components/Hero';
-import Features from './components/Features';
-import Dashboard from './components/Dashboard';
-import PublicReportView from './components/PublicReportView';
+import Loader from './components/Loader';
 import type { ComplianceReport, Workspace } from './types';
+
+const Hero = lazy(() => import('./components/Hero'));
+const Features = lazy(() => import('./components/Features'));
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const PublicReportView = lazy(() => import('./components/PublicReportView'));
+
+const FullPageLoader: React.FC = () => (
+  <div className="flex items-center justify-center py-20">
+    <Loader />
+  </div>
+);
 
 const App: React.FC = () => {
   const [sharedReport, setSharedReport] = useState<ComplianceReport | null>(null);
@@ -90,12 +98,23 @@ const App: React.FC = () => {
   }, [user, isLoaded]);
 
   if (sharedReport) {
-    return <PublicReportView report={sharedReport} />;
+    return (
+      <Suspense fallback={<FullPageLoader />}>
+        <PublicReportView report={sharedReport} />
+      </Suspense>
+    );
   }
 
   if (!activeWorkspaceId) {
-    // Render a loading state or null while workspaces are being initialized
-    return null; 
+    // Render a loading state while workspaces are being initialized
+    return (
+      <div className={`min-h-screen font-sans bg-dark text-gray-300`}>
+        <Header />
+        <main>
+          <FullPageLoader />
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -107,13 +126,15 @@ const App: React.FC = () => {
         onChangeWorkspace={handleChangeWorkspace}
       />
       <main>
-        <SignedIn>
-          <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} />
-        </SignedIn>
-        <SignedOut>
-          <Hero />
-          <Features />
-        </SignedOut>
+        <Suspense fallback={<FullPageLoader />}>
+          <SignedIn>
+            <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} />
+          </SignedIn>
+          <SignedOut>
+            <Hero />
+            <Features />
+          </SignedOut>
+        </Suspense>
       </main>
       <footer className="text-center p-8 mt-12 border-t border-white/10">
         <p className={`text-sm text-gray-400`}>
