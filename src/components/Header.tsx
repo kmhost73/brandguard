@@ -1,6 +1,6 @@
 import React from 'react';
 import { SignInButton, SignUpButton, SignedIn, SignedOut } from "@clerk/clerk-react";
-import { BrandGuardLogoIcon, CertificateIcon } from './icons/Icons';
+import { BrandGuardLogoIcon, CertificateIcon, PhotoIcon } from './icons/Icons';
 import type { Workspace, MainView } from '../types';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 
@@ -44,6 +44,9 @@ const Header: React.FC<Partial<HeaderProps>> = ({
             <SignedIn>
               <button onClick={() => onNavigate && onNavigate('dashboard')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
                 Dashboard
+              </button>
+              <button onClick={() => onNavigate && onNavigate('studio')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
+                Image Studio
               </button>
                <button onClick={() => onNavigate && onNavigate('certificates')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
                 Certificates

@@ -95,6 +95,25 @@ const getUserName = (): string => {
     return localStorage.getItem('brandGuardUser') || 'Anonymous';
 }
 
+export const generateMarketingImages = async (prompt: string, numberOfImages: number, aspectRatio: "1:1" | "16:9" | "9:16" | "4:3" | "3:4"): Promise<{ imageBytes: string }[]> => {
+    if (!ai) return Promise.reject(new Error("VITE_GEMINI_API_KEY is not configured."));
+
+    try {
+        const response = await ai.models.generateImages({
+            model: 'imagen-4.0-generate-001',
+            prompt: prompt,
+            config: {
+                numberOfImages: numberOfImages,
+                outputMimeType: 'image/jpeg',
+                aspectRatio: aspectRatio,
+            },
+        });
+        return response.generatedImages.map(img => ({ imageBytes: img.image.imageBytes }));
+    } catch (e) {
+        console.error("Error generating images:", e);
+        throw new Error("Failed to generate images. The prompt may have been blocked by safety filters.");
+    }
+};
 
 export const transcribeVideo = async (videoFile: File): Promise<string> => {
     if (!ai) return Promise.reject(new Error("VITE_GEMINI_API_KEY is not configured."));

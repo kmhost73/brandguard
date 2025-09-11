@@ -11,6 +11,7 @@ const PublicReportView = lazy(() => import('./components/PublicReportView'));
 const TestingSandbox = lazy(() => import('./components/TestingSandbox'));
 const WorkspaceSettings = lazy(() => import('./components/WorkspaceSettings'));
 const CertificatesHub = lazy(() => import('./components/CertificatesHub'));
+const ImageStudio = lazy(() => import('./components/ImageStudio'));
 
 
 const FullPageLoader: React.FC = () => (
@@ -26,6 +27,8 @@ const App: React.FC = () => {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<MainView>('dashboard');
   const [customRules, setCustomRules] = useState<CustomRule[]>([]);
+  const [pendingAnalysis, setPendingAnalysis] = useState<any>(null);
+
 
   // Initialize workspaces and perform one-time migration for existing users
   useEffect(() => {
@@ -152,6 +155,11 @@ const App: React.FC = () => {
       localStorage.setItem(`brandGuardCertificates_${workspaceId}`, JSON.stringify(certificates));
   };
 
+  const handleStartGeneratedImageAnalysis = (base64Data: string, mimeType: string, prompt: string) => {
+    setPendingAnalysis({ type: 'image', base64Data, mimeType, caption: prompt });
+    setMainView('dashboard');
+  };
+
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -230,10 +238,11 @@ const App: React.FC = () => {
           <SignedIn>
              {
               {
-                'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} onCreateCertificate={handleCreateCertificate} onNavigate={setMainView} />,
+                'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} onCreateCertificate={handleCreateCertificate} onNavigate={setMainView} pendingAnalysis={pendingAnalysis} onClearPendingAnalysis={() => setPendingAnalysis(null)} />,
                 'sandbox': <TestingSandbox onNavigate={setMainView} />,
                 'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={setMainView} /> : <FullPageLoader />,
-                'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onRevokeCertificate={handleRevokeCertificate} onNavigate={setMainView} /> : <FullPageLoader />
+                'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onRevokeCertificate={handleRevokeCertificate} onNavigate={setMainView} /> : <FullPageLoader />,
+                'studio': <ImageStudio onAnalyze={handleStartGeneratedImageAnalysis} />
               }[mainView]
             }
           </SignedIn>

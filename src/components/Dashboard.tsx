@@ -16,6 +16,8 @@ interface DashboardProps {
   customRules: CustomRule[];
   onNavigate: (view: MainView) => void;
   onCreateCertificate: (report: ComplianceReport) => string;
+  pendingAnalysis: any;
+  onClearPendingAnalysis: () => void;
 }
 
 const getReportHistory = (workspaceId: string): ComplianceReport[] => {
@@ -34,9 +36,20 @@ const saveReportHistory = (workspaceId: string, history: ComplianceReport[]) => 
     localStorage.setItem(`brandGuardReportHistory_${workspaceId}`, JSON.stringify(history));
 }
 
+const base64ToFile = (base64: string, filename: string, mimeType: string): File => {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: mimeType });
+  return new File([blob], filename, { type: mimeType });
+}
+
 const examplePost = `These new sneakers are a game-changer! So comfy and they look amazing. You absolutely have to try them out for your next run. #newgear #running #style`;
 
-const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, onNavigate, onCreateCertificate }) => {
+const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, onNavigate, onCreateCertificate, pendingAnalysis, onClearPendingAnalysis }) => {
   const [analysisType, setAnalysisType] = useState<AnalysisType>('text');
   const [postContent, setPostContent] = useState<string>('');
   const [videoTranscript, setVideoTranscript] = useState<string>('');
@@ -68,6 +81,17 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       return () => clearTimeout(timer);
     }
   }, [report, newReportId]);
+
+  useEffect(() => {
+      if (pendingAnalysis && pendingAnalysis.type === 'image') {
+          setAnalysisType('image');
+          setPostContent(pendingAnalysis.caption);
+          const imageFile = base64ToFile(pendingAnalysis.base64Data, 'generated-image.jpeg', pendingAnalysis.mimeType);
+          setSelectedImageFile(imageFile);
+          handleScan(pendingAnalysis.caption, imageFile);
+          onClearPendingAnalysis();
+      }
+  }, [pendingAnalysis]);
   
   const handleAnalysisCompletion = (newReport: Omit<ComplianceReport, 'workspaceId'>) => {
     const reportWithWorkspace = { ...newReport, workspaceId: activeWorkspaceId };
@@ -109,13 +133,14 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     setPostContent(examplePost);
   };
 
-  const handleScan = useCallback(async (contentOverride?: string) => {
+  const handleScan = useCallback(async (contentOverride?: string, fileOverride?: File) => {
     setLoadingStatus('analyzing');
     setReport(null);
     setError(null);
     try {
       let result;
       const contentToScan = contentOverride !== undefined ? contentOverride : postContent;
+      const imageToScan = fileOverride || selectedImageFile;
 
       if (analysisType === 'text') {
         if (!contentToScan.trim()) throw new Error("Please enter post content to analyze.");
@@ -126,8 +151,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
          }
          return;
       } else if (analysisType === 'image') {
-        if (!contentToScan.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
-        result = await analyzeImageContent(contentToScan, selectedImageFile, customRules);
+        if (!contentToScan.trim() || !imageToScan) throw new Error("Please provide an image and a caption.");
+        result = await analyzeImageContent(contentToScan, imageToScan, customRules);
       }
       if(result) {
         handleAnalysisCompletion(result);
