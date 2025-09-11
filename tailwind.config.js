@@ -22,6 +22,15 @@ export default {
         success: '#38A169', // Green
         warning: '#D69E2E', // Yellow/Gold
         danger: '#E53E3E',  // Red
+      },
+      animation: {
+        'spin-slow': 'spin 3s linear infinite',
+        'spin-reverse': 'spin-reverse 2s linear infinite',
+      },
+      keyframes: {
+        'spin-reverse': {
+          'to': { transform: 'rotate(-360deg)' },
+        }
       }
     },
   },

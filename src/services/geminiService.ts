@@ -114,13 +114,24 @@ export const transcribeVideo = async (videoFile: File): Promise<string> => {
     return response.text.trim();
 };
 
-export const analyzePostContent = async (postContent: string, customRules?: CustomRule[]): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
+export const analyzePostContent = async (postContent: string, customRules?: CustomRule[], isRescan = false): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
     if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
 
     const userName = getUserName();
     const fullPrompt = `Act as an expert social media compliance officer for a major brand. Your task is to analyze the following sponsored post caption for compliance with FTC guidelines, brand safety, and specific campaign requirements.\n\n**Post Caption to Analyze:**\n"${postContent}"\n\n**Standard Compliance Rules:**\n1.  **FTC Disclosure:** The post MUST contain a clear and conspicuous disclosure, such as #ad, #sponsored, or "Paid partnership".\n2.  **Brand Safety:** The post must NOT contain any profanity, offensive language, or controversial topics.\n3.  **Claim Accuracy:** The post must accurately represent the product and mention "made with 100% organic materials".\n${generateCustomRulesPrompt(customRules)}\nPlease provide a strict analysis, recommend a status, and return the results in the required JSON format. If any compliance issues are found, you MUST provide a revised, compliant version of the text in the 'suggestedRevision' field. If it's fully compliant, return an empty string for 'suggestedRevision'.`;
     
-    const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: fullPrompt, config: { responseMimeType: "application/json", responseSchema: complianceSchema }});
+    const config = { 
+        responseMimeType: "application/json", 
+        responseSchema: complianceSchema,
+        ...(isRescan && { thinkingConfig: { thinkingBudget: 0 } }) 
+    };
+    
+    const response = await ai.models.generateContent({ 
+        model: "gemini-2.5-flash", 
+        contents: fullPrompt, 
+        config 
+    });
+    
     let partialReport;
     try {
         partialReport = JSON.parse(response.text);

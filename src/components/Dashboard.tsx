@@ -44,6 +44,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [loadingStatus, setLoadingStatus] = useState<LoadingStatus>('idle');
+  const [loadingText, setLoadingText] = useState<string>('Analyzing...');
   const [report, setReport] = useState<ComplianceReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reportHistory, setReportHistory] = useState<ComplianceReport[]>([]);
@@ -85,6 +86,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     if (file) {
         setSelectedVideoFile(file);
         setLoadingStatus('transcribing');
+        setLoadingText('Transcribing video...');
         setError(null);
         setReport(null);
         setVideoTranscript('');
@@ -93,6 +95,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             setVideoTranscript(transcript);
 
             setLoadingStatus('analyzing');
+            setLoadingText('Analyzing video content...');
             const result = await analyzeVideoContent(transcript, file, customRules);
             handleAnalysisCompletion(result);
         } catch (err) {
@@ -110,8 +113,11 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     setPostContent(examplePost);
   };
 
-  const handleScan = useCallback(async (contentOverride?: string) => {
+  const handleScan = useCallback(async (contentOverride?: string, isRescan = false) => {
     setLoadingStatus('analyzing');
+    if (!isRescan) {
+      setLoadingText('Analyzing...');
+    }
     setReport(null);
     setError(null);
     try {
@@ -120,7 +126,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       
       if (analysisType === 'text') {
         if (!contentToScan.trim()) throw new Error("Please enter post content to analyze.");
-        result = await analyzePostContent(contentToScan, customRules);
+        result = await analyzePostContent(contentToScan, customRules, isRescan);
       } else if (analysisType === 'video') {
          if (fileInputRef.current) {
             fileInputRef.current.click();
@@ -155,7 +161,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const handleAcceptRevision = (revisedContent: string) => {
       setPostContent(revisedContent);
       setReport(null);
-      handleScan(revisedContent);
+      setLoadingText("Verifying the fix...");
+      handleScan(revisedContent, true);
   };
 
   const resetState = (clearInputs = true) => {
@@ -197,8 +204,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
 
   const isLoading = loadingStatus !== 'idle';
   const getButtonText = () => {
-    if (loadingStatus === 'analyzing') return 'Analyzing...';
-    if (loadingStatus === 'transcribing') return 'Transcribing...';
+    if (loadingStatus === 'analyzing') return loadingText;
+    if (loadingStatus === 'transcribing') return loadingText;
     if (analysisType === 'video') return 'Select & Analyze Video';
     if (analysisType === 'image') return 'Scan Image & Caption';
     return 'Scan Post';
@@ -290,7 +297,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                                 <div className="bg-dark p-3 rounded-md border border-gray-600 min-h-[100px]">
                                     <p className="text-sm font-medium text-gray-400">Generated Transcript:</p>
                                     {loadingStatus === 'transcribing' 
-                                        ? <div className="text-center py-4 text-sm text-gray-400">Transcribing video, please wait...</div> 
+                                        ? <Loader text={loadingText} />
                                         : <p className="text-gray-300 whitespace-pre-wrap text-sm mt-2">{videoTranscript || "Transcript will appear here after video processing."}</p>}
                                 </div>
                              </div>
@@ -304,7 +311,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                 </>
               )}
                {error && <div className="mt-4 bg-red-900/50 border border-danger text-red-300 px-4 py-3 rounded-lg" role="alert"><p className="font-bold">Error</p><p>{error}</p></div>}
-               {(loadingStatus === 'analyzing' || loadingStatus === 'transcribing') && <Loader />}
+               {loadingStatus === 'analyzing' && <Loader text={loadingText} />}
           </div>
           
           <div className="bg-secondary-dark p-6 rounded-lg border border-gray-700 shadow-lg">
