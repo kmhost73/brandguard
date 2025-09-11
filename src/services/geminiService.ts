@@ -1,4 +1,4 @@
-// FIX: Add a triple-slash directive to include Vite's client types for `import.meta.env`.
+// FIX: The triple-slash directive for Vite client types is moved to the top of the file to resolve issues with import.meta.env.
 /// <reference types="vite/client" />
 
 import { GoogleGenAI, Type } from "@google/genai";
@@ -8,7 +8,6 @@ const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
-// FIX: Change return type to Omit<ComplianceReport, 'workspaceId'> as workspaceId is added later.
 const createErrorResponse = (summary: string, details: string): Omit<ComplianceReport, 'workspaceId'> => ({
     id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
@@ -196,7 +195,6 @@ export const analyzeVideoContent = async (videoTranscript: string, videoFile: Fi
             recommendedStatus: 'revision'
         };
     }
-    // FIX: Corrected typo `new D ate()` to `new Date()`.
     return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: videoTranscript, analysisType: 'video', customRulesApplied: customRules, sourceMedia: { data: videoData64, mimeType: videoFile.type }, userName };
 };
 

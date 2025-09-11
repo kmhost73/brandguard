@@ -1,4 +1,4 @@
-// FIX: Add a triple-slash directive to include Vite's client types for `import.meta.env`.
+// FIX: The triple-slash directive for Vite client types is moved to the top of the file to resolve issues with import.meta.env.
 /// <reference types="vite/client" />
 
 import React from 'react'

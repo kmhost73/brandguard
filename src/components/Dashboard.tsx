@@ -2,11 +2,11 @@ import React, { useState, useCallback, useEffect, useRef, lazy, Suspense } from 
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo, generateCompliantRevision } from '../services/geminiService';
 import type { ComplianceReport, CustomRule, ReportStatus } from '../types';
 import Loader from './Loader';
-import ReportCard from './ReportCard';
 import Analytics from './Analytics';
 import WelcomeGuide from './WelcomeGuide';
 import { HistoryIcon, TrashIcon, PlusIcon, ChevronDownIcon, CogIcon, TestTubeIcon, FilmIcon, EllipsisHorizontalIcon, SparklesIcon } from './icons/Icons';
 
+const ReportCard = lazy(() => import('./ReportCard'));
 const TestingSandbox = lazy(() => import('./TestingSandbox'));
 
 type AnalysisType = 'text' | 'video' | 'image';
@@ -312,7 +312,11 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId }) => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div ref={reportCardRef} className="lg:col-span-2 space-y-6">
                 
-                {report ? <ReportCard report={report} onStatusChange={handleStatusChange} onAcceptRevision={handleAcceptRevision} /> : (
+                {report ? (
+                  <Suspense fallback={<div className="w-full min-h-[400px] flex items-center justify-center"><Loader /></div>}>
+                    <ReportCard report={report} onStatusChange={handleStatusChange} onAcceptRevision={handleAcceptRevision} />
+                  </Suspense>
+                ) : (
                   <>
                     {showWelcomeGuide && <WelcomeGuide onStartExample={handleStartExample} />}
 
