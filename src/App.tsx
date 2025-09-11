@@ -2,7 +2,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { SignedIn, SignedOut, UserButton, useUser } from '@clerk/clerk-react';
 import Header from './components/Header';
 import Loader from './components/Loader';
-import type { ComplianceReport, Workspace, CustomRule, MainView } from './types';
+import type { ComplianceReport, Workspace, CustomRule, MainView, Certificate } from './types';
 
 const Hero = lazy(() => import('./components/Hero'));
 const Features = lazy(() => import('./components/Features'));
@@ -10,6 +10,7 @@ const Dashboard = lazy(() => import('./components/Dashboard'));
 const PublicReportView = lazy(() => import('./components/PublicReportView'));
 const TestingSandbox = lazy(() => import('./components/TestingSandbox'));
 const WorkspaceSettings = lazy(() => import('./components/WorkspaceSettings'));
+const CertificatesHub = lazy(() => import('./components/CertificatesHub'));
 
 
 const FullPageLoader: React.FC = () => (
@@ -19,7 +20,7 @@ const FullPageLoader: React.FC = () => (
 );
 
 const App: React.FC = () => {
-  const [sharedReport, setSharedReport] = useState<ComplianceReport | null>(null);
+  const [sharedReport, setSharedReport] = useState<ComplianceReport | null | 'invalid'>(null);
   const { user, isLoaded } = useUser();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
@@ -107,6 +108,7 @@ const App: React.FC = () => {
     // Clean up associated data
     localStorage.removeItem(`brandGuardReportHistory_${id}`);
     localStorage.removeItem(`brandGuardCustomRules_${id}`);
+    localStorage.removeItem(`brandGuardCertificates_${id}`);
 
     if (remainingWorkspaces.length > 0) {
         setWorkspaces(remainingWorkspaces);
@@ -124,18 +126,58 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCreateCertificate = (report: ComplianceReport) => {
+    const newCertificate: Certificate = {
+      id: `cert_${crypto.randomUUID()}`,
+      report: report,
+      createdAt: new Date().toISOString()
+    };
+    
+    const certsJson = localStorage.getItem(`brandGuardCertificates_${report.workspaceId}`);
+    const certificates: Certificate[] = certsJson ? JSON.parse(certsJson) : [];
+    certificates.unshift(newCertificate);
+    localStorage.setItem(`brandGuardCertificates_${report.workspaceId}`, JSON.stringify(certificates));
+
+    const url = `${window.location.origin}${window.location.pathname}?certId=${newCertificate.id}`;
+    navigator.clipboard.writeText(url);
+    
+    return "Certificate Link Copied!";
+  };
+
+  const handleRevokeCertificate = (workspaceId: string, certId: string) => {
+      const certsJson = localStorage.getItem(`brandGuardCertificates_${workspaceId}`);
+      if (!certsJson) return;
+      let certificates: Certificate[] = JSON.parse(certsJson);
+      certificates = certificates.filter(c => c.id !== certId);
+      localStorage.setItem(`brandGuardCertificates_${workspaceId}`, JSON.stringify(certificates));
+  };
+
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const reportData = params.get('report');
-    if (reportData) {
-      try {
-        const decodedReport = JSON.parse(atob(reportData));
-        setSharedReport(decodedReport);
-      } catch (e) {
-        console.error("Failed to parse shared report data from URL", e);
-        window.history.replaceState({}, document.title, window.location.pathname);
+    const certId = params.get('certId');
+    if (certId) {
+      let found = false;
+      const allWorkspacesJson = localStorage.getItem('brandGuardWorkspaces');
+      if (allWorkspacesJson) {
+        const allWorkspaces: Workspace[] = JSON.parse(allWorkspacesJson);
+        for (const workspace of allWorkspaces) {
+          const certsJson = localStorage.getItem(`brandGuardCertificates_${workspace.id}`);
+          if (certsJson) {
+            const certificates: Certificate[] = JSON.parse(certsJson);
+            const foundCert = certificates.find(c => c.id === certId);
+            if (foundCert) {
+              setSharedReport(foundCert.report);
+              found = true;
+              break;
+            }
+          }
+        }
       }
+      if (!found) {
+        setSharedReport('invalid');
+      }
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
@@ -188,9 +230,10 @@ const App: React.FC = () => {
           <SignedIn>
              {
               {
-                'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} onNavigate={setMainView} />,
+                'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} onCreateCertificate={handleCreateCertificate} onNavigate={setMainView} />,
                 'sandbox': <TestingSandbox onNavigate={setMainView} />,
-                'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={setMainView} /> : <FullPageLoader />
+                'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={setMainView} /> : <FullPageLoader />,
+                'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onRevokeCertificate={handleRevokeCertificate} onNavigate={setMainView} /> : <FullPageLoader />
               }[mainView]
             }
           </SignedIn>

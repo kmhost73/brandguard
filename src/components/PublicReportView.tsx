@@ -1,10 +1,29 @@
-
 import React from 'react';
 import type { ComplianceReport } from '../types';
 import ReportCard from './ReportCard';
-import { BrandGuardLogoIcon, ShieldCheckIcon } from './icons/Icons';
+// FIX: Replaced non-existent 'XCircleIcon' with the available 'XIcon'.
+import { BrandGuardLogoIcon, ShieldCheckIcon, XIcon } from './icons/Icons';
 
-const PublicReportView: React.FC<{ report: ComplianceReport }> = ({ report }) => {
+const PublicReportView: React.FC<{ report: ComplianceReport | 'invalid' }> = ({ report }) => {
+  if (report === 'invalid') {
+    return (
+       <div className="min-h-screen bg-dark text-gray-300 flex flex-col items-center justify-center p-4">
+        <div className="text-center p-8 bg-secondary-dark border border-danger rounded-lg shadow-lg max-w-2xl">
+            <div className="flex justify-center mb-4">
+                <XIcon className="w-12 h-12 text-danger"/>
+            </div>
+            <h1 className="text-3xl font-bold text-white">Certificate Invalid or Revoked</h1>
+            <p className="text-gray-400 mt-2">
+                The link you used is either incorrect or the certificate has been revoked by the owner.
+            </p>
+            <a href={window.location.origin} className="mt-6 inline-block text-primary-light font-bold hover:underline text-lg">
+                Return to BrandGuard
+            </a>
+        </div>
+    </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-dark text-gray-300 flex flex-col">
         <header className="bg-secondary-dark shadow-md">

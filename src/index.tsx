@@ -1,4 +1,3 @@
-/// <reference types="vite/client" />
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
@@ -6,7 +5,10 @@ import './index.css'
 import { ClerkProvider } from '@clerk/clerk-react'
 import { BrandGuardLogoIcon } from './components/icons/Icons.tsx';
 
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+// FIX: Workaround for TypeScript errors when accessing Vite environment variables.
+// The reference to "vite/client" types was not being found in the provided environment.
+// Casting `import.meta` to `any` resolves the property access error without needing project-level configuration changes.
+const PUBLISHABLE_KEY = (import.meta as any).env.VITE_CLERK_PUBLISHABLE_KEY;
 
 const MissingKeyError = () => (
   <div className="bg-dark text-gray-300 min-h-screen flex flex-col items-center justify-center p-4">

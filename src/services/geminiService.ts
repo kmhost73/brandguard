@@ -1,14 +1,17 @@
-/// <reference types="vite/client" />
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ComplianceReport, CustomRule } from '../types';
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+// FIX: Workaround for TypeScript errors when accessing Vite environment variables.
+// The reference to "vite/client" types was not being found in the provided environment.
+// Casting `import.meta` to `any` resolves the property access error without needing project-level configuration changes.
+const API_KEY = (import.meta as any).env.VITE_GEMINI_API_KEY;
 
 const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
 const createErrorResponse = (summary: string, details: string): Omit<ComplianceReport, 'workspaceId'> => ({
     id: crypto.randomUUID(),
-    timestamp: new new Date().toISOString(),
+    // FIX: Corrected a likely typo with a redundant 'new' keyword.
+    timestamp: new Date().toISOString(),
     overallScore: 0,
     summary,
     checks: [{ name: "Configuration Error", status: "fail", details }],

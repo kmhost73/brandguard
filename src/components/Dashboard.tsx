@@ -15,6 +15,7 @@ interface DashboardProps {
   activeWorkspaceId: string;
   customRules: CustomRule[];
   onNavigate: (view: MainView) => void;
+  onCreateCertificate: (report: ComplianceReport) => string;
 }
 
 const getReportHistory = (workspaceId: string): ComplianceReport[] => {
@@ -35,7 +36,7 @@ const saveReportHistory = (workspaceId: string, history: ComplianceReport[]) => 
 
 const examplePost = `These new sneakers are a game-changer! So comfy and they look amazing. You absolutely have to try them out for your next run. #newgear #running #style`;
 
-const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, onNavigate }) => {
+const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, onNavigate, onCreateCertificate }) => {
   const [analysisType, setAnalysisType] = useState<AnalysisType>('text');
   const [postContent, setPostContent] = useState<string>('');
   const [videoTranscript, setVideoTranscript] = useState<string>('');
@@ -188,16 +189,9 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   
   const handleShareReport = (reportToShare: ComplianceReport) => {
     setActiveActionMenu(null);
-    try {
-        const data = btoa(JSON.stringify(reportToShare));
-        const url = `${window.location.origin}${window.location.pathname}?report=${data}`;
-        navigator.clipboard.writeText(url);
-        setShareConfirmation('Certificate Link Copied!');
-        setTimeout(() => setShareConfirmation(''), 2000);
-    } catch (error) {
-        setShareConfirmation('Error!');
-        setTimeout(() => setShareConfirmation(''), 2000);
-    }
+    const confirmation = onCreateCertificate(reportToShare);
+    setShareConfirmation(confirmation);
+    setTimeout(() => setShareConfirmation(''), 2000);
   };
 
   const isLoading = loadingStatus !== 'idle';
