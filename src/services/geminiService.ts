@@ -1,8 +1,8 @@
-// FIX: The triple-slash directive for Vite client types is moved to the top of the file to resolve issues with import.meta.env.
 /// <reference types="vite/client" />
 
+// FIX: The triple-slash directive for Vite client types is moved to the top of the file to resolve issues with import.meta.env.
 import { GoogleGenAI, Type } from "@google/genai";
-import type { ComplianceReport, CustomRule, CheckItem } from '../types';
+import type { ComplianceReport, CustomRule } from '../types';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -38,9 +38,10 @@ const complianceSchema = {
         required: ["name", "status", "details"]
       }
     },
-    recommendedStatus: { type: Type.STRING, description: "Your recommended next step. If the score is >= 90 and no checks fail, recommend 'approved'. Otherwise, recommend 'revision'.", enum: ['approved', 'revision'] }
+    recommendedStatus: { type: Type.STRING, description: "Your recommended next step. If the score is >= 90 and no checks fail, recommend 'approved'. Otherwise, recommend 'revision'.", enum: ['approved', 'revision'] },
+    suggestedRevision: { type: Type.STRING, description: "If the recommendedStatus is 'revision', provide a revised, fully compliant version of the post caption. If the status is 'approved', return an empty string." }
   },
-  required: ["overallScore", "summary", "checks", "recommendedStatus"]
+  required: ["overallScore", "summary", "checks", "recommendedStatus", "suggestedRevision"]
 };
 
 const multimodalComplianceSchema = {
@@ -117,7 +118,7 @@ export const analyzePostContent = async (postContent: string, customRules?: Cust
     if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
 
     const userName = getUserName();
-    const fullPrompt = `Act as an expert social media compliance officer for a major brand. Your task is to analyze the following sponsored post caption for compliance with FTC guidelines, brand safety, and specific campaign requirements.\n\n**Post Caption to Analyze:**\n"${postContent}"\n\n**Standard Compliance Rules:**\n1.  **FTC Disclosure:** The post MUST contain a clear and conspicuous disclosure, such as #ad, #sponsored, or "Paid partnership".\n2.  **Brand Safety:** The post must NOT contain any profanity, offensive language, or controversial topics.\n3.  **Claim Accuracy:** The post must accurately represent the product and mention "made with 100% organic materials".\n${generateCustomRulesPrompt(customRules)}\nPlease provide a strict analysis, recommend a status, and return the results in the required JSON format.`;
+    const fullPrompt = `Act as an expert social media compliance officer for a major brand. Your task is to analyze the following sponsored post caption for compliance with FTC guidelines, brand safety, and specific campaign requirements.\n\n**Post Caption to Analyze:**\n"${postContent}"\n\n**Standard Compliance Rules:**\n1.  **FTC Disclosure:** The post MUST contain a clear and conspicuous disclosure, such as #ad, #sponsored, or "Paid partnership".\n2.  **Brand Safety:** The post must NOT contain any profanity, offensive language, or controversial topics.\n3.  **Claim Accuracy:** The post must accurately represent the product and mention "made with 100% organic materials".\n${generateCustomRulesPrompt(customRules)}\nPlease provide a strict analysis, recommend a status, and return the results in the required JSON format. If any compliance issues are found, you MUST provide a revised, compliant version of the text in the 'suggestedRevision' field. If it's fully compliant, return an empty string for 'suggestedRevision'.`;
     
     const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: fullPrompt, config: { responseMimeType: "application/json", responseSchema: complianceSchema }});
     let partialReport;
@@ -133,7 +134,8 @@ export const analyzePostContent = async (postContent: string, customRules?: Cust
                 status: "fail",
                 details: "Could not parse the JSON response from the AI. The raw response was logged to the console."
             }],
-            recommendedStatus: 'revision'
+            recommendedStatus: 'revision',
+            suggestedRevision: "We couldn't generate a revision due to an AI response error."
         };
     }
     return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: postContent, analysisType: 'text', customRulesApplied: customRules, userName };
@@ -196,16 +198,4 @@ export const analyzeVideoContent = async (videoTranscript: string, videoFile: Fi
         };
     }
     return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: videoTranscript, analysisType: 'video', customRulesApplied: customRules, sourceMedia: { data: videoData64, mimeType: videoFile.type }, userName };
-};
-
-export const generateCompliantRevision = async (originalContent: string, analysisType: 'text' | 'video' | 'image', failedChecks: CheckItem[]): Promise<string> => {
-    if (!ai) return Promise.resolve("Cannot generate revision: API Key is missing.");
-
-    const issues = failedChecks.filter(c => c.modality !== 'visual' && c.modality !== 'audio').map(check => `- ${check.name} (${check.modality || 'text'}): ${check.details}`).join('\n');
-    if (!issues) {
-        return "The identified issues are purely visual or audio-based and cannot be fixed by revising the text caption. Please address the media content directly.";
-    }
-    const prompt = `Act as an expert social media copywriter. Your task is to revise the following ${analysisType === 'text' ? 'Post Caption' : 'Image Caption or Video Script'} to make it fully compliant based on the text-based issues identified.\n\n**Original Content:**\n"${originalContent}"\n\n**Identified Issues:**\n${issues}\n\n**Instructions:**\nRewrite the content to fix ALL identified text-based issues. Maintain the original tone. Output ONLY the revised text.`;
-    const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
-    return response.text.trim();
 };

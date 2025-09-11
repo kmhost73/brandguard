@@ -1,9 +1,7 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import type { ComplianceReport, CheckItem, ReportStatus } from '../types';
-import { generateCompliantRevision } from '../services/geminiService';
 import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, FilmIcon, TagIcon, ChevronDownIcon, UserIcon } from './icons/Icons';
-import Loader from './Loader';
 
 const statusConfig = {
   pass: { icon: <CheckIcon />, color: 'text-success', bgColor: 'bg-green-500/10', borderColor: 'border-green-500/30' },
@@ -56,12 +54,7 @@ interface ReportCardProps {
 
 const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAcceptRevision }) => {
   const hasCustomRules = report.customRulesApplied && report.customRulesApplied.length > 0;
-  const failedChecks = report.checks.filter(c => c.status === 'fail');
-  const [isRevising, setIsRevising] = useState(false);
-  const [revisedContent, setRevisedContent] = useState<string | null>(null);
-  const [revisionError, setRevisionError] = useState<string | null>(null);
-
-  const handleGenerateRevision = async () => { if (failedChecks.length === 0) { setRevisionError("No failing checks to revise."); return; } setIsRevising(true); setRevisedContent(null); setRevisionError(null); try { const revision = await generateCompliantRevision(report.sourceContent, report.analysisType, failedChecks); setRevisedContent(revision); } catch (err) { setRevisionError(err instanceof Error ? err.message : "An unknown error occurred."); } finally { setIsRevising(false); } };
+  const hasSuggestedRevision = report.suggestedRevision && report.suggestedRevision.trim() !== '';
 
   return (
     <div className="bg-secondary-dark shadow-lg rounded-lg overflow-hidden animate-fade-in border border-gray-700">
@@ -129,26 +122,17 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
         <h3 className="text-lg font-semibold text-white mb-4">Detailed Checks</h3>
         <div className="space-y-4">{report.checks.map((item, index) => (<CheckItemCard key={index} item={item} />))}</div>
       </div>
-      {onAcceptRevision && (
-          <div className="p-6 border-t border-gray-700 bg-dark">
-            <div className="flex flex-col sm:flex-row gap-4">
-                <button onClick={handleGenerateRevision} disabled={isRevising || failedChecks.length === 0} className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-all shadow-sm" title={failedChecks.length === 0 ? "No failing checks to fix!" : "AI-powered content revision"}><SparklesIcon /> {isRevising ? 'Generating...' : 'Magic Fix'}</button>
-            </div>
-            {isRevising && <div className="mt-4"><Loader/></div>}
-            {revisionError && <div className="mt-4 bg-red-900/50 border border-danger text-red-300 px-4 py-3 rounded-lg" role="alert">{revisionError}</div>}
-            {revisedContent && (
-                <div className="mt-6 animate-fade-in">
-                    <h4 className="font-semibold text-gray-200">AI-Generated Compliant Revision:</h4>
-                    <div className="mt-2 p-4 bg-green-900/30 border-l-4 border-success text-gray-200 rounded-r-lg">
-                        <p className="whitespace-pre-wrap font-mono text-sm">{revisedContent}</p>
-                    </div>
-                    <button 
-                        onClick={() => onAcceptRevision(revisedContent)}
-                        className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-success text-white font-semibold rounded-md hover:bg-green-600 transition-colors">
-                        <CheckIcon /> Accept Revision & Re-Scan
-                    </button>
-                </div>
-            )}
+      {onAcceptRevision && hasSuggestedRevision && (
+          <div className="p-6 border-t border-gray-700 bg-dark animate-fade-in">
+              <h4 className="font-semibold text-gray-200 flex items-center gap-2 mb-2"><SparklesIcon /> AI-Suggested Revision</h4>
+              <div className="mt-2 p-4 bg-green-900/30 border-l-4 border-success text-gray-200 rounded-r-lg">
+                  <p className="whitespace-pre-wrap font-mono text-sm">{report.suggestedRevision}</p>
+              </div>
+              <button
+                  onClick={() => onAcceptRevision(report.suggestedRevision!)}
+                  className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-success text-white font-semibold rounded-md hover:bg-green-600 transition-colors">
+                  <CheckIcon /> Accept Revision & Re-Scan
+              </button>
           </div>
       )}
     </div>

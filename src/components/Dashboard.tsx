@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
-import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo, generateCompliantRevision } from '../services/geminiService';
+import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
 import type { ComplianceReport, CustomRule, ReportStatus } from '../types';
 import Loader from './Loader';
 import Analytics from './Analytics';
@@ -171,25 +171,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId }) => {
       setPostContent(revisedContent);
       setReport(null);
       handleScan(revisedContent);
-  };
-
-  const handleMagicFixFromLog = async (reportToFix: ComplianceReport) => {
-    setActiveActionMenu(null);
-    viewHistoricReport(reportToFix);
-    
-    const failedChecks = reportToFix.checks.filter(c => c.status === 'fail');
-    if (failedChecks.length === 0) {
-        setError("This report has no failing checks to fix.");
-        return;
-    }
-
-    try {
-        const revision = await generateCompliantRevision(reportToFix.sourceContent, reportToFix.analysisType, failedChecks);
-        const updatedReport = { ...reportToFix, revisedContent: revision };
-        setReport(updatedReport);
-    } catch (err) {
-        setError(err instanceof Error ? err.message : "An unknown revision error occurred.");
-    }
   };
 
   const resetState = (clearInputs = true) => {
@@ -429,7 +410,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId }) => {
                                             {activeActionMenu === r.id && (
                                                 <div className="absolute right-0 mt-2 w-48 bg-dark border border-gray-700 rounded-md shadow-lg z-10 animate-fade-in">
                                                     <button onClick={() => viewHistoricReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">View Report</button>
-                                                    {r.status === 'revision' && <button onClick={() => handleMagicFixFromLog(r)} className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-primary-light hover:bg-gray-700"><SparklesIcon/> Magic Fix</button>}
                                                     <button onClick={() => handleShareReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">{shareConfirmation && activeActionMenu === r.id ? shareConfirmation : 'Share Certificate'}</button>
                                                     <button onClick={() => deleteReport(r.id)} className="block w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger/20">Delete Report</button>
                                                 </div>

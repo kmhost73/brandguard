@@ -1,6 +1,6 @@
-// FIX: The triple-slash directive for Vite client types is moved to the top of the file to resolve issues with import.meta.env.
 /// <reference types="vite/client" />
 
+// FIX: The triple-slash directive for Vite client types is moved to the top of the file to resolve issues with import.meta.env.
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
