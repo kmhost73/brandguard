@@ -2,20 +2,31 @@ import React from 'react';
 
 interface LoaderProps {
   text?: string;
+  size?: 'sm' | 'md';
 }
 
-const Loader: React.FC<LoaderProps> = ({ text = "Analyzing..." }) => {
+const Loader: React.FC<LoaderProps> = ({ text = "Analyzing...", size = 'md' }) => {
+  const sizeClasses = {
+    sm: 'h-5 w-5 border-2',
+    md: 'h-16 w-16 border-2',
+  };
+
+  const insetClasses = {
+    sm: 'inset-1',
+    md: 'inset-2',
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center p-8 space-y-4">
-      <div className="relative h-16 w-16">
+    <div className="flex flex-col items-center justify-center p-2">
+      <div className={`relative ${size === 'md' ? 'h-16 w-16' : 'h-6 w-6'}`}>
         {/* Outer static ring */}
-        <div className="absolute inset-0 border-2 border-primary/20 rounded-full"></div>
+        <div className={`absolute inset-0 border-primary/20 rounded-full ${sizeClasses[size]}`}></div>
         {/* Main spinning arc */}
-        <div className="absolute inset-0 border-t-2 border-t-primary rounded-full animate-spin"></div>
+        <div className={`absolute inset-0 border-t-primary rounded-full animate-spin ${sizeClasses[size]} border-t-2`}></div>
         {/* Inner reverse-spinning arc */}
-        <div className="absolute inset-2 border-b-2 border-b-primary-light rounded-full animate-spin-reverse"></div>
+        <div className={`absolute border-b-primary-light rounded-full animate-spin-reverse ${sizeClasses[size]} ${insetClasses[size]} border-b-2`}></div>
       </div>
-      <p className="text-gray-400">{text}</p>
+      {text && size === 'md' && <p className="text-gray-400 mt-4">{text}</p>}
     </div>
   );
 };

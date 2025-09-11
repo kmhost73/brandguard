@@ -303,15 +303,15 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                              </div>
                          )}
                          
-                         <button onClick={() => handleScan()} disabled={isScanDisabled()} className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20">
-                             {getButtonText()}
+                         <button onClick={() => handleScan()} disabled={isScanDisabled()} className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
+                             {isLoading && loadingStatus !== 'transcribing' && <Loader size="sm" text="" />}
+                             <span>{getButtonText()}</span>
                          </button>
                      </div>
                   </div>
                 </>
               )}
                {error && <div className="mt-4 bg-red-900/50 border border-danger text-red-300 px-4 py-3 rounded-lg" role="alert"><p className="font-bold">Error</p><p>{error}</p></div>}
-               {loadingStatus === 'analyzing' && <Loader text={loadingText} />}
           </div>
           
           <div className="bg-secondary-dark p-6 rounded-lg border border-gray-700 shadow-lg">
