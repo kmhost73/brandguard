@@ -1,5 +1,3 @@
-
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo, generateCompliantRevision } from '../services/geminiService';
 import type { ComplianceReport, CustomRule, ReportStatus } from '../types';
@@ -10,16 +8,19 @@ import WelcomeGuide from './WelcomeGuide';
 import TestingSandbox from './TestingSandbox';
 import { HistoryIcon, TrashIcon, PlusIcon, ChevronDownIcon, CogIcon, TestTubeIcon, FilmIcon, EllipsisHorizontalIcon, SparklesIcon } from './icons/Icons';
 
-const examplePost = `Loving my new eco-friendly sneakers! They are so comfy and stylish. Best part? They are made with 100% organic materials. You all have to check them out! #fashion #style`;
-
 type AnalysisType = 'text' | 'video' | 'image';
 type DashboardView = 'dashboard' | 'sandbox';
 type LoadingStatus = 'idle' | 'transcribing' | 'analyzing';
 
-const getReportHistory = (): ComplianceReport[] => {
+interface DashboardProps {
+  activeWorkspaceId: string;
+}
+
+const getReportHistory = (workspaceId: string): ComplianceReport[] => {
     try {
-        const historyJson = localStorage.getItem('brandGuardReportHistory');
-        const history = historyJson ? JSON.parse(historyJson) : [];
+        const historyJson = localStorage.getItem(`brandGuardReportHistory_${workspaceId}`);
+        if (!historyJson) return [];
+        const history = JSON.parse(historyJson);
         return history.map((report: any) => ({
             ...report,
             status: report.status || 'pending'
@@ -27,18 +28,25 @@ const getReportHistory = (): ComplianceReport[] => {
     } catch (e) { return []; }
 };
 
-const getCustomRules = (): CustomRule[] => {
+const saveReportHistory = (workspaceId: string, history: ComplianceReport[]) => {
+    localStorage.setItem(`brandGuardReportHistory_${workspaceId}`, JSON.stringify(history));
+}
+
+const getCustomRules = (workspaceId: string): CustomRule[] => {
     try {
-        const rulesJson = localStorage.getItem('brandGuardCustomRules');
+        const rulesJson = localStorage.getItem(`brandGuardCustomRules_${workspaceId}`);
         return rulesJson ? JSON.parse(rulesJson) : [];
     } catch (e) { return []; }
 }
 
-const saveCustomRules = (rules: CustomRule[]) => {
-    localStorage.setItem('brandGuardCustomRules', JSON.stringify(rules));
+const saveCustomRules = (workspaceId: string, rules: CustomRule[]) => {
+    localStorage.setItem(`brandGuardCustomRules_${workspaceId}`, JSON.stringify(rules));
 }
 
-const Dashboard: React.FC = () => {
+// FIX: Define examplePost constant for the WelcomeGuide's example functionality.
+const examplePost = `These new sneakers are a game-changer! So comfy and they look amazing. You absolutely have to try them out for your next run. #newgear #running #style`;
+
+const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId }) => {
   const [analysisType, setAnalysisType] = useState<AnalysisType>('text');
   const [postContent, setPostContent] = useState<string>('');
   const [videoTranscript, setVideoTranscript] = useState<string>('');
@@ -60,11 +68,11 @@ const Dashboard: React.FC = () => {
   const reportCardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-
   useEffect(() => {
-    setReportHistory(getReportHistory());
-    setCustomRules(getCustomRules());
-  }, []);
+    setReportHistory(getReportHistory(activeWorkspaceId));
+    setCustomRules(getCustomRules(activeWorkspaceId));
+    setReport(null); // Clear active report when switching workspace
+  }, [activeWorkspaceId]);
 
   useEffect(() => {
     if (report && report.id === newReportId) {
@@ -76,13 +84,14 @@ const Dashboard: React.FC = () => {
     }
   }, [report, newReportId]);
   
-  const handleAnalysisCompletion = (newReport: ComplianceReport) => {
-    const reportWithInitialStatus = { ...newReport, status: newReport.recommendedStatus || 'pending' };
+  const handleAnalysisCompletion = (newReport: Omit<ComplianceReport, 'workspaceId'>) => {
+    const reportWithWorkspace = { ...newReport, workspaceId: activeWorkspaceId };
+    const reportWithInitialStatus = { ...reportWithWorkspace, status: newReport.recommendedStatus || 'pending' };
     setReport(reportWithInitialStatus);
     setNewReportId(reportWithInitialStatus.id);
-    const history = getReportHistory();
+    const history = getReportHistory(activeWorkspaceId);
     const newHistory = [reportWithInitialStatus, ...history];
-    localStorage.setItem('brandGuardReportHistory', JSON.stringify(newHistory));
+    saveReportHistory(activeWorkspaceId, newHistory);
     setReportHistory(newHistory);
   };
 
@@ -106,8 +115,7 @@ const Dashboard: React.FC = () => {
             setLoadingStatus('idle');
         }
     }
-  }, [customRules]);
-
+  }, [customRules, activeWorkspaceId]);
 
   const showWelcomeGuide = currentView === 'dashboard' && !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && loadingStatus === 'idle';
   
@@ -129,9 +137,9 @@ const Dashboard: React.FC = () => {
         result = await analyzePostContent(contentToScan, customRules);
       } else if (analysisType === 'video') {
          if (fileInputRef.current) {
-            fileInputRef.current.click(); // Open file dialog
+            fileInputRef.current.click();
          }
-         return; // The rest of the logic is in handleVideoUpload
+         return;
       } else if (analysisType === 'image') {
         if (!contentToScan.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
         result = await analyzeImageContent(contentToScan, selectedImageFile, customRules);
@@ -146,12 +154,12 @@ const Dashboard: React.FC = () => {
         setLoadingStatus('idle');
       }
     }
-  }, [analysisType, postContent, selectedImageFile, customRules]);
+  }, [analysisType, postContent, selectedImageFile, customRules, activeWorkspaceId]);
   
   const handleStatusChange = (reportId: string, newStatus: ReportStatus) => {
     const updatedHistory = reportHistory.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
     setReportHistory(updatedHistory);
-    localStorage.setItem('brandGuardReportHistory', JSON.stringify(updatedHistory));
+    saveReportHistory(activeWorkspaceId, updatedHistory);
 
     if (report?.id === reportId) {
         setReport(prev => prev ? { ...prev, status: newStatus } : null);
@@ -166,7 +174,7 @@ const Dashboard: React.FC = () => {
 
   const handleMagicFixFromLog = async (reportToFix: ComplianceReport) => {
     setActiveActionMenu(null);
-    viewHistoricReport(reportToFix); // Show the report card
+    viewHistoricReport(reportToFix);
     
     const failedChecks = reportToFix.checks.filter(c => c.status === 'fail');
     if (failedChecks.length === 0) {
@@ -175,18 +183,14 @@ const Dashboard: React.FC = () => {
     }
 
     try {
-        // This logic is a simplified version of what's in ReportCard.tsx
-        // A more robust solution might involve a shared state management (e.g., context)
-        // to trigger this from the ReportCard component itself.
         const revision = await generateCompliantRevision(reportToFix.sourceContent, reportToFix.analysisType, failedChecks);
         const updatedReport = { ...reportToFix, revisedContent: revision };
-        setReport(updatedReport); // Update the currently viewed report with the revision
+        setReport(updatedReport);
     } catch (err) {
         setError(err instanceof Error ? err.message : "An unknown revision error occurred.");
     }
   };
 
-  // FIX: Converted one-liner arrow functions with block bodies to multi-line functions to prevent parsing errors.
   const resetState = (clearInputs = true) => {
     setReport(null);
     setError(null);
@@ -211,7 +215,7 @@ const Dashboard: React.FC = () => {
   const deleteReport = (reportId: string) => {
     setActiveActionMenu(null);
     const newHistory = reportHistory.filter(r => r.id !== reportId);
-    localStorage.setItem('brandGuardReportHistory', JSON.stringify(newHistory));
+    saveReportHistory(activeWorkspaceId, newHistory);
     setReportHistory(newHistory);
     if (report?.id === reportId) {
       setReport(null);
@@ -222,14 +226,14 @@ const Dashboard: React.FC = () => {
       const newRule = { id: crypto.randomUUID(), text: newRuleText.trim() };
       const updatedRules = [...customRules, newRule];
       setCustomRules(updatedRules);
-      saveCustomRules(updatedRules);
+      saveCustomRules(activeWorkspaceId, updatedRules);
       setNewRuleText('');
     }
   };
   const deleteRule = (ruleId: string) => {
     const updatedRules = customRules.filter(r => r.id !== ruleId);
     setCustomRules(updatedRules);
-    saveCustomRules(updatedRules);
+    saveCustomRules(activeWorkspaceId, updatedRules);
   };
   const handleShareReport = (reportToShare: ComplianceReport) => {
     setActiveActionMenu(null);
@@ -258,7 +262,6 @@ const Dashboard: React.FC = () => {
       if (isLoading) return true;
       if (analysisType === 'text' && !postContent.trim()) return true;
       if (analysisType === 'image' && (!postContent.trim() || !selectedImageFile)) return true;
-      // For video, the button just opens the file dialog, it's never disabled unless loading
       return false;
   }
 
@@ -274,7 +277,6 @@ const Dashboard: React.FC = () => {
       if (status === 'all') return reportHistory.length;
       return reportHistory.filter(r => r.status === status).length;
   }
-
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-gray-300">

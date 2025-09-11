@@ -16,8 +16,14 @@ export interface CustomRule {
     text: string;
 }
 
+export interface Workspace {
+  id: string;
+  name: string;
+}
+
 export interface ComplianceReport {
   id: string;
+  workspaceId: string; // Link report to a workspace
   timestamp: string;
   overallScore: number;
   summary: string;
@@ -32,6 +38,7 @@ export interface ComplianceReport {
   status?: ReportStatus;
   userName?: string;
   recommendedStatus?: ReportStatus;
+  revisedContent?: string; // To hold AI-generated revisions
 }
 
 // Type definition for a single test case in the QA Sandbox

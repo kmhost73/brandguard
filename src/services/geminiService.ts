@@ -5,7 +5,8 @@ const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
-const createErrorResponse = (summary: string, details: string): ComplianceReport => ({
+// FIX: Change return type to Omit<ComplianceReport, 'workspaceId'> as workspaceId is added later.
+const createErrorResponse = (summary: string, details: string): Omit<ComplianceReport, 'workspaceId'> => ({
     id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     overallScore: 0,
@@ -110,7 +111,7 @@ export const transcribeVideo = async (videoFile: File): Promise<string> => {
     return response.text.trim();
 };
 
-export const analyzePostContent = async (postContent: string, customRules?: CustomRule[]): Promise<ComplianceReport> => {
+export const analyzePostContent = async (postContent: string, customRules?: CustomRule[]): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
     if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
 
     const userName = getUserName();
@@ -136,7 +137,7 @@ export const analyzePostContent = async (postContent: string, customRules?: Cust
     return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: postContent, analysisType: 'text', customRulesApplied: customRules, userName };
 };
 
-export const analyzeImageContent = async (caption: string, imageFile: File, customRules?: CustomRule[]): Promise<ComplianceReport> => {
+export const analyzeImageContent = async (caption: string, imageFile: File, customRules?: CustomRule[]): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
     if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
     
     const userName = getUserName();
@@ -168,7 +169,7 @@ export const analyzeImageContent = async (caption: string, imageFile: File, cust
 };
 
 
-export const analyzeVideoContent = async (videoTranscript: string, videoFile: File, customRules?: CustomRule[]): Promise<ComplianceReport> => {
+export const analyzeVideoContent = async (videoTranscript: string, videoFile: File, customRules?: CustomRule[]): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
     if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
     
     const userName = getUserName();

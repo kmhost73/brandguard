@@ -5,11 +5,62 @@ import Hero from './components/Hero';
 import Features from './components/Features';
 import Dashboard from './components/Dashboard';
 import PublicReportView from './components/PublicReportView';
-import type { ComplianceReport } from './types';
+import type { ComplianceReport, Workspace } from './types';
 
 const App: React.FC = () => {
   const [sharedReport, setSharedReport] = useState<ComplianceReport | null>(null);
   const { user, isLoaded } = useUser();
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+
+  // Initialize workspaces and perform one-time migration for existing users
+  useEffect(() => {
+    const allWorkspacesJson = localStorage.getItem('brandGuardWorkspaces');
+    let allWorkspaces: Workspace[] = allWorkspacesJson ? JSON.parse(allWorkspacesJson) : [];
+
+    if (allWorkspaces.length === 0) {
+      const defaultWorkspace = { id: crypto.randomUUID(), name: 'Personal Workspace' };
+      allWorkspaces = [defaultWorkspace];
+      localStorage.setItem('brandGuardWorkspaces', JSON.stringify(allWorkspaces));
+
+      // One-time migration of old data
+      const oldHistoryJson = localStorage.getItem('brandGuardReportHistory');
+      if (oldHistoryJson) {
+        const oldHistory = JSON.parse(oldHistoryJson);
+        const migratedHistory = oldHistory.map((report: Omit<ComplianceReport, 'workspaceId'>) => ({
+          ...report,
+          workspaceId: defaultWorkspace.id,
+        }));
+        localStorage.setItem(`brandGuardReportHistory_${defaultWorkspace.id}`, JSON.stringify(migratedHistory));
+        localStorage.removeItem('brandGuardReportHistory'); // Clean up old key
+      }
+    }
+    
+    setWorkspaces(allWorkspaces);
+
+    const lastActiveId = localStorage.getItem('brandGuardActiveWorkspaceId');
+    if (lastActiveId && allWorkspaces.some(w => w.id === lastActiveId)) {
+      setActiveWorkspaceId(lastActiveId);
+    } else {
+      const firstWorkspaceId = allWorkspaces[0].id;
+      setActiveWorkspaceId(firstWorkspaceId);
+      localStorage.setItem('brandGuardActiveWorkspaceId', firstWorkspaceId);
+    }
+
+  }, []);
+
+  const handleCreateWorkspace = (name: string) => {
+    const newWorkspace = { id: crypto.randomUUID(), name };
+    const updatedWorkspaces = [...workspaces, newWorkspace];
+    setWorkspaces(updatedWorkspaces);
+    localStorage.setItem('brandGuardWorkspaces', JSON.stringify(updatedWorkspaces));
+    handleChangeWorkspace(newWorkspace.id);
+  };
+
+  const handleChangeWorkspace = (id: string) => {
+    setActiveWorkspaceId(id);
+    localStorage.setItem('brandGuardActiveWorkspaceId', id);
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -20,7 +71,6 @@ const App: React.FC = () => {
         setSharedReport(decodedReport);
       } catch (e) {
         console.error("Failed to parse shared report data from URL", e);
-        // Clear the bad URL param to avoid loops
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
@@ -30,10 +80,7 @@ const App: React.FC = () => {
     document.body.classList.add('bg-dark');
   }, []);
 
-  // Storing the username in localStorage when the user changes.
-  // This helps persist the 'Run by' name on reports for the demo.
   useEffect(() => {
-    // Wait for Clerk to be loaded and user to be available
     if (isLoaded && user) {
       const name = user.firstName || user.fullName || user.emailAddresses[0]?.emailAddress || 'Anonymous';
       if (name !== 'Anonymous') {
@@ -46,12 +93,22 @@ const App: React.FC = () => {
     return <PublicReportView report={sharedReport} />;
   }
 
+  if (!activeWorkspaceId) {
+    // Render a loading state or null while workspaces are being initialized
+    return null; 
+  }
+
   return (
     <div className={`min-h-screen font-sans bg-dark text-gray-300`}>
-      <Header />
+      <Header 
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspaceId}
+        onCreateWorkspace={handleCreateWorkspace}
+        onChangeWorkspace={handleChangeWorkspace}
+      />
       <main>
         <SignedIn>
-          <Dashboard />
+          <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} />
         </SignedIn>
         <SignedOut>
           <Hero />
