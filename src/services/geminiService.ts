@@ -1,6 +1,4 @@
 /// <reference types="vite/client" />
-
-// FIX: The triple-slash directive for Vite client types is moved to the top of the file to resolve issues with import.meta.env.
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ComplianceReport, CustomRule } from '../types';
 
@@ -10,7 +8,7 @@ const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
 const createErrorResponse = (summary: string, details: string): Omit<ComplianceReport, 'workspaceId'> => ({
     id: crypto.randomUUID(),
-    timestamp: new Date().toISOString(),
+    timestamp: new new Date().toISOString(),
     overallScore: 0,
     summary,
     checks: [{ name: "Configuration Error", status: "fail", details }],

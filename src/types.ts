@@ -4,6 +4,8 @@ export type AnalysisType = 'text' | 'video' | 'image';
 
 export type ReportStatus = 'pending' | 'approved' | 'revision';
 
+export type MainView = 'dashboard' | 'sandbox' | 'settings';
+
 export interface CheckItem {
   name: string;
   status: ComplianceStatus;

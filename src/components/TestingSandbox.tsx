@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { analyzePostContent, analyzeImageContent } from '../services/geminiService';
-import type { ComplianceReport, TestCase } from '../types';
+import type { ComplianceReport, TestCase, MainView } from '../types';
 import { testCases } from '../testCases';
 import Loader from './Loader';
 import { CheckIcon, XIcon, SparklesIcon } from './icons/Icons';
+
+interface TestingSandboxProps {
+    onNavigate: (view: MainView) => void;
+}
 
 const ResultDisplay: React.FC<{ label: string; value: string; pass: boolean }> = ({ label, value, pass }) => (
     <div className="flex items-start text-sm">
@@ -92,12 +96,26 @@ const TestCaseCard: React.FC<{ testCase: TestCase }> = ({ testCase }) => {
     );
 };
 
-const TestingSandbox: React.FC = () => {
+const TestingSandbox: React.FC<TestingSandboxProps> = ({ onNavigate }) => {
     return (
-        <div className="space-y-6">
-            {testCases.map(tc => (
-                <TestCaseCard key={tc.id} testCase={tc} />
-            ))}
+        <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-gray-300">
+             <div className="flex justify-between items-center mb-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-white mb-2">Internal QA Sandbox</h1>
+                    <p className="text-gray-400">Execute pre-defined test cases to validate AI performance and accuracy.</p>
+                </div>
+                <button 
+                    onClick={() => onNavigate('dashboard')}
+                    className="flex items-center gap-2 px-4 py-2 bg-secondary-dark border border-gray-700 rounded-md shadow-sm text-sm font-medium text-gray-300 hover:bg-gray-700"
+                >
+                    Return to Dashboard
+                </button>
+            </div>
+            <div className="space-y-6">
+                {testCases.map(tc => (
+                    <TestCaseCard key={tc.id} testCase={tc} />
+                ))}
+            </div>
         </div>
     );
 };

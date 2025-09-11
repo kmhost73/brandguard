@@ -1,7 +1,7 @@
 import React from 'react';
 import { SignInButton, SignUpButton, SignedIn, SignedOut } from "@clerk/clerk-react";
 import { BrandGuardLogoIcon } from './icons/Icons';
-import type { Workspace } from '../types';
+import type { Workspace, MainView } from '../types';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 interface HeaderProps {
@@ -9,6 +9,7 @@ interface HeaderProps {
   activeWorkspaceId: string;
   onCreateWorkspace: (name: string) => void;
   onChangeWorkspace: (id: string) => void;
+  onNavigate: (view: MainView) => void;
 }
 
 const Header: React.FC<Partial<HeaderProps>> = ({
@@ -16,6 +17,7 @@ const Header: React.FC<Partial<HeaderProps>> = ({
   activeWorkspaceId,
   onCreateWorkspace,
   onChangeWorkspace,
+  onNavigate,
 }) => {
   return (
     <header className="sticky top-0 z-50 bg-dark/80 backdrop-blur-md">
@@ -27,12 +29,13 @@ const Header: React.FC<Partial<HeaderProps>> = ({
               <span className="text-2xl font-bold text-white hidden sm:inline">BrandGuard</span>
             </a>
             <SignedIn>
-              {workspaces && activeWorkspaceId && onCreateWorkspace && onChangeWorkspace && (
+              {workspaces && activeWorkspaceId && onCreateWorkspace && onChangeWorkspace && onNavigate && (
                 <WorkspaceSwitcher 
                   workspaces={workspaces}
                   activeWorkspaceId={activeWorkspaceId}
                   onCreateWorkspace={onCreateWorkspace}
                   onChangeWorkspace={onChangeWorkspace}
+                  onNavigate={onNavigate}
                 />
               )}
             </SignedIn>
