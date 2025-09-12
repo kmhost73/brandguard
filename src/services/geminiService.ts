@@ -69,6 +69,17 @@ const multimodalComplianceSchema = {
     required: ["overallScore", "summary", "checks", "recommendedStatus"]
 };
 
+const testScenarioSchema = {
+    type: Type.OBJECT,
+    properties: {
+        postContent: { type: Type.STRING, description: "The full text of the generated social media post to be tested." },
+        expectedSummary: { type: Type.STRING, description: "A brief justification for why this post should pass or fail, explaining the specific compliance issue or lack thereof." },
+        expectedScoreText: { type: Type.STRING, description: "A human-readable string of the expected score range, e.g., '>= 90' for a pass or '< 90' for a fail/warn." },
+        expectedToPass: { type: Type.BOOLEAN, description: "A boolean indicating if the generated post is expected to be fully compliant (true) or not (false)." }
+    },
+    required: ["postContent", "expectedSummary", "expectedScoreText", "expectedToPass"]
+};
+
 const generateCustomRulesPrompt = (customRules?: CustomRule[]): string => {
     if (!customRules || customRules.length === 0) return "";
     const rulesText = customRules.map((rule, index) => `${index + 1}. ${rule.text}`).join('\n');
@@ -94,6 +105,38 @@ const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reje
 const getUserName = (): string => {
     return localStorage.getItem('brandGuardUser') || 'Anonymous';
 }
+
+export const generateTestScenario = async (profilePrompt: string): Promise<{ postContent: string; expectedSummary: string; expectedScoreText: string; expectedToPass: boolean; }> => {
+    if (!ai) throw new Error("VITE_GEMINI_API_KEY is not configured.");
+
+    const fullPrompt = `You are a "Red Team" agent responsible for testing an AI compliance system. Your goal is to generate creative and tricky test cases for social media posts.
+    
+    **Your Persona and Goal:**
+    ${profilePrompt}
+
+    **Standard Compliance Rules to Test Against:**
+    1.  **FTC Disclosure:** Must contain a clear disclosure like #ad or #sponsored.
+    2.  **Brand Safety:** No profanity or controversial topics.
+    3.  **Claim Accuracy:** Must mention "made with 100% organic materials".
+
+    Based on your persona, generate a single, unique social media post caption and predict its compliance outcome. Return the result in the required JSON format.`;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: fullPrompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: testScenarioSchema
+        }
+    });
+
+    try {
+        return JSON.parse(response.text);
+    } catch (e) {
+        console.error("Failed to parse JSON for test scenario:", response.text);
+        throw new Error("The Red Team AI returned an invalid response. Please try again.");
+    }
+};
 
 export const transcribeVideo = async (videoFile: File): Promise<string> => {
     if (!ai) return Promise.reject(new Error("VITE_GEMINI_API_KEY is not configured."));

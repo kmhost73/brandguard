@@ -1,13 +1,34 @@
 import React, { useState } from 'react';
-import { analyzePostContent, analyzeImageContent } from '../services/geminiService';
-import type { ComplianceReport, TestCase, MainView } from '../types';
+import { analyzePostContent, analyzeImageContent, generateTestScenario } from '../services/geminiService';
+import type { ComplianceReport, TestCase, MainView, TestProfile, DynamicTestResult } from '../types';
 import { testCases } from '../testCases';
 import Loader from './Loader';
-import { CheckIcon, XIcon, SparklesIcon } from './icons/Icons';
+import { CheckIcon, XIcon, SparklesIcon, TestTubeIcon } from './icons/Icons';
 
 interface TestingSandboxProps {
     onNavigate: (view: MainView) => void;
 }
+
+const testProfiles: TestProfile[] = [
+    {
+        id: 'p1',
+        name: 'The Careless Influencer',
+        description: 'Generates posts that might forget, misplace, or bury disclosures.',
+        prompt: 'You are a popular but slightly careless influencer. Your goal is to create a post that subtly downplays the sponsored nature of the content. You might forget the #ad, bury it deep in hashtags, or use ambiguous language. Create a post that is likely to fail or receive a warning for its FTC disclosure.'
+    },
+    {
+        id: 'p2',
+        name: 'The Over-Hyped Marketer',
+        description: 'Generates posts with exaggerated claims that may border on non-compliant.',
+        prompt: 'You are an aggressive marketer. Your goal is to create a post that makes bold, exciting claims about a product, potentially omitting a required detail like "made with 100% organic materials" to make it sound more punchy. Create a post that is likely to fail a claim accuracy check.'
+    },
+    {
+        id: 'p3',
+        name: 'The Compliant Pro',
+        description: 'Generates perfectly compliant posts to check for false positives.',
+        prompt: 'You are a highly professional and compliant influencer. Your goal is to create a sponsored post that is a textbook example of perfect compliance. It should have a clear #ad at the beginning, mention all required claims accurately, and be completely brand safe. Create a post that should easily pass all checks.'
+    }
+];
 
 const ResultDisplay: React.FC<{ label: string; value: string; pass: boolean }> = ({ label, value, pass }) => (
     <div className="flex items-start text-sm">
@@ -40,8 +61,10 @@ const TestCaseCard: React.FC<{ testCase: TestCase }> = ({ testCase }) => {
             } else {
                  throw new Error("This test type is not yet implemented in the sandbox.");
             }
-            setReport(result);
-        } catch (err) {
+            // FIX: Add a dummy workspaceId to satisfy the ComplianceReport type.
+            setReport({ ...result, workspaceId: 'sandbox' });
+        } catch (err)
+ {
             setError(err instanceof Error ? err.message : "An unknown error occurred.");
         } finally {
             setIsLoading(false);
@@ -96,13 +119,116 @@ const TestCaseCard: React.FC<{ testCase: TestCase }> = ({ testCase }) => {
     );
 };
 
+const RedTeamAgent: React.FC = () => {
+    const [selectedProfileId, setSelectedProfileId] = useState<string>(testProfiles[0].id);
+    const [isDynamicTestLoading, setIsDynamicTestLoading] = useState(false);
+    const [dynamicTestError, setDynamicTestError] = useState<string | null>(null);
+    const [dynamicTestResult, setDynamicTestResult] = useState<DynamicTestResult | null>(null);
+
+    const handleRunDynamicTest = async () => {
+        setIsDynamicTestLoading(true);
+        setDynamicTestError(null);
+        setDynamicTestResult(null);
+        try {
+            const profile = testProfiles.find(p => p.id === selectedProfileId);
+            if (!profile) throw new Error("Selected test profile not found.");
+
+            // 1. Generate the scenario from the Red Team Agent
+            const scenario = await generateTestScenario(profile.prompt);
+
+            // 2. Run the generated content through the actual analysis engine
+            const partialReport = await analyzePostContent(scenario.postContent);
+            // FIX: Add a dummy workspaceId to satisfy the ComplianceReport type, which is required by DynamicTestResult.
+            const actualReport: ComplianceReport = { ...partialReport, workspaceId: 'sandbox' };
+            
+            setDynamicTestResult({ ...scenario, actualReport });
+
+        } catch (err) {
+            setDynamicTestError(err instanceof Error ? err.message : "An unknown error occurred.");
+        } finally {
+            setIsDynamicTestLoading(false);
+        }
+    };
+    
+    const selectedProfile = testProfiles.find(p => p.id === selectedProfileId);
+    let testPass: boolean | null = null;
+    if (dynamicTestResult) {
+        const actualPass = dynamicTestResult.actualReport.overallScore >= 90;
+        testPass = actualPass === dynamicTestResult.expectedToPass;
+    }
+
+    return (
+        <div className="bg-secondary-dark p-6 rounded-lg shadow-md border border-primary/20 mb-6">
+            <h2 className="font-bold text-xl text-white flex items-center gap-2"><TestTubeIcon className="text-primary"/> AI Red Team Agent</h2>
+            <p className="text-sm text-gray-400 mt-1">Challenge the Greenlight Engine with novel, AI-generated test scenarios.</p>
+            
+            <div className="my-4 flex flex-col sm:flex-row items-center gap-4">
+                <div className="w-full sm:w-auto flex-grow">
+                    <label htmlFor="red-team-profile" className="text-xs font-semibold text-gray-500 uppercase">Select Persona</label>
+                    <select 
+                        id="red-team-profile"
+                        value={selectedProfileId}
+                        onChange={(e) => setSelectedProfileId(e.target.value)}
+                        className="mt-1 block w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition"
+                        disabled={isDynamicTestLoading}
+                    >
+                       {testProfiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                </div>
+                <div className="w-full sm:w-auto pt-5">
+                    <button 
+                        onClick={handleRunDynamicTest} 
+                        disabled={isDynamicTestLoading} 
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-md shadow-sm hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    >
+                        <SparklesIcon /> {isDynamicTestLoading ? 'Generating...' : 'Generate & Run Scenario'}
+                    </button>
+                </div>
+            </div>
+             {selectedProfile && <p className="text-xs text-center sm:text-left text-gray-500 italic">Goal: {selectedProfile.description}</p>}
+
+            {isDynamicTestLoading && <div className="mt-4"><Loader /></div>}
+            {dynamicTestError && <div className="mt-4 bg-red-900/50 border-l-4 border-danger text-red-300 p-4 rounded-md" role="alert"><p className="font-bold">Error</p><p>{dynamicTestError}</p></div>}
+
+            {dynamicTestResult && (
+                 <div className="mt-6 space-y-4 animate-fade-in">
+                    <div className="flex justify-between items-center">
+                         <h4 className="font-bold text-md text-white">Dynamic Test Result</h4>
+                         <span className={`px-3 py-1 text-sm font-bold rounded-full ${testPass ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
+                            {testPass ? 'MATCH (PASS)' : 'MISMATCH (FAIL)'}
+                         </span>
+                    </div>
+                    <div className="p-4 bg-dark rounded-lg border border-gray-700 space-y-4">
+                        <div>
+                            <p className="text-xs font-semibold text-gray-500 uppercase">Generated Content</p>
+                            <p className="text-sm text-gray-300 whitespace-pre-wrap font-mono mt-1 p-2 bg-secondary-dark rounded">{dynamicTestResult.generatedContent}</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-3 bg-secondary-dark rounded">
+                                <p className="text-sm font-bold text-gray-400">Red Team's Expectation</p>
+                                <p className="text-xs text-gray-300 mt-1"><strong>Expected Score:</strong> {dynamicTestResult.expectedScoreText}</p>
+                                <p className="text-xs text-gray-300 mt-1"><strong>Reasoning:</strong> {dynamicTestResult.expectedSummary}</p>
+                            </div>
+                            <div className="p-3 bg-secondary-dark rounded">
+                                <p className="text-sm font-bold text-gray-400">BrandGuard's Actual Result</p>
+                                <p className="text-xs text-gray-300 mt-1"><strong>Actual Score:</strong> {dynamicTestResult.actualReport.overallScore}</p>
+                                 <p className="text-xs text-gray-300 mt-1"><strong>AI Summary:</strong> {dynamicTestResult.actualReport.summary}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const TestingSandbox: React.FC<TestingSandboxProps> = ({ onNavigate }) => {
     return (
         <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-gray-300">
-             <div className="flex justify-between items-center mb-4">
+             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h1 className="text-3xl font-bold text-white mb-2">Internal QA Sandbox</h1>
-                    <p className="text-gray-400">Execute pre-defined test cases to validate AI performance and accuracy.</p>
+                    <p className="text-gray-400">Validate AI performance with static test cases or challenge it with the AI Red Team Agent.</p>
                 </div>
                 <button 
                     onClick={() => onNavigate('dashboard')}
@@ -111,7 +237,11 @@ const TestingSandbox: React.FC<TestingSandboxProps> = ({ onNavigate }) => {
                     Return to Dashboard
                 </button>
             </div>
+
+            <RedTeamAgent />
+
             <div className="space-y-6">
+                 <h2 className="font-bold text-xl text-white mt-8 border-t border-gray-700 pt-6">Static Test Cases</h2>
                 {testCases.map(tc => (
                     <TestCaseCard key={tc.id} testCase={tc} />
                 ))}

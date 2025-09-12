@@ -65,3 +65,20 @@ export interface TestCase {
     checks: (actual: CheckItem[]) => boolean;
   };
 }
+
+// A profile for the AI Red Team Agent to adopt
+export interface TestProfile {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string; // The instruction for the AI persona
+}
+
+// The result of a dynamically generated test scenario
+export interface DynamicTestResult {
+  generatedContent: string;
+  expectedSummary: string;
+  expectedScoreText: string;
+  expectedToPass: boolean;
+  actualReport: ComplianceReport;
+}
