@@ -52,8 +52,10 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
   const [shareConfirmation, setShareConfirmation] = useState('');
   const [visibleHistoryCount, setVisibleHistoryCount] = useState(10);
+  const [loadingMessage, setLoadingMessage] = useState<string>('Analyzing...');
   const reportCardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const loadingIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     setReportHistory(getReportHistory(activeWorkspaceId));
@@ -70,6 +72,37 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     }
   }, [report, newReportId]);
   
+  useEffect(() => {
+    const loadingMessages = [
+        'Warming up the Greenlight Engine...',
+        'Scanning for FTC compliance...',
+        'Checking brand safety protocols...',
+        'Cross-referencing custom rules...',
+        'Generating compliance report...',
+        'Finalizing insights...',
+    ];
+
+    if (loadingStatus === 'analyzing') {
+        let index = 0;
+        setLoadingMessage(loadingMessages[0]);
+        loadingIntervalRef.current = window.setInterval(() => {
+            index = (index + 1) % loadingMessages.length;
+            setLoadingMessage(loadingMessages[index]);
+        }, 2500);
+    } else {
+        if (loadingIntervalRef.current) {
+            clearInterval(loadingIntervalRef.current);
+            loadingIntervalRef.current = null;
+        }
+    }
+
+    return () => {
+        if (loadingIntervalRef.current) {
+            clearInterval(loadingIntervalRef.current);
+        }
+    };
+  }, [loadingStatus]);
+
   const handleAnalysisCompletion = useCallback((newReport: Omit<ComplianceReport, 'workspaceId'>) => {
     const reportWithWorkspace = { ...newReport, workspaceId: activeWorkspaceId };
     const reportWithInitialStatus = { ...reportWithWorkspace, status: newReport.recommendedStatus || 'pending' };
@@ -198,7 +231,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const isLoading = loadingStatus !== 'idle';
   const getButtonText = () => {
     if (report?.suggestedRevision && postContent === report.suggestedRevision) return 'Verifying the fix...';
-    if (loadingStatus === 'analyzing') return 'Analyzing...';
+    if (loadingStatus === 'analyzing') return loadingMessage;
     if (loadingStatus === 'transcribing') return 'Transcribing video...';
     if (analysisType === 'video') return 'Select & Analyze Video';
     if (analysisType === 'image') return 'Scan Image & Caption';
@@ -299,7 +332,9 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                          
                          <button onClick={() => handleScan()} disabled={isScanDisabled()} className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
                              {isLoading && loadingStatus !== 'transcribing' && <Loader size="sm" />}
-                             <span>{getButtonText()}</span>
+                             <span key={loadingStatus === 'analyzing' ? loadingMessage : 'static'} className="inline-block animate-fade-in">
+                                {getButtonText()}
+                             </span>
                          </button>
                      </div>
                   </div>
