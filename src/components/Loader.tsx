@@ -5,7 +5,7 @@ interface LoaderProps {
   size?: 'sm' | 'md';
 }
 
-const Loader: React.FC<LoaderProps> = ({ text = "Analyzing...", size = 'md' }) => {
+const Loader: React.FC<LoaderProps> = ({ text, size = 'md' }) => {
   const sizeClasses = {
     sm: 'h-5 w-5 border-2',
     md: 'h-16 w-16 border-2',

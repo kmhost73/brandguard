@@ -44,7 +44,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [loadingStatus, setLoadingStatus] = useState<LoadingStatus>('idle');
-  const [loadingText, setLoadingText] = useState<string>('Analyzing...');
   const [report, setReport] = useState<ComplianceReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reportHistory, setReportHistory] = useState<ComplianceReport[]>([]);
@@ -71,7 +70,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     }
   }, [report, newReportId]);
   
-  const handleAnalysisCompletion = (newReport: Omit<ComplianceReport, 'workspaceId'>) => {
+  const handleAnalysisCompletion = useCallback((newReport: Omit<ComplianceReport, 'workspaceId'>) => {
     const reportWithWorkspace = { ...newReport, workspaceId: activeWorkspaceId };
     const reportWithInitialStatus = { ...reportWithWorkspace, status: newReport.recommendedStatus || 'pending' };
     setReport(reportWithInitialStatus);
@@ -80,13 +79,12 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     const newHistory = [reportWithInitialStatus, ...history];
     saveReportHistory(activeWorkspaceId, newHistory);
     setReportHistory(newHistory);
-  };
+  }, [activeWorkspaceId]);
 
   const handleVideoUpload = useCallback(async (file: File | null) => {
     if (file) {
         setSelectedVideoFile(file);
         setLoadingStatus('transcribing');
-        setLoadingText('Transcribing video...');
         setError(null);
         setReport(null);
         setVideoTranscript('');
@@ -95,7 +93,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             setVideoTranscript(transcript);
 
             setLoadingStatus('analyzing');
-            setLoadingText('Analyzing video content...');
             const result = await analyzeVideoContent(transcript, file, customRules);
             handleAnalysisCompletion(result);
         } catch (err) {
@@ -104,7 +101,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             setLoadingStatus('idle');
         }
     }
-  }, [customRules, activeWorkspaceId]);
+  }, [customRules, handleAnalysisCompletion]);
 
   const showWelcomeGuide = !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && loadingStatus === 'idle';
   
@@ -115,9 +112,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
 
   const handleScan = useCallback(async (contentOverride?: string, isRescan = false) => {
     setLoadingStatus('analyzing');
-    if (!isRescan) {
-      setLoadingText('Analyzing...');
-    }
     setReport(null);
     setError(null);
     try {
@@ -146,7 +140,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
         setLoadingStatus('idle');
       }
     }
-  }, [analysisType, postContent, selectedImageFile, customRules, activeWorkspaceId]);
+  }, [analysisType, postContent, selectedImageFile, customRules, handleAnalysisCompletion]);
   
   const handleStatusChange = (reportId: string, newStatus: ReportStatus) => {
     const updatedHistory = reportHistory.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
@@ -161,7 +155,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const handleAcceptRevision = (revisedContent: string) => {
       setPostContent(revisedContent);
       setReport(null);
-      setLoadingText("Verifying the fix...");
       handleScan(revisedContent, true);
   };
 
@@ -204,8 +197,9 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
 
   const isLoading = loadingStatus !== 'idle';
   const getButtonText = () => {
-    if (loadingStatus === 'analyzing') return loadingText;
-    if (loadingStatus === 'transcribing') return loadingText;
+    if (report?.suggestedRevision && postContent === report.suggestedRevision) return 'Verifying the fix...';
+    if (loadingStatus === 'analyzing') return 'Analyzing...';
+    if (loadingStatus === 'transcribing') return 'Transcribing video...';
     if (analysisType === 'video') return 'Select & Analyze Video';
     if (analysisType === 'image') return 'Scan Image & Caption';
     return 'Scan Post';
@@ -258,7 +252,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div ref={reportCardRef} className="lg:col-span-2 space-y-6">
               
-              {report ? (
+              {report && !isLoading ? (
                 <Suspense fallback={<div className="w-full min-h-[400px] flex items-center justify-center"><Loader /></div>}>
                   <ReportCard report={report} onStatusChange={handleStatusChange} onAcceptRevision={handleAcceptRevision} />
                 </Suspense>
@@ -276,11 +270,11 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                     </div>
 
                      <div className="space-y-4">
-                         {analysisType !== 'video' && <textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} placeholder={analysisType === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition" />}
+                         {analysisType !== 'video' && <textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} placeholder={analysisType === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
                          {analysisType === 'image' && (
                              <div>
                                 <label htmlFor="image-upload" className="block text-sm font-medium text-gray-400 mb-2">Upload Image</label>
-                                <input id="image-upload" type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20 cursor-pointer" disabled={isLoading}/>
+                                <input id="image-upload" type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLoading}/>
                                  {selectedImageFile && <p className="text-xs text-gray-500 mt-2">Selected: {selectedImageFile.name}</p>}
                              </div>
                          )}
@@ -297,14 +291,14 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                                 <div className="bg-dark p-3 rounded-md border border-gray-600 min-h-[100px]">
                                     <p className="text-sm font-medium text-gray-400">Generated Transcript:</p>
                                     {loadingStatus === 'transcribing' 
-                                        ? <Loader text={loadingText} />
+                                        ? <Loader text="Transcribing video..." />
                                         : <p className="text-gray-300 whitespace-pre-wrap text-sm mt-2">{videoTranscript || "Transcript will appear here after video processing."}</p>}
                                 </div>
                              </div>
                          )}
                          
                          <button onClick={() => handleScan()} disabled={isScanDisabled()} className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
-                             {isLoading && loadingStatus !== 'transcribing' && <Loader size="sm" text="" />}
+                             {isLoading && loadingStatus !== 'transcribing' && <Loader size="sm" />}
                              <span>{getButtonText()}</span>
                          </button>
                      </div>

@@ -152,6 +152,7 @@ const App: React.FC = () => {
       certificates = certificates.filter(c => c.id !== certId);
       localStorage.setItem(`brandGuardCertificates_${workspaceId}`, JSON.stringify(certificates));
   };
+  
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
