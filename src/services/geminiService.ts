@@ -1,16 +1,15 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { ComplianceReport, CustomRule } from '../types';
+import type { ComplianceReport, CustomRule, CheckItem } from '../types';
 
 // FIX: Workaround for TypeScript errors when accessing Vite environment variables.
 // The reference to "vite/client" types was not being found in the provided environment.
-// Casting `import.meta` to `any` resolves the property access error without needing project-level configuration changes.
+// Casting `import` to `any` resolves the property access error without needing project-level configuration changes.
 const API_KEY = (import.meta as any).env.VITE_GEMINI_API_KEY;
 
 const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
 const createErrorResponse = (summary: string, details: string): Omit<ComplianceReport, 'workspaceId'> => ({
     id: crypto.randomUUID(),
-    // FIX: Corrected a likely typo with a redundant 'new' keyword.
     timestamp: new Date().toISOString(),
     overallScore: 0,
     summary,
@@ -57,7 +56,7 @@ const multimodalComplianceSchema = {
           type: Type.OBJECT,
           properties: {
             name: { type: Type.STRING, description: "The name of the compliance check (e.g., 'Spoken Disclosure', 'Visual Brand Safety'). Use the prefix 'Custom Rule:' for custom rule checks." },
-            status: { type: Type.STRING, description: "The result of the check. Must be one of: 'pass', 'fail', 'warn'.", enum: ['pass', 'fail', 'warn'] },
+            status: { type: Type.STRING, description: "The result of the check. Must be one of: 'pass', 'fail', or 'warn'.", enum: ['pass', 'fail', 'warn'] },
             details: { type: Type.STRING, description: "A detailed explanation of why the check passed, failed, or has a warning. Provide specifics." },
             modality: { type: Type.STRING, description: "The modality of the check. Must be one of 'audio', 'visual', or 'text'.", enum: ['audio', 'visual', 'text'] }
           },
@@ -123,6 +122,37 @@ const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reje
 const getUserName = (): string => {
     return localStorage.getItem('brandGuardUser') || 'Anonymous';
 }
+
+const generateStrategicInsight = async (report: Omit<ComplianceReport, 'workspaceId'>): Promise<string> => {
+    if (!ai) return "";
+
+    const failedChecks = report.checks.filter(c => c.status === 'fail' || c.status === 'warn');
+    if (failedChecks.length === 0) return "";
+
+    const issues = failedChecks.map(c => `- ${c.name}: ${c.details}`).join('\n');
+
+    const prompt = `You are a "Strategic Insight Engine" for a marketing compliance tool. Your job is to provide a concise, actionable insight for a marketer based on a compliance report. Do not just repeat the errors. Explain the "why" from a marketing or business risk perspective. Keep it to one or two sentences.
+
+    **Original Content:**
+    "${report.sourceContent}"
+
+    **Compliance Issues Found:**
+    ${issues}
+
+    Generate a single, helpful strategic insight based on these issues. For example: "Insight: While the message is engaging, the buried #ad poses a legal risk and can damage audience trust. The 'Magic Fix' revision places it upfront for maximum safety."`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.faslash",
+            contents: prompt,
+            config: { thinkingConfig: { thinkingBudget: 0 } } // Low latency for this quick task
+        });
+        return response.text.trim();
+    } catch (e) {
+        console.error("Error generating strategic insight:", e);
+        return ""; // Fail silently, as this is an enhancement not a core feature.
+    }
+};
 
 export const architectRule = async (intent: string): Promise<Omit<CustomRule, 'id' | 'intent'>> => {
     if (!ai) throw new Error("VITE_GEMINI_API_KEY is not configured.");
@@ -202,99 +232,124 @@ export const transcribeVideo = async (videoFile: File): Promise<string> => {
     return response.text.trim();
 };
 
-export const analyzePostContent = async (postContent: string, customRules?: CustomRule[], isRescan = false): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
+async function processAnalysis<T extends Omit<ComplianceReport, 'workspaceId'>>(
+    analysisFn: () => Promise<T>,
+    onInsight: (insight: string) => void
+): Promise<T> {
+    const report = await analysisFn();
+
+    if (report.overallScore < 90) {
+        // Don't await this; let it run in the background
+        generateStrategicInsight(report).then(onInsight);
+    }
+    
+    return report;
+}
+
+export const analyzePostContent = (postContent: string, customRules?: CustomRule[], isRescan = false, onInsight: (insight: string) => void = () => {}): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
     if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
 
-    const userName = getUserName();
-    const fullPrompt = `Act as an expert social media compliance officer for a major brand. Your task is to analyze the following sponsored post caption for compliance with FTC guidelines, brand safety, and specific campaign requirements.\n\n**Post Caption to Analyze:**\n"${postContent}"\n\n**Standard Compliance Rules:**\n1.  **FTC Disclosure:** The post MUST contain a clear and conspicuous disclosure, such as #ad, #sponsored, or "Paid partnership".\n2.  **Brand Safety:** The post must NOT contain any profanity, offensive language, or controversial topics.\n3.  **Claim Accuracy:** The post must accurately represent the product and mention "made with 100% organic materials".\n${generateCustomRulesPrompt(customRules)}\nPlease provide a strict analysis, recommend a status, and return the results in the required JSON format. If any compliance issues are found, you MUST provide a revised, compliant version of the text in the 'suggestedRevision' field. If it's fully compliant, return an empty string for 'suggestedRevision'.`;
+    const analysisFn = async () => {
+        const userName = getUserName();
+        const fullPrompt = `Act as an expert social media compliance officer for a major brand. Your task is to analyze the following sponsored post caption for compliance with FTC guidelines, brand safety, and specific campaign requirements.\n\n**Post Caption to Analyze:**\n"${postContent}"\n\n**Standard Compliance Rules:**\n1.  **FTC Disclosure:** The post MUST contain a clear and conspicuous disclosure, such as #ad, #sponsored, or "Paid partnership".\n2.  **Brand Safety:** The post must NOT contain any profanity, offensive language, or controversial topics.\n3.  **Claim Accuracy:** The post must accurately represent the product and mention "made with 100% organic materials".\n${generateCustomRulesPrompt(customRules)}\nPlease provide a strict analysis, recommend a status, and return the results in the required JSON format. If any compliance issues are found, you MUST provide a revised, compliant version of the text in the 'suggestedRevision' field. If it's fully compliant, return an empty string for 'suggestedRevision'.`;
+        
+        const config = { 
+            responseMimeType: "application/json", 
+            responseSchema: complianceSchema,
+            ...(isRescan && { thinkingConfig: { thinkingBudget: 0 } }) 
+        };
+        
+        const response = await ai.models.generateContent({ 
+            model: "gemini-2.5-flash", 
+            contents: fullPrompt, 
+            config 
+        });
+        
+        let partialReport;
+        try {
+            partialReport = JSON.parse(response.text);
+        } catch (e) {
+            console.error("Failed to parse JSON response from Gemini:", response.text);
+            partialReport = {
+                overallScore: 0,
+                summary: "Error: The AI returned an invalid response. This may be due to content safety filters or an internal error. Please check your content or try again.",
+                checks: [{
+                    name: "Response Error",
+                    status: "fail",
+                    details: "Could not parse the JSON response from the AI. The raw response was logged to the console."
+                }],
+                recommendedStatus: 'revision',
+                suggestedRevision: "We couldn't generate a revision due to an AI response error."
+            };
+        }
+        return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: postContent, analysisType: 'text', customRulesApplied: customRules, userName };
+    };
+
+    return processAnalysis(analysisFn, onInsight);
+};
+
+export const analyzeImageContent = (caption: string, imageFile: File, customRules?: CustomRule[], onInsight: (insight: string) => void = () => {}): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
+    if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
     
-    const config = { 
-        responseMimeType: "application/json", 
-        responseSchema: complianceSchema,
-        ...(isRescan && { thinkingConfig: { thinkingBudget: 0 } }) 
+    const analysisFn = async () => {
+        const userName = getUserName();
+        const imageData64 = await fileToBase64(imageFile);
+        const prompt = `Act as an expert social media compliance officer. Analyze the provided image and its caption for compliance. You must check BOTH the visual content and the text content.\n\n**Image Caption for Text Analysis:**\n"${caption}"\n\n**Standard Compliance Rules:**\n1.  **FTC Disclosure (Text):** The caption must contain a clear disclosure (e.g., #ad, #sponsored).\n2.  **Brand Safety (Visual & Text):** No profanity in text, no inappropriate imagery.\n3.  **Brand Representation (Visual):** The product must be clearly visible and not depicted negatively.\n${generateCustomRulesPrompt(customRules)}\nProvide a strict analysis covering both modalities ('visual' for image, 'text' for caption), recommend a status, and return the results in the required JSON format.`;
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts: [{ text: prompt }, { inlineData: { mimeType: imageFile.type, data: imageData64 } }] },
+            config: { responseMimeType: "application/json", responseSchema: multimodalComplianceSchema }
+        });
+        let partialReport;
+        try {
+            partialReport = JSON.parse(response.text);
+        } catch (e) {
+            console.error("Failed to parse JSON response from Gemini:", response.text);
+            partialReport = {
+                overallScore: 0,
+                summary: "Error: The AI returned an invalid response. This may be due to content safety filters or an internal error. Please check your content or try again.",
+                checks: [{
+                    name: "Response Error",
+                    status: "fail",
+                    details: "Could not parse the JSON response from the AI. The raw response was logged to the console."
+                }],
+                recommendedStatus: 'revision'
+            };
+        }
+        return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: caption, analysisType: 'image', customRulesApplied: customRules, sourceMedia: { data: imageData64, mimeType: imageFile.type }, userName };
+    };
+
+    return processAnalysis(analysisFn, onInsight);
+};
+
+export const analyzeVideoContent = (videoTranscript: string, videoFile: File, customRules?: CustomRule[], onInsight: (insight: string) => void = () => {}): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
+    if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
+    
+    const analysisFn = async () => {
+        const userName = getUserName();
+        const videoData64 = await fileToBase64(videoFile);
+        const actualFullPrompt = `Act as an expert social media compliance officer. Analyze the provided video and its transcript for compliance with FTC guidelines, brand safety, and custom campaign requirements. You must perform checks on BOTH the visual content of the video and the audio content from the transcript.\n\n**Video Transcript for Audio Analysis:**\n"${videoTranscript}"\n\n**Standard Compliance Rules (Check both Audio & Visuals):**\n1.  **FTC Disclosure:** Audio must contain a spoken disclosure, and visuals should have a text overlay.\n2.  **Brand Safety:** No profanity in audio, no inappropriate imagery in visuals.\n3.  **Brand Representation:** Speaker must mention "made with 100% organic materials", product must be clearly visible.\n${generateCustomRulesPrompt(customRules)}\nProvide a strict analysis covering both modalities, recommend a status, and return the results in the required JSON format. For each check, specify the modality as 'audio' or 'visual'.`;
+
+        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: { parts: [{ text: actualFullPrompt }, { inlineData: { mimeType: videoFile.type, data: videoData64 } }] }, config: { responseMimeType: "application/json", responseSchema: multimodalComplianceSchema }});
+        let partialReport;
+        try {
+            partialReport = JSON.parse(response.text);
+        } catch (e) {
+            console.error("Failed to parse JSON response from Gemini:", response.text);
+            partialReport = {
+                overallScore: 0,
+                summary: "Error: The AI returned an invalid response. This may be due to content safety filters or an internal error. Please check your content or try again.",
+                checks: [{
+                    name: "Response Error",
+                    status: "fail",
+                    details: "Could not parse the JSON response from the AI. The raw response was logged to the console."
+                }],
+                recommendedStatus: 'revision'
+            };
+        }
+        return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: videoTranscript, analysisType: 'video', customRulesApplied: customRules, sourceMedia: { data: videoData64, mimeType: videoFile.type }, userName };
     };
     
-    const response = await ai.models.generateContent({ 
-        model: "gemini-2.5-flash", 
-        contents: fullPrompt, 
-        config 
-    });
-    
-    let partialReport;
-    try {
-        partialReport = JSON.parse(response.text);
-    } catch (e) {
-        console.error("Failed to parse JSON response from Gemini:", response.text);
-        partialReport = {
-            overallScore: 0,
-            summary: "Error: The AI returned an invalid response. This may be due to content safety filters or an internal error. Please check your content or try again.",
-            checks: [{
-                name: "Response Error",
-                status: "fail",
-                details: "Could not parse the JSON response from the AI. The raw response was logged to the console."
-            }],
-            recommendedStatus: 'revision',
-            suggestedRevision: "We couldn't generate a revision due to an AI response error."
-        };
-    }
-    return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: postContent, analysisType: 'text', customRulesApplied: customRules, userName };
-};
-
-export const analyzeImageContent = async (caption: string, imageFile: File, customRules?: CustomRule[]): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
-    if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
-    
-    const userName = getUserName();
-    const imageData64 = await fileToBase64(imageFile);
-    const prompt = `Act as an expert social media compliance officer. Analyze the provided image and its caption for compliance. You must check BOTH the visual content and the text content.\n\n**Image Caption for Text Analysis:**\n"${caption}"\n\n**Standard Compliance Rules:**\n1.  **FTC Disclosure (Text):** The caption must contain a clear disclosure (e.g., #ad, #sponsored).\n2.  **Brand Safety (Visual & Text):** No profanity in text, no inappropriate imagery.\n3.  **Brand Representation (Visual):** The product must be clearly visible and not depicted negatively.\n${generateCustomRulesPrompt(customRules)}\nProvide a strict analysis covering both modalities ('visual' for image, 'text' for caption), recommend a status, and return the results in the required JSON format.`;
-
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: { parts: [{ text: prompt }, { inlineData: { mimeType: imageFile.type, data: imageData64 } }] },
-        config: { responseMimeType: "application/json", responseSchema: multimodalComplianceSchema }
-    });
-    let partialReport;
-    try {
-        partialReport = JSON.parse(response.text);
-    } catch (e) {
-        console.error("Failed to parse JSON response from Gemini:", response.text);
-        partialReport = {
-            overallScore: 0,
-            summary: "Error: The AI returned an invalid response. This may be due to content safety filters or an internal error. Please check your content or try again.",
-            checks: [{
-                name: "Response Error",
-                status: "fail",
-                details: "Could not parse the JSON response from the AI. The raw response was logged to the console."
-            }],
-            recommendedStatus: 'revision'
-        };
-    }
-    return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: caption, analysisType: 'image', customRulesApplied: customRules, sourceMedia: { data: imageData64, mimeType: imageFile.type }, userName };
-};
-
-
-export const analyzeVideoContent = async (videoTranscript: string, videoFile: File, customRules?: CustomRule[]): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
-    if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
-    
-    const userName = getUserName();
-    const videoData64 = await fileToBase64(videoFile);
-    const actualFullPrompt = `Act as an expert social media compliance officer. Analyze the provided video and its transcript for compliance with FTC guidelines, brand safety, and custom campaign requirements. You must perform checks on BOTH the visual content of the video and the audio content from the transcript.\n\n**Video Transcript for Audio Analysis:**\n"${videoTranscript}"\n\n**Standard Compliance Rules (Check both Audio & Visuals):**\n1.  **FTC Disclosure:** Audio must contain a spoken disclosure, and visuals should have a text overlay.\n2.  **Brand Safety:** No profanity in audio, no inappropriate imagery in visuals.\n3.  **Brand Representation:** Speaker must mention "made with 100% organic materials", product must be clearly visible.\n${generateCustomRulesPrompt(customRules)}\nProvide a strict analysis covering both modalities, recommend a status, and return the results in the required JSON format. For each check, specify the modality as 'audio' or 'visual'.`;
-
-    const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: { parts: [{ text: actualFullPrompt }, { inlineData: { mimeType: videoFile.type, data: videoData64 } }] }, config: { responseMimeType: "application/json", responseSchema: multimodalComplianceSchema }});
-    let partialReport;
-    try {
-        partialReport = JSON.parse(response.text);
-    } catch (e) {
-        console.error("Failed to parse JSON response from Gemini:", response.text);
-        partialReport = {
-            overallScore: 0,
-            summary: "Error: The AI returned an invalid response. This may be due to content safety filters or an internal error. Please check your content or try again.",
-            checks: [{
-                name: "Response Error",
-                status: "fail",
-                details: "Could not parse the JSON response from the AI. The raw response was logged to the console."
-            }],
-            recommendedStatus: 'revision'
-        };
-    }
-    return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: videoTranscript, analysisType: 'video', customRulesApplied: customRules, sourceMedia: { data: videoData64, mimeType: videoFile.type }, userName };
+    return processAnalysis(analysisFn, onInsight);
 };

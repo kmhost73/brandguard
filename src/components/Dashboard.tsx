@@ -114,6 +114,22 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     setReportHistory(newHistory);
   }, [activeWorkspaceId]);
 
+  const handleInsightReceived = useCallback((insight: string) => {
+      setReport(currentReport => {
+        if (!currentReport) return null;
+        const updatedReport = { ...currentReport, strategicInsight: insight };
+        
+        // Also update the history
+        setReportHistory(currentHistory => {
+            const newHistory = currentHistory.map(r => r.id === updatedReport.id ? updatedReport : r);
+            saveReportHistory(activeWorkspaceId, newHistory);
+            return newHistory;
+        });
+
+        return updatedReport;
+      });
+  }, [activeWorkspaceId]);
+
   const handleVideoUpload = useCallback(async (file: File | null) => {
     if (file) {
         setSelectedVideoFile(file);
@@ -126,7 +142,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             setVideoTranscript(transcript);
 
             setLoadingStatus('analyzing');
-            const result = await analyzeVideoContent(transcript, file, customRules);
+            const result = await analyzeVideoContent(transcript, file, customRules, handleInsightReceived);
             handleAnalysisCompletion(result);
         } catch (err) {
             setError(err instanceof Error ? err.message : "An unknown error occurred during video processing.");
@@ -134,7 +150,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             setLoadingStatus('idle');
         }
     }
-  }, [customRules, handleAnalysisCompletion]);
+  }, [customRules, handleAnalysisCompletion, handleInsightReceived]);
 
   const showWelcomeGuide = !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && loadingStatus === 'idle';
   
@@ -153,7 +169,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       
       if (analysisType === 'text') {
         if (!contentToScan.trim()) throw new Error("Please enter post content to analyze.");
-        result = await analyzePostContent(contentToScan, customRules, isRescan);
+        result = await analyzePostContent(contentToScan, customRules, isRescan, handleInsightReceived);
       } else if (analysisType === 'video') {
          if (fileInputRef.current) {
             fileInputRef.current.click();
@@ -161,7 +177,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
          return;
       } else if (analysisType === 'image') {
         if (!contentToScan.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
-        result = await analyzeImageContent(contentToScan, selectedImageFile, customRules);
+        result = await analyzeImageContent(contentToScan, selectedImageFile, customRules, handleInsightReceived);
       }
       if(result) {
         handleAnalysisCompletion(result);
@@ -173,7 +189,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
         setLoadingStatus('idle');
       }
     }
-  }, [analysisType, postContent, selectedImageFile, customRules, handleAnalysisCompletion]);
+  }, [analysisType, postContent, selectedImageFile, customRules, handleAnalysisCompletion, handleInsightReceived]);
   
   const handleStatusChange = (reportId: string, newStatus: ReportStatus) => {
     const updatedHistory = reportHistory.map(r => r.id === reportId ? { ...r, status: newStatus } : r);

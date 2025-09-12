@@ -44,6 +44,7 @@ export interface ComplianceReport {
   userName?: string;
   recommendedStatus?: ReportStatus;
   suggestedRevision?: string; // Holds AI-generated revision from initial analysis.
+  strategicInsight?: string; // AI-generated advice on the "why" behind the result.
 }
 
 export interface Certificate {

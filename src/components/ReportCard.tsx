@@ -1,8 +1,6 @@
-
-
 import React from 'react';
 import type { ComplianceReport, CheckItem, ReportStatus } from '../types';
-import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, FilmIcon, TagIcon, ChevronDownIcon, UserIcon } from './icons/Icons';
+import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, FilmIcon, TagIcon, ChevronDownIcon, UserIcon, LightbulbIcon } from './icons/Icons';
 
 const statusConfig = {
   pass: { icon: <CheckIcon />, color: 'text-success', bgColor: 'bg-green-500/10', borderColor: 'border-green-500/30' },
@@ -118,6 +116,20 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
                 <p className="text-gray-300">{report.summary}</p>
             </div>
         </div>
+
+        {report.strategicInsight && (
+            <div className="mb-6 animate-fade-in">
+                <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 flex items-start gap-4">
+                    <div className="text-blue-400 mt-0.5 shrink-0">
+                        <LightbulbIcon />
+                    </div>
+                    <div>
+                        <h4 className="font-semibold text-blue-300">Strategic Insight</h4>
+                        <p className="text-gray-300 text-sm">{report.strategicInsight}</p>
+                    </div>
+                </div>
+            </div>
+        )}
         
         {hasCustomRules && (<div className="mb-6"><h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2"><CogIcon/> Custom Rules Applied</h3><div className="bg-dark p-4 rounded-lg border border-gray-700"><ul className="list-disc list-inside space-y-1 text-sm text-gray-400">{report.customRulesApplied?.map(rule => (<li key={rule.id}>{rule.intent}</li>))}</ul></div></div>)}
         <h3 className="text-lg font-semibold text-white mb-4">Detailed Checks</h3>
