@@ -14,8 +14,11 @@ export interface CheckItem {
 }
 
 export interface CustomRule {
-    id: string;
-    text: string;
+  id: string;
+  intent: string; // User's original natural language request
+  description: string; // AI-generated detailed description for the model
+  positiveExample: string; // AI-generated example of conforming content
+  negativeExample: string; // AI-generated example of violating content
 }
 
 export interface Workspace {

@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import type { ComplianceReport, CheckItem, ReportStatus } from '../types';
 import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, FilmIcon, TagIcon, ChevronDownIcon, UserIcon } from './icons/Icons';
@@ -118,7 +119,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
             </div>
         </div>
         
-        {hasCustomRules && (<div className="mb-6"><h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2"><CogIcon/> Custom Rules Applied</h3><div className="bg-dark p-4 rounded-lg border border-gray-700"><ul className="list-disc list-inside space-y-1 text-sm text-gray-400">{report.customRulesApplied?.map(rule => (<li key={rule.id}>{rule.text}</li>))}</ul></div></div>)}
+        {hasCustomRules && (<div className="mb-6"><h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2"><CogIcon/> Custom Rules Applied</h3><div className="bg-dark p-4 rounded-lg border border-gray-700"><ul className="list-disc list-inside space-y-1 text-sm text-gray-400">{report.customRulesApplied?.map(rule => (<li key={rule.id}>{rule.intent}</li>))}</ul></div></div>)}
         <h3 className="text-lg font-semibold text-white mb-4">Detailed Checks</h3>
         <div className="space-y-4">{report.checks.map((item, index) => (<CheckItemCard key={index} item={item} />))}</div>
       </div>

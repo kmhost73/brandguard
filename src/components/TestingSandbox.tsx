@@ -141,7 +141,14 @@ const RedTeamAgent: React.FC = () => {
             // FIX: Add a dummy workspaceId to satisfy the ComplianceReport type, which is required by DynamicTestResult.
             const actualReport: ComplianceReport = { ...partialReport, workspaceId: 'sandbox' };
             
-            setDynamicTestResult({ ...scenario, actualReport });
+            // FIX: Map `scenario.postContent` to `generatedContent` to match the `DynamicTestResult` type.
+            setDynamicTestResult({
+                generatedContent: scenario.postContent,
+                expectedSummary: scenario.expectedSummary,
+                expectedScoreText: scenario.expectedScoreText,
+                expectedToPass: scenario.expectedToPass,
+                actualReport,
+            });
 
         } catch (err) {
             setDynamicTestError(err instanceof Error ? err.message : "An unknown error occurred.");

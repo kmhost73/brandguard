@@ -32,7 +32,7 @@ const complianceSchema = {
       items: {
         type: Type.OBJECT,
         properties: {
-          name: { type: Type.STRING, description: "The name of the compliance check (e.g., 'FTC Disclosure', 'Brand Safety', 'Custom Rule: #BrandPartner'). Use the prefix 'Custom Rule:' for custom rule checks." },
+          name: { type: Type.STRING, description: "The name of the compliance check (e.g., 'FTC Disclosure', 'Brand Safety', 'Custom Rule: Must be upbeat'). Use the prefix 'Custom Rule:' for custom rule checks, followed by the user's intent." },
           status: { type: Type.STRING, description: "The result of the check. Must be one of: 'pass', 'fail', or 'warn'.", enum: ['pass', 'fail', 'warn'] },
           details: { type: Type.STRING, description: "A detailed explanation of why the check passed, failed, or has a warning. Provide specifics." }
         },
@@ -57,7 +57,7 @@ const multimodalComplianceSchema = {
           type: Type.OBJECT,
           properties: {
             name: { type: Type.STRING, description: "The name of the compliance check (e.g., 'Spoken Disclosure', 'Visual Brand Safety'). Use the prefix 'Custom Rule:' for custom rule checks." },
-            status: { type: Type.STRING, description: "The result of the check. Must be one of: 'pass', 'fail', or 'warn'.", enum: ['pass', 'fail', 'warn'] },
+            status: { type: Type.STRING, description: "The result of the check. Must be one of: 'pass', 'fail', 'warn'.", enum: ['pass', 'fail', 'warn'] },
             details: { type: Type.STRING, description: "A detailed explanation of why the check passed, failed, or has a warning. Provide specifics." },
             modality: { type: Type.STRING, description: "The modality of the check. Must be one of 'audio', 'visual', or 'text'.", enum: ['audio', 'visual', 'text'] }
           },
@@ -80,10 +80,28 @@ const testScenarioSchema = {
     required: ["postContent", "expectedSummary", "expectedScoreText", "expectedToPass"]
 };
 
+const ruleArchitectSchema = {
+    type: Type.OBJECT,
+    properties: {
+        description: { type: Type.STRING, description: "A detailed, specific, and clear rule for an AI to follow, based on the user's intent. This should be phrased as a direct command to the analysis AI." },
+        positiveExample: { type: Type.STRING, description: "A creative, realistic example of a social media post that perfectly follows this rule." },
+        negativeExample: { type: Type.STRING, description: "A creative, realistic example of a social media post that clearly violates this rule." }
+    },
+    required: ["description", "positiveExample", "negativeExample"]
+};
+
+
 const generateCustomRulesPrompt = (customRules?: CustomRule[]): string => {
     if (!customRules || customRules.length === 0) return "";
-    const rulesText = customRules.map((rule, index) => `${index + 1}. ${rule.text}`).join('\n');
-    return `\n**Additional Custom Campaign Rules:**\nYou MUST strictly enforce the following custom rules provided by the user. For each custom rule, create a separate check in the output JSON with the name prefixed by "Custom Rule:".\n${rulesText}\n`;
+    const rulesText = customRules.map((rule, index) => 
+        `---
+        **Custom Rule ${index + 1}: "${rule.intent}"**
+        **Detailed Instruction:** ${rule.description}
+        **Example of a post that PASSES this rule:** "${rule.positiveExample}"
+        **Example of a post that FAILS this rule:** "${rule.negativeExample}"
+        ---`
+    ).join('\n\n');
+    return `\n**Additional Custom Campaign Rules:**\nYou MUST strictly enforce the following custom rules. For each custom rule, create a separate check in the output JSON. The 'name' of this check MUST be "Custom Rule: " followed by the original user intent (e.g., "Custom Rule: Must be positive and upbeat"). Use the provided examples to understand the nuance of the rule.\n${rulesText}\n`;
 }
 
 const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
@@ -105,6 +123,33 @@ const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reje
 const getUserName = (): string => {
     return localStorage.getItem('brandGuardUser') || 'Anonymous';
 }
+
+export const architectRule = async (intent: string): Promise<Omit<CustomRule, 'id' | 'intent'>> => {
+    if (!ai) throw new Error("VITE_GEMINI_API_KEY is not configured.");
+
+    const fullPrompt = `You are a "Rules Architect" for an AI compliance system. Your job is to take a user's simple, natural language intent and convert it into a structured, detailed rule that an AI can understand and enforce. Provide a detailed description of the rule, a positive example of a post that follows it, and a negative example of a post that violates it.
+
+    **User's Intent:**
+    "${intent}"
+
+    Return the result in the required JSON format. The examples must be creative and realistic social media posts.`;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: fullPrompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: ruleArchitectSchema
+        }
+    });
+
+    try {
+        return JSON.parse(response.text);
+    } catch (e) {
+        console.error("Failed to parse JSON for rule architect:", response.text);
+        throw new Error("The Rules Architect AI returned an invalid response. Please try again.");
+    }
+};
 
 export const generateTestScenario = async (profilePrompt: string): Promise<{ postContent: string; expectedSummary: string; expectedScoreText: string; expectedToPass: boolean; }> => {
     if (!ai) throw new Error("VITE_GEMINI_API_KEY is not configured.");

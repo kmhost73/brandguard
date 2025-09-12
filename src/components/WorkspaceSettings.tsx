@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import type { Workspace, CustomRule, MainView } from '../types';
-import { CogIcon, TrashIcon, PlusIcon } from './icons/Icons';
+import { CogIcon, TrashIcon, SparklesIcon, CheckIcon, XIcon } from './icons/Icons';
+import { architectRule } from '../services/geminiService';
+import Loader from './Loader';
 
 interface WorkspaceSettingsProps {
     activeWorkspace: Workspace;
@@ -11,6 +13,8 @@ interface WorkspaceSettingsProps {
     onNavigate: (view: MainView) => void;
 }
 
+type ArchitectedRule = Omit<CustomRule, 'id'> | null;
+
 const WorkspaceSettings: React.FC<WorkspaceSettingsProps> = ({
     activeWorkspace,
     customRules,
@@ -20,8 +24,11 @@ const WorkspaceSettings: React.FC<WorkspaceSettingsProps> = ({
     onNavigate
 }) => {
     const [name, setName] = useState(activeWorkspace.name);
-    const [newRuleText, setNewRuleText] = useState('');
+    const [newRuleIntent, setNewRuleIntent] = useState('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isArchitecting, setIsArchitecting] = useState(false);
+    const [architectError, setArchitectError] = useState<string | null>(null);
+    const [architectedRule, setArchitectedRule] = useState<ArchitectedRule>(null);
 
     const handleSaveName = () => {
         if (name.trim() && name.trim() !== activeWorkspace.name) {
@@ -29,13 +36,35 @@ const WorkspaceSettings: React.FC<WorkspaceSettingsProps> = ({
         }
     };
 
-    const addRule = () => {
-        if (newRuleText.trim()) {
-            const newRule = { id: crypto.randomUUID(), text: newRuleText.trim() };
-            onUpdateRules([...customRules, newRule]);
-            setNewRuleText('');
+    const handleArchitectRule = async () => {
+        if (!newRuleIntent.trim()) return;
+        setIsArchitecting(true);
+        setArchitectError(null);
+        setArchitectedRule(null);
+        try {
+            const result = await architectRule(newRuleIntent);
+            setArchitectedRule({ ...result, intent: newRuleIntent });
+        } catch (err) {
+            setArchitectError(err instanceof Error ? err.message : "An unknown error occurred.");
+        } finally {
+            setIsArchitecting(false);
         }
     };
+
+    const saveArchitectedRule = () => {
+        if (architectedRule) {
+            const newRule = { ...architectedRule, id: crypto.randomUUID() };
+            onUpdateRules([...customRules, newRule]);
+            resetArchitectState();
+        }
+    };
+    
+    const resetArchitectState = () => {
+        setNewRuleIntent('');
+        setArchitectedRule(null);
+        setArchitectError(null);
+        setIsArchitecting(false);
+    }
 
     const deleteRule = (ruleId: string) => {
         onUpdateRules(customRules.filter(r => r.id !== ruleId));
@@ -81,25 +110,77 @@ const WorkspaceSettings: React.FC<WorkspaceSettingsProps> = ({
                     </div>
                 </div>
 
-                {/* Custom Rules Engine */}
-                <div className="bg-secondary-dark rounded-lg p-6 border border-gray-700">
-                    <h2 className="w-full flex justify-between items-center text-left text-xl font-bold text-white mb-4">
-                        <span className="flex items-center gap-2"><CogIcon/> Custom Rules Engine</span>
+                {/* AI Rules Studio */}
+                <div className="bg-secondary-dark rounded-lg p-6 border border-primary/20">
+                    <h2 className="w-full flex justify-between items-center text-left text-xl font-bold text-white mb-1">
+                        <span className="flex items-center gap-2"><SparklesIcon/> AI Rules Studio</span>
                     </h2>
+                     <p className="text-sm text-gray-400 mb-4">Define a rule's intent in natural language, and let the AI architect a structured, example-driven rule to teach the Greenlight Engine.</p>
                     <div className="space-y-4">
-                        <div className="flex gap-2">
-                            <input type="text" value={newRuleText} onChange={(e) => setNewRuleText(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addRule()} placeholder="e.g., Must include #BrandPartner" className="flex-grow p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition" />
-                            <button onClick={addRule} className="px-4 py-2 bg-primary text-white font-semibold rounded-md hover:bg-primary-dark transition-colors flex items-center gap-2"><PlusIcon/> Add</button>
+                        <div>
+                            <label htmlFor="ruleIntent" className="block text-sm font-medium text-gray-400 mb-1">Rule Intent</label>
+                            <div className="flex gap-2">
+                                <input type="text" id="ruleIntent" value={newRuleIntent} onChange={(e) => setNewRuleIntent(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleArchitectRule()} placeholder="e.g., Must have a positive, upbeat tone" className="flex-grow p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isArchitecting}/>
+                                <button onClick={handleArchitectRule} className="px-4 py-2 bg-primary text-white font-semibold rounded-md hover:bg-primary-dark transition-colors flex items-center gap-2 disabled:bg-gray-600" disabled={isArchitecting || !newRuleIntent.trim()}>
+                                    {isArchitecting ? <Loader size="sm" /> : <SparklesIcon />}
+                                    {isArchitecting ? 'Architecting...' : 'Architect Rule'}
+                                </button>
+                            </div>
                         </div>
-                        <ul className="space-y-2">
-                            {customRules.map(rule => (
-                                <li key={rule.id} className="flex justify-between items-center p-2 bg-dark rounded-md">
-                                    <span className="text-sm text-gray-400">{rule.text}</span>
-                                    <button onClick={() => deleteRule(rule.id)} className="text-gray-500 hover:text-danger"><TrashIcon/></button>
-                                </li>
-                            ))}
-                             {customRules.length === 0 && <p className="text-center text-gray-500 text-sm py-2">No custom rules defined.</p>}
-                        </ul>
+
+                        {isArchitecting && <Loader text="The Rules Architect is thinking..." />}
+                        {architectError && <div className="bg-red-900/50 border border-danger text-red-300 px-4 py-3 rounded-lg" role="alert"><p className="font-bold">Error</p><p>{architectError}</p></div>}
+                        
+                        {architectedRule && (
+                            <div className="bg-dark p-4 rounded-lg border border-gray-700 animate-fade-in space-y-4">
+                                <h3 className="text-lg font-semibold text-white">Review Architected Rule</h3>
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-gray-500">User Intent</label>
+                                    <p className="p-2 bg-secondary-dark rounded text-gray-300 italic">"{architectedRule.intent}"</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-gray-500">AI-Generated Description</label>
+                                    <p className="p-2 bg-secondary-dark rounded text-gray-300">{architectedRule.description}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-green-500">Positive Example (Passes)</label>
+                                    <p className="p-2 bg-green-900/20 rounded text-gray-300 font-mono text-sm">"{architectedRule.positiveExample}"</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-red-500">Negative Example (Fails)</label>
+                                    <p className="p-2 bg-red-900/20 rounded text-gray-300 font-mono text-sm">"{architectedRule.negativeExample}"</p>
+                                </div>
+                                <div className="flex justify-end gap-3 pt-2">
+                                    <button onClick={resetArchitectState} className="flex items-center gap-2 px-4 py-2 bg-secondary-dark text-white font-semibold rounded-md hover:bg-gray-700 transition-colors"><XIcon/> Discard</button>
+                                    <button onClick={saveArchitectedRule} className="flex items-center gap-2 px-4 py-2 bg-success text-white font-semibold rounded-md hover:bg-green-600 transition-colors"><CheckIcon/> Save Rule</button>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="pt-4">
+                             <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2"><CogIcon/> Current Custom Rules</h3>
+                            <ul className="space-y-3">
+                                {customRules.map(rule => (
+                                    <li key={rule.id} className="p-3 bg-dark rounded-md border border-gray-800">
+                                        <details>
+                                            <summary className="flex justify-between items-center cursor-pointer group">
+                                                <span className="text-sm text-gray-300 font-medium group-hover:text-primary-light">{rule.intent}</span>
+                                                <div className="flex items-center">
+                                                    <span className="text-xs text-gray-500 mr-4 group-hover:hidden">Click to expand</span>
+                                                    <button onClick={(e) => { e.preventDefault(); deleteRule(rule.id); }} className="text-gray-500 hover:text-danger p-1 rounded-full hover:bg-danger/10"><TrashIcon/></button>
+                                                </div>
+                                            </summary>
+                                            <div className="mt-3 pt-3 border-t border-gray-700 text-xs text-gray-400 space-y-2">
+                                                <p><strong className="text-gray-300 font-semibold uppercase text-xs">AI Instruction:</strong> {rule.description}</p>
+                                                <p><strong className="text-green-400 font-semibold uppercase text-xs">Good Example:</strong> "{rule.positiveExample}"</p>
+                                                <p><strong className="text-red-400 font-semibold uppercase text-xs">Bad Example:</strong> "{rule.negativeExample}"</p>
+                                            </div>
+                                        </details>
+                                    </li>
+                                ))}
+                                {customRules.length === 0 && <p className="text-center text-gray-500 text-sm py-2">No custom rules defined.</p>}
+                            </ul>
+                        </div>
                     </div>
                 </div>
                 
