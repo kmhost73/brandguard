@@ -143,7 +143,7 @@ const generateStrategicInsight = async (report: Omit<ComplianceReport, 'workspac
 
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.faslash",
+            model: "gemini-2.5-flash",
             contents: prompt,
             config: { thinkingConfig: { thinkingBudget: 0 } } // Low latency for this quick task
         });
