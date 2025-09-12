@@ -166,8 +166,8 @@ const RedTeamAgent: React.FC = () => {
 
     return (
         <div className="bg-secondary-dark p-6 rounded-lg shadow-md border border-primary/20 mb-6">
-            <h2 className="font-bold text-xl text-white flex items-center gap-2"><TestTubeIcon className="text-primary"/> AI Red Team Agent</h2>
-            <p className="text-sm text-gray-400 mt-1">Challenge the Greenlight Engine with novel, AI-generated test scenarios.</p>
+            <h2 className="font-bold text-xl text-white flex items-center gap-2"><TestTubeIcon className="text-primary"/> Red Team Agent</h2>
+            <p className="text-sm text-gray-400 mt-1">Challenge the Greenlight Engine with novel, generated test scenarios.</p>
             
             <div className="my-4 flex flex-col sm:flex-row items-center gap-4">
                 <div className="w-full sm:w-auto flex-grow">
@@ -219,7 +219,7 @@ const RedTeamAgent: React.FC = () => {
                             <div className="p-3 bg-secondary-dark rounded">
                                 <p className="text-sm font-bold text-gray-400">BrandGuard's Actual Result</p>
                                 <p className="text-xs text-gray-300 mt-1"><strong>Actual Score:</strong> {dynamicTestResult.actualReport.overallScore}</p>
-                                 <p className="text-xs text-gray-300 mt-1"><strong>AI Summary:</strong> {dynamicTestResult.actualReport.summary}</p>
+                                 <p className="text-xs text-gray-300 mt-1"><strong>Engine Summary:</strong> {dynamicTestResult.actualReport.summary}</p>
                             </div>
                         </div>
                     </div>
@@ -235,7 +235,7 @@ const TestingSandbox: React.FC<TestingSandboxProps> = ({ onNavigate }) => {
              <div className="flex justify-between items-center mb-6">
                 <div>
                     <h1 className="text-3xl font-bold text-white mb-2">Internal QA Sandbox</h1>
-                    <p className="text-gray-400">Validate AI performance with static test cases or challenge it with the AI Red Team Agent.</p>
+                    <p className="text-gray-400">Validate performance with static test cases or challenge it with the Red Team Agent.</p>
                 </div>
                 <button 
                     onClick={() => onNavigate('dashboard')}

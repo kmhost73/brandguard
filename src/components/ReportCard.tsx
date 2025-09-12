@@ -112,7 +112,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
                 <p className={`text-5xl font-bold ${getScoreColor(report.overallScore)}`}>{report.overallScore}</p>
             </div>
             <div className="md:col-span-2 bg-dark p-4 rounded-lg border border-gray-700">
-                <h3 className="text-sm font-medium text-gray-400 uppercase mb-2">AI Summary</h3>
+                <h3 className="text-sm font-medium text-gray-400 uppercase mb-2">Engine Summary</h3>
                 <p className="text-gray-300">{report.summary}</p>
             </div>
         </div>
@@ -137,7 +137,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
       </div>
       {onAcceptRevision && hasSuggestedRevision && (
           <div className="p-6 border-t border-gray-700 bg-dark animate-fade-in">
-              <h4 className="font-semibold text-gray-200 flex items-center gap-2 mb-2"><SparklesIcon /> AI-Suggested Revision</h4>
+              <h4 className="font-semibold text-gray-200 flex items-center gap-2 mb-2"><SparklesIcon /> Suggested Revision</h4>
               <div className="mt-2 p-4 bg-green-900/30 border-l-4 border-success text-gray-200 rounded-r-lg">
                   <p className="whitespace-pre-wrap font-mono text-sm">{report.suggestedRevision}</p>
               </div>

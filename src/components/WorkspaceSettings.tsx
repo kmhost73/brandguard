@@ -110,12 +110,12 @@ const WorkspaceSettings: React.FC<WorkspaceSettingsProps> = ({
                     </div>
                 </div>
 
-                {/* AI Rules Studio */}
+                {/* Rules Studio */}
                 <div className="bg-secondary-dark rounded-lg p-6 border border-primary/20">
                     <h2 className="w-full flex justify-between items-center text-left text-xl font-bold text-white mb-1">
-                        <span className="flex items-center gap-2"><SparklesIcon/> AI Rules Studio</span>
+                        <span className="flex items-center gap-2"><SparklesIcon/> Rules Studio</span>
                     </h2>
-                     <p className="text-sm text-gray-400 mb-4">Define a rule's intent in natural language, and let the AI architect a structured, example-driven rule to teach the Greenlight Engine.</p>
+                     <p className="text-sm text-gray-400 mb-4">Define a rule's intent in natural language, and let the engine architect a structured, example-driven rule to teach the Greenlight Engine.</p>
                     <div className="space-y-4">
                         <div>
                             <label htmlFor="ruleIntent" className="block text-sm font-medium text-gray-400 mb-1">Rule Intent</label>
@@ -139,7 +139,7 @@ const WorkspaceSettings: React.FC<WorkspaceSettingsProps> = ({
                                     <p className="p-2 bg-secondary-dark rounded text-gray-300 italic">"{architectedRule.intent}"</p>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold uppercase text-gray-500">AI-Generated Description</label>
+                                    <label className="text-xs font-bold uppercase text-gray-500">Engine-Generated Description</label>
                                     <p className="p-2 bg-secondary-dark rounded text-gray-300">{architectedRule.description}</p>
                                 </div>
                                 <div>
@@ -171,7 +171,7 @@ const WorkspaceSettings: React.FC<WorkspaceSettingsProps> = ({
                                                 </div>
                                             </summary>
                                             <div className="mt-3 pt-3 border-t border-gray-700 text-xs text-gray-400 space-y-2">
-                                                <p><strong className="text-gray-300 font-semibold uppercase text-xs">AI Instruction:</strong> {rule.description}</p>
+                                                <p><strong className="text-gray-300 font-semibold uppercase text-xs">Engine Instruction:</strong> {rule.description}</p>
                                                 <p><strong className="text-green-400 font-semibold uppercase text-xs">Good Example:</strong> "{rule.positiveExample}"</p>
                                                 <p><strong className="text-red-400 font-semibold uppercase text-xs">Bad Example:</strong> "{rule.negativeExample}"</p>
                                             </div>
