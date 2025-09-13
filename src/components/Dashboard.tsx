@@ -110,8 +110,14 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
         let index = 0;
         setLoadingMessage(loadingMessages[0]);
         loadingIntervalRef.current = window.setInterval(() => {
-            index = (index + 1) % loadingMessages.length;
-            setLoadingMessage(loadingMessages[index]);
+            if (index < loadingMessages.length - 1) {
+                index++;
+                setLoadingMessage(loadingMessages[index]);
+            } else {
+                 if (loadingIntervalRef.current) {
+                    clearInterval(loadingIntervalRef.current);
+                 }
+            }
         }, 2500);
     } else {
         if (loadingIntervalRef.current) {
@@ -432,7 +438,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                             )}
                          </div>
                         <div className="flex items-center gap-3">
-                            <button onClick={() => handleScan()} disabled={isScanDisabled()} className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
+                            <button onClick={() => handleScan()} disabled={isScanDisabled()} className="flex-grow px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
                                 {isLoading && loadingStatus !== 'transcribing' && <Loader size="sm" />}
                                 <span key={loadingStatus === 'analyzing' ? loadingMessage : 'static'} className="inline-block animate-fade-in">
                                     {getButtonText()}
