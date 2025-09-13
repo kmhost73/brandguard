@@ -438,12 +438,14 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                             )}
                          </div>
                         <div className="flex items-center gap-3">
-                            <button onClick={() => handleScan()} disabled={isScanDisabled()} className="flex-grow px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
-                                {isLoading && loadingStatus !== 'transcribing' && <Loader size="sm" />}
-                                <span key={loadingStatus === 'analyzing' ? loadingMessage : 'static'} className="inline-block animate-fade-in">
-                                    {getButtonText()}
-                                </span>
-                            </button>
+                            <div className="flex-grow">
+                                <button onClick={() => handleScan()} disabled={isScanDisabled()} className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
+                                    {isLoading && loadingStatus !== 'transcribing' && <Loader size="sm" />}
+                                    <span key={loadingStatus === 'analyzing' ? loadingMessage : 'static'} className="inline-block animate-fade-in">
+                                        {getButtonText()}
+                                    </span>
+                                </button>
+                            </div>
                             {analysisType === 'text' && (
                                 <button 
                                     onClick={() => handleScan({ isQuickScan: true })}
