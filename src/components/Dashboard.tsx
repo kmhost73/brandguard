@@ -54,10 +54,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
   const [shareConfirmation, setShareConfirmation] = useState('');
   const [openCampaign, setOpenCampaign] = useState<string | null>(null);
-  const [loadingMessage, setLoadingMessage] = useState<string>('Analyzing...');
   const reportCardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const loadingIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     setReportHistory(getReportHistory(activeWorkspaceId));
@@ -76,63 +74,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     }
   }, [report, newReportId]);
   
-  useEffect(() => {
-    let loadingMessages: string[];
-
-    if (analysisType === 'video') {
-        loadingMessages = [
-            'Analyzing video frames...',
-            'Checking for visual brand representation...',
-            'Analyzing audio from transcript...',
-            'Scanning for spoken disclosures...',
-            'Finalizing multimodal report...',
-        ];
-    } else if (analysisType === 'image') {
-        loadingMessages = [
-            'Analyzing image composition...',
-            'Checking for visual brand safety...',
-            'Scanning caption text...',
-            'Cross-referencing custom rules...',
-            'Generating image compliance report...',
-        ];
-    } else { // text
-        loadingMessages = [
-            'Warming up the Greenlight Engine...',
-            'Scanning for FTC compliance...',
-            'Checking brand safety protocols...',
-            'Cross-referencing custom rules...',
-            'Generating compliance report...',
-            'Finalizing insights...',
-        ];
-    }
-
-    if (loadingStatus === 'analyzing') {
-        let index = 0;
-        setLoadingMessage(loadingMessages[0]);
-        loadingIntervalRef.current = window.setInterval(() => {
-            if (index < loadingMessages.length - 1) {
-                index++;
-                setLoadingMessage(loadingMessages[index]);
-            } else {
-                 if (loadingIntervalRef.current) {
-                    clearInterval(loadingIntervalRef.current);
-                 }
-            }
-        }, 2500);
-    } else {
-        if (loadingIntervalRef.current) {
-            clearInterval(loadingIntervalRef.current);
-            loadingIntervalRef.current = null;
-        }
-    }
-
-    return () => {
-        if (loadingIntervalRef.current) {
-            clearInterval(loadingIntervalRef.current);
-        }
-    };
-  }, [loadingStatus, analysisType]);
-
   const handleAnalysisCompletion = useCallback((newReport: Omit<ComplianceReport, 'workspaceId'>) => {
     const reportWithWorkspace = { ...newReport, workspaceId: activeWorkspaceId };
     const reportWithInitialStatus = { ...reportWithWorkspace, status: newReport.recommendedStatus || 'pending' };
@@ -280,14 +221,12 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   };
 
   const isLoading = loadingStatus !== 'idle';
+  
   const getButtonText = () => {
-    if (report?.suggestedRevision && postContent === report.suggestedRevision) return 'Verifying the fix...';
-    if (loadingStatus === 'analyzing') return loadingMessage;
-    if (loadingStatus === 'transcribing') return 'Transcribing video...';
     if (analysisType === 'video') return 'Select & Analyze Video';
     if (analysisType === 'image') return 'Scan Image & Caption';
     return 'Scan Post';
-  }
+  };
   
   const isScanDisabled = () => {
       if (isLoading) return true;
@@ -437,24 +376,38 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                                 </div>
                             )}
                          </div>
-                        <div className="grid grid-cols-[1fr_auto] gap-2">
-                            <button onClick={() => handleScan()} disabled={isScanDisabled()} className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
-                                {isLoading && loadingStatus !== 'transcribing' && <Loader size="sm" />}
-                                <span key={loadingStatus === 'analyzing' ? loadingMessage : 'static'} className="inline-block animate-fade-in">
-                                    {getButtonText()}
-                                </span>
-                            </button>
-                            {analysisType === 'text' && (
-                                <button 
-                                    onClick={() => handleScan({ isQuickScan: true })}
-                                    disabled={isLoading || !postContent.trim()}
-                                    className="px-4 py-4 bg-secondary-dark text-primary-light border border-gray-600 rounded-md hover:bg-gray-700 hover:border-primary disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed transition-colors"
-                                    title="Quick Scan (Ctrl+Enter)"
-                                >
-                                    <SparklesIcon />
-                                </button>
+                        <button
+                            onClick={() => handleScan()}
+                            disabled={isScanDisabled()}
+                            className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3"
+                        >
+                            {isLoading ? (
+                                <>
+                                    <Loader size="sm" />
+                                    <span className="animate-fade-in">{loadingStatus === 'transcribing' ? 'Transcribing video...' : 'Scanning...'}</span>
+                                </>
+                            ) : (
+                                <div className="flex items-center justify-between w-full">
+                                    <span>{getButtonText()}</span>
+                                    {analysisType === 'text' && (
+                                        <div
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (!postContent.trim()) return;
+                                                handleScan({ isQuickScan: true });
+                                            }}
+                                            className="flex items-center pl-4 -mr-2 cursor-pointer group"
+                                            title="Quick Scan (Ctrl+Enter)"
+                                        >
+                                            <div className="h-6 border-l border-white/30 transition-colors group-hover:border-white/50"></div>
+                                            <div className="ml-3 p-1 rounded-full transition-colors group-hover:bg-black/20">
+                                                <SparklesIcon />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             )}
-                        </div>
+                        </button>
                      </div>
                   </div>
                 </>
