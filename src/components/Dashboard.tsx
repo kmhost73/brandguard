@@ -1,10 +1,10 @@
-import React, { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useCallback, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
 import type { ComplianceReport, CustomRule, ReportStatus, MainView } from '../types';
 import Loader from './Loader';
 import Analytics from './Analytics';
 import WelcomeGuide from './WelcomeGuide';
-import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, TestTubeIcon } from './icons/Icons';
+import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, TestTubeIcon, FolderIcon, ChevronDownIcon } from './icons/Icons';
 
 const ReportCard = lazy(() => import('./ReportCard'));
 
@@ -40,6 +40,8 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
 const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, onNavigate, onCreateCertificate }) => {
   const [analysisType, setAnalysisType] = useState<AnalysisType>('text');
   const [postContent, setPostContent] = useState<string>('');
+  const [campaignName, setCampaignName] = useState<string>('');
+  const [campaignSuggestions, setCampaignSuggestions] = useState<string[]>([]);
   const [videoTranscript, setVideoTranscript] = useState<string>('');
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
@@ -51,7 +53,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const [newReportId, setNewReportId] = useState<string | null>(null);
   const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
   const [shareConfirmation, setShareConfirmation] = useState('');
-  const [visibleHistoryCount, setVisibleHistoryCount] = useState(10);
+  const [openCampaign, setOpenCampaign] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState<string>('Analyzing...');
   const reportCardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -65,6 +67,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   useEffect(() => {
     if (report && report.id === newReportId) {
       reportCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // When a new report is created, automatically open its campaign group
+      setOpenCampaign(report.campaignName || 'General Scans');
       const timer = setTimeout(() => {
         setNewReportId(null);
       }, 2000); 
@@ -142,7 +146,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             setVideoTranscript(transcript);
 
             setLoadingStatus('analyzing');
-            const result = await analyzeVideoContent(transcript, file, customRules, handleInsightReceived);
+            const result = await analyzeVideoContent(transcript, campaignName, file, customRules, handleInsightReceived);
             handleAnalysisCompletion(result);
         } catch (err) {
             setError(err instanceof Error ? err.message : "An unknown error occurred during video processing.");
@@ -150,7 +154,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             setLoadingStatus('idle');
         }
     }
-  }, [customRules, handleAnalysisCompletion, handleInsightReceived]);
+  }, [customRules, handleAnalysisCompletion, handleInsightReceived, campaignName]);
 
   const showWelcomeGuide = !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && loadingStatus === 'idle';
   
@@ -169,7 +173,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       
       if (analysisType === 'text') {
         if (!contentToScan.trim()) throw new Error("Please enter post content to analyze.");
-        result = await analyzePostContent(contentToScan, customRules, isRescan, handleInsightReceived);
+        result = await analyzePostContent(contentToScan, campaignName, customRules, isRescan, handleInsightReceived);
       } else if (analysisType === 'video') {
          if (fileInputRef.current) {
             fileInputRef.current.click();
@@ -177,7 +181,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
          return;
       } else if (analysisType === 'image') {
         if (!contentToScan.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
-        result = await analyzeImageContent(contentToScan, selectedImageFile, customRules, handleInsightReceived);
+        result = await analyzeImageContent(contentToScan, campaignName, selectedImageFile, customRules, handleInsightReceived);
       }
       if(result) {
         handleAnalysisCompletion(result);
@@ -189,7 +193,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
         setLoadingStatus('idle');
       }
     }
-  }, [analysisType, postContent, selectedImageFile, customRules, handleAnalysisCompletion, handleInsightReceived]);
+  }, [analysisType, postContent, campaignName, selectedImageFile, customRules, handleAnalysisCompletion, handleInsightReceived]);
   
   const handleStatusChange = (reportId: string, newStatus: ReportStatus) => {
     const updatedHistory = reportHistory.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
@@ -212,6 +216,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     setError(null);
     if (clearInputs) {
       setPostContent('');
+      setCampaignName('');
       setVideoTranscript('');
       setSelectedVideoFile(null);
       setSelectedImageFile(null);
@@ -260,6 +265,26 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       if (analysisType === 'image' && (!postContent.trim() || !selectedImageFile)) return true;
       return false;
   }
+  
+  const allCampaigns = useMemo(() => {
+    const campaigns = new Set(reportHistory.map(r => r.campaignName).filter(Boolean) as string[]);
+    return Array.from(campaigns);
+  }, [reportHistory]);
+
+  const handleCampaignNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCampaignName(value);
+    if (value) {
+        setCampaignSuggestions(allCampaigns.filter(c => c.toLowerCase().includes(value.toLowerCase()) && c.toLowerCase() !== value.toLowerCase()));
+    } else {
+        setCampaignSuggestions([]);
+    }
+  };
+
+  const selectCampaign = (name: string) => {
+    setCampaignName(name);
+    setCampaignSuggestions([]);
+  };
 
   const statusDisplayConfig: Record<ReportStatus, { tag: string, color: string, filterColor: string }> = {
     pending: { tag: 'Pending', color: 'bg-yellow-500/20 text-yellow-300', filterColor: 'hover:bg-yellow-500/10 text-yellow-400' },
@@ -268,6 +293,20 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   };
 
   const filteredHistory = reportHistory.filter(r => historyFilter === 'all' || r.status === historyFilter);
+
+  const campaignGroups = useMemo(() => {
+    const groups: Record<string, ComplianceReport[]> = {};
+    filteredHistory.forEach(report => {
+        const key = report.campaignName || 'General Scans';
+        if (!groups[key]) {
+            groups[key] = [];
+        }
+        groups[key].push(report);
+    });
+    return Object.entries(groups).sort(([, reportsA], [, reportsB]) => {
+        return new Date(reportsB[0].timestamp).getTime() - new Date(reportsA[0].timestamp).getTime();
+    });
+  }, [filteredHistory]);
 
   const getStatusCount = (status: ReportStatus | 'all') => {
       if (status === 'all') return reportHistory.length;
@@ -346,6 +385,29 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                              </div>
                          )}
                          
+                         <div className="relative">
+                            <label htmlFor="campaign-name" className="block text-sm font-medium text-gray-400 mb-1">Campaign Name (Optional)</label>
+                            <input 
+                                id="campaign-name" 
+                                type="text" 
+                                value={campaignName}
+                                onChange={handleCampaignNameChange}
+                                placeholder="e.g., Q3 Sneaker Launch"
+                                className="w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50"
+                                disabled={isLoading}
+                                autoComplete="off"
+                            />
+                             {campaignSuggestions.length > 0 && (
+                                <div className="absolute z-10 w-full mt-1 bg-dark border border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                                    {campaignSuggestions.map(suggestion => (
+                                        <button key={suggestion} onClick={() => selectCampaign(suggestion)} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                                            {suggestion}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                         </div>
+
                          <button onClick={() => handleScan()} disabled={isScanDisabled()} className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
                              {isLoading && loadingStatus !== 'transcribing' && <Loader size="sm" />}
                              <span key={loadingStatus === 'analyzing' ? loadingMessage : 'static'} className="inline-block animate-fade-in">
@@ -379,45 +441,56 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                   </div>
               </div>
               <div className="space-y-3">
-                  {filteredHistory.length > 0 ? (
-                      filteredHistory.slice(0, visibleHistoryCount).map(r => (
-                          <div key={r.id} className={`p-3 bg-dark rounded-md hover:bg-gray-800 transition-colors group ${r.id === newReportId ? 'highlight-new' : ''}`}>
-                              <div className="flex justify-between items-start">
-                                  <button onClick={() => viewHistoricReport(r)} className="text-left flex-grow truncate pr-2">
-                                      <p className="text-sm font-medium text-white truncate">{r.analysisType.charAt(0).toUpperCase() + r.analysisType.slice(1)} Post - {new Date(r.timestamp).toLocaleString()}</p>
-                                      <p className="text-xs text-gray-400 truncate">{r.summary}</p>
-                                       {r.userName && <p className="text-xs text-gray-500 truncate mt-1">Run by: {r.userName}</p>}
-                                  </button>
-                                  <div className="flex items-center gap-2 flex-shrink-0">
-                                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusDisplayConfig[r.status || 'pending'].color}`}>{statusDisplayConfig[r.status || 'pending'].tag}</span>
-                                      <div className="relative">
-                                          <button onClick={() => setActiveActionMenu(activeActionMenu === r.id ? null : r.id)} className="text-gray-500 hover:text-white transition-colors">
-                                              <EllipsisHorizontalIcon />
-                                          </button>
-                                          {activeActionMenu === r.id && (
-                                              <div className="absolute right-0 mt-2 w-48 bg-dark border border-gray-700 rounded-md shadow-lg z-10 animate-fade-in">
-                                                  <button onClick={() => viewHistoricReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">View Report</button>
-                                                  <button onClick={() => handleShareReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">{shareConfirmation && activeActionMenu === r.id ? shareConfirmation : 'Share Certificate'}</button>
-                                                  <button onClick={() => deleteReport(r.id)} className="block w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger/20">Delete Report</button>
-                                              </div>
-                                          )}
-                                      </div>
-                                  </div>
-                              </div>
-                          </div>
-                      ))
+                  {campaignGroups.length > 0 ? (
+                    campaignGroups.map(([campaign, reports]) => (
+                        <div key={campaign} className="bg-dark rounded-md border border-gray-800">
+                            <button 
+                                onClick={() => setOpenCampaign(openCampaign === campaign ? null : campaign)}
+                                className="w-full flex justify-between items-center p-3 text-left hover:bg-gray-800 rounded-md transition-colors"
+                            >
+                                <span className="font-semibold text-white flex items-center gap-2 truncate">
+                                    <FolderIcon /> 
+                                    <span className="truncate">{campaign}</span>
+                                </span>
+                                <span className="flex items-center gap-2 flex-shrink-0">
+                                    <span className="text-xs text-gray-400 bg-secondary-dark px-2 py-0.5 rounded-full">{reports.length} {reports.length === 1 ? 'scan' : 'scans'}</span>
+                                    <ChevronDownIcon className={`transform transition-transform ${openCampaign === campaign ? 'rotate-180' : ''} w-5 h-5`} />
+                                </span>
+                            </button>
+                            {openCampaign === campaign && (
+                                <div className="p-3 border-t border-gray-700 space-y-3 animate-fade-in">
+                                    {reports.map(r => (
+                                        <div key={r.id} className={`p-3 bg-secondary-dark rounded-md hover:bg-gray-800 transition-colors group ${r.id === newReportId ? 'highlight-new' : ''}`}>
+                                            <div className="flex justify-between items-start">
+                                                <button onClick={() => viewHistoricReport(r)} className="text-left flex-grow truncate pr-2">
+                                                    <p className="text-sm font-medium text-white truncate">{r.analysisType.charAt(0).toUpperCase() + r.analysisType.slice(1)} Post - {new Date(r.timestamp).toLocaleTimeString()}</p>
+                                                    <p className="text-xs text-gray-400 truncate">{new Date(r.timestamp).toLocaleDateString()}</p>
+                                                    {r.userName && <p className="text-xs text-gray-500 truncate mt-1">Run by: {r.userName}</p>}
+                                                </button>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusDisplayConfig[r.status || 'pending'].color}`}>{statusDisplayConfig[r.status || 'pending'].tag}</span>
+                                                    <div className="relative">
+                                                        <button onClick={() => setActiveActionMenu(activeActionMenu === r.id ? null : r.id)} className="text-gray-500 hover:text-white transition-colors">
+                                                            <EllipsisHorizontalIcon />
+                                                        </button>
+                                                        {activeActionMenu === r.id && (
+                                                            <div className="absolute right-0 mt-2 w-48 bg-dark border border-gray-700 rounded-md shadow-lg z-10 animate-fade-in">
+                                                                <button onClick={() => viewHistoricReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">View Report</button>
+                                                                <button onClick={() => handleShareReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">{shareConfirmation && activeActionMenu === r.id ? shareConfirmation : 'Share Certificate'}</button>
+                                                                <button onClick={() => deleteReport(r.id)} className="block w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger/20">Delete Report</button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))
                   ) : <p className="text-center text-gray-500 text-sm py-4">No reports match the current filter.</p>}
               </div>
-               {filteredHistory.length > visibleHistoryCount && (
-                  <div className="mt-4">
-                      <button
-                          onClick={() => setVisibleHistoryCount(prev => prev + 10)}
-                          className="w-full px-4 py-2 bg-gray-700 text-sm font-semibold text-gray-300 rounded-md hover:bg-gray-600 transition-colors"
-                      >
-                          Load More
-                      </button>
-                  </div>
-              )}
           </div>
       </div>
     </div>

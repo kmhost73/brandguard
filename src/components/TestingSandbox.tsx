@@ -54,10 +54,12 @@ const TestCaseCard: React.FC<{ testCase: TestCase }> = ({ testCase }) => {
         try {
             let result;
             if (testCase.type === 'text') {
-                 result = await analyzePostContent(testCase.content.text!);
+                 // FIX: Added an empty string for the 'campaignName' argument to satisfy the function signature.
+                 result = await analyzePostContent(testCase.content.text!, '');
             } else if (testCase.type === 'image') {
                 if (!selectedImageFile) throw new Error("Please select a sample image file to run this test.");
-                result = await analyzeImageContent(testCase.content.text!, selectedImageFile);
+                // FIX: Added an empty string for the 'campaignName' argument to satisfy the function signature.
+                result = await analyzeImageContent(testCase.content.text!, '', selectedImageFile);
             } else {
                  throw new Error("This test type is not yet implemented in the sandbox.");
             }
@@ -137,7 +139,8 @@ const RedTeamAgent: React.FC = () => {
             const scenario = await generateTestScenario(profile.prompt);
 
             // 2. Run the generated content through the actual analysis engine
-            const partialReport = await analyzePostContent(scenario.postContent);
+            // FIX: Added an empty string for the 'campaignName' argument to satisfy the function signature.
+            const partialReport = await analyzePostContent(scenario.postContent, '');
             // FIX: Add a dummy workspaceId to satisfy the ComplianceReport type, which is required by DynamicTestResult.
             const actualReport: ComplianceReport = { ...partialReport, workspaceId: 'sandbox' };
             

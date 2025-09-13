@@ -29,6 +29,7 @@ export interface Workspace {
 export interface ComplianceReport {
   id: string;
   workspaceId: string; // Link report to a workspace
+  campaignName?: string; // Optional campaign tag
   timestamp: string;
   overallScore: number;
   summary: string;
