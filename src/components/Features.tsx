@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { CheckIcon, SparklesIcon, ShieldCheckIcon, XIcon } from './icons/Icons';
 
@@ -22,7 +23,7 @@ const Features: React.FC = () => {
     {
       icon: <CheckIcon className="w-7 h-7"/>,
       title: 'Instant Greenlight Analysis',
-      description: 'Stop waiting on legal. Our AI scans content for FTC disclosures, brand safety, and custom rules, giving you a definitive GO/STOP answer in seconds. Kill the delays.',
+      description: 'Stop waiting on legal. Our engine scans content for FTC disclosures, brand safety, and custom rules, giving you a definitive GO/STOP answer in seconds. Kill the delays.',
       visual: (
         <div className="w-full p-4 font-mono text-sm text-left bg-dark rounded-md">
           <p className="text-gray-400">&gt; Requesting Greenlight...</p>
@@ -64,7 +65,7 @@ const Features: React.FC = () => {
             <ShieldCheckIcon />
             <p className="text-lg font-semibold text-white mt-2">Certificate of Compliance</p>
             <p className="text-sm text-gray-400">Status: <span className="text-success font-bold">GREENLIT</span></p>
-            <p className="text-xs text-gray-500 mt-2">Certified by BrandGuard AI</p>
+            <p className="text-xs text-gray-500 mt-2">Certified by BrandGuard</p>
         </div>
       )
     }

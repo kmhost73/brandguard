@@ -77,14 +77,34 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   }, [report, newReportId]);
   
   useEffect(() => {
-    const loadingMessages = [
-        'Warming up the Greenlight Engine...',
-        'Scanning for FTC compliance...',
-        'Checking brand safety protocols...',
-        'Cross-referencing custom rules...',
-        'Generating compliance report...',
-        'Finalizing insights...',
-    ];
+    let loadingMessages: string[];
+
+    if (analysisType === 'video') {
+        loadingMessages = [
+            'Analyzing video frames...',
+            'Checking for visual brand representation...',
+            'Analyzing audio from transcript...',
+            'Scanning for spoken disclosures...',
+            'Finalizing multimodal report...',
+        ];
+    } else if (analysisType === 'image') {
+        loadingMessages = [
+            'Analyzing image composition...',
+            'Checking for visual brand safety...',
+            'Scanning caption text...',
+            'Cross-referencing custom rules...',
+            'Generating image compliance report...',
+        ];
+    } else { // text
+        loadingMessages = [
+            'Warming up the Greenlight Engine...',
+            'Scanning for FTC compliance...',
+            'Checking brand safety protocols...',
+            'Cross-referencing custom rules...',
+            'Generating compliance report...',
+            'Finalizing insights...',
+        ];
+    }
 
     if (loadingStatus === 'analyzing') {
         let index = 0;
@@ -105,7 +125,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             clearInterval(loadingIntervalRef.current);
         }
     };
-  }, [loadingStatus]);
+  }, [loadingStatus, analysisType]);
 
   const handleAnalysisCompletion = useCallback((newReport: Omit<ComplianceReport, 'workspaceId'>) => {
     const reportWithWorkspace = { ...newReport, workspaceId: activeWorkspaceId };

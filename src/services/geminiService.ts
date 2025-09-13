@@ -177,7 +177,7 @@ export const architectRule = async (intent: string): Promise<Omit<CustomRule, 'i
         return JSON.parse(response.text);
     } catch (e) {
         console.error("Failed to parse JSON for rule architect:", response.text);
-        throw new Error("The Rules Architect AI returned an invalid response. Please try again.");
+        throw new Error("The engine could not generate a rule from the provided intent. Please try rephrasing it.");
     }
 };
 
@@ -209,7 +209,7 @@ export const generateTestScenario = async (profilePrompt: string): Promise<{ pos
         return JSON.parse(response.text);
     } catch (e) {
         console.error("Failed to parse JSON for test scenario:", response.text);
-        throw new Error("The Red Team AI returned an invalid response. Please try again.");
+        throw new Error("The test scenario generator returned an invalid response. Please try again.");
     }
 };
 
@@ -272,14 +272,14 @@ export const analyzePostContent = (postContent: string, campaignName: string, cu
             console.error("Failed to parse JSON response from Gemini:", response.text);
             partialReport = {
                 overallScore: 0,
-                summary: "Error: The AI returned an invalid response. This may be due to content safety filters or an internal error. Please check your content or try again.",
+                summary: "Error: The engine returned an invalid response. This may be due to content safety filters or an internal error. Please check your content or try again.",
                 checks: [{
                     name: "Response Error",
                     status: "fail",
-                    details: "Could not parse the JSON response from the AI. The raw response was logged to the console."
+                    details: "Could not parse the JSON response from the engine. The raw response was logged to the console."
                 }],
                 recommendedStatus: 'revision',
-                suggestedRevision: "We couldn't generate a revision due to an AI response error."
+                suggestedRevision: "We couldn't generate a revision due to an engine response error."
             };
         }
         return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: postContent, analysisType: 'text', customRulesApplied: customRules, userName, campaignName: campaignName || undefined };
@@ -308,11 +308,11 @@ export const analyzeImageContent = (caption: string, campaignName: string, image
             console.error("Failed to parse JSON response from Gemini:", response.text);
             partialReport = {
                 overallScore: 0,
-                summary: "Error: The AI returned an invalid response. This may be due to content safety filters or an internal error. Please check your content or try again.",
+                summary: "Error: The engine returned an invalid response. This may be due to content safety filters or an internal error. Please check your content or try again.",
                 checks: [{
                     name: "Response Error",
                     status: "fail",
-                    details: "Could not parse the JSON response from the AI. The raw response was logged to the console."
+                    details: "Could not parse the JSON response from the engine. The raw response was logged to the console."
                 }],
                 recommendedStatus: 'revision'
             };
@@ -339,11 +339,11 @@ export const analyzeVideoContent = (videoTranscript: string, campaignName: strin
             console.error("Failed to parse JSON response from Gemini:", response.text);
             partialReport = {
                 overallScore: 0,
-                summary: "Error: The AI returned an invalid response. This may be due to content safety filters or an internal error. Please check your content or try again.",
+                summary: "Error: The engine returned an invalid response. This may be due to content safety filters or an internal error. Please check your content or try again.",
                 checks: [{
                     name: "Response Error",
                     status: "fail",
-                    details: "Could not parse the JSON response from the AI. The raw response was logged to the console."
+                    details: "Could not parse the JSON response from the engine. The raw response was logged to the console."
                 }],
                 recommendedStatus: 'revision'
             };

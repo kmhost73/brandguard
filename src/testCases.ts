@@ -4,7 +4,7 @@ export const testCases: TestCase[] = [
   {
     id: 'text-pass-1',
     title: 'Test Case 1: Perfectly Compliant Text Post',
-    description: 'This test checks if the AI correctly identifies a post that meets all standard requirements.',
+    description: 'This test checks if the engine correctly identifies a post that meets all standard requirements.',
     type: 'text',
     content: {
       text: '#ad So excited to share my new favorite sneakers! They are stylish, comfortable, and made with 100% organic materials. A must-have! #BrandPartner'
@@ -23,7 +23,7 @@ export const testCases: TestCase[] = [
   {
     id: 'text-fail-1',
     title: 'Test Case 2: Blatant FTC Violation',
-    description: 'This test ensures the AI catches a clear violation where no FTC disclosure is present.',
+    description: 'This test ensures the engine catches a clear violation where no FTC disclosure is present.',
     type: 'text',
     content: {
       text: 'Just got these amazing new sneakers. They are made with 100% organic materials and feel incredible. You have to try them!'
@@ -41,7 +41,7 @@ export const testCases: TestCase[] = [
   {
     id: 'text-fail-2',
     title: 'Test Case 3: Missing Required Claim',
-    description: 'This test ensures the AI fails a post that is missing a required product claim.',
+    description: 'This test ensures the engine fails a post that is missing a required product claim.',
     type: 'text',
     content: {
       text: '#sponsored My new shoes are great. Super comfy and they look cool too!'
@@ -59,7 +59,7 @@ export const testCases: TestCase[] = [
    {
     id: 'text-warn-1',
     title: 'Test Case 4: Buried FTC Disclosure',
-    description: 'Tests if the AI can identify a disclosure that is not "clear and conspicuous" (buried in hashtags). This should trigger a warning.',
+    description: 'Tests if the engine can identify a disclosure that is not "clear and conspicuous" (buried in hashtags). This should trigger a warning.',
     type: 'text',
     content: {
       text: 'My new sneakers are made with 100% organic materials and I love them! #style #fashion #ootd #new #summer #ad'
