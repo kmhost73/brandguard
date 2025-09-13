@@ -4,12 +4,11 @@ import type { ComplianceReport, CustomRule, ReportStatus, MainView } from '../ty
 import Loader from './Loader';
 import Analytics from './Analytics';
 import WelcomeGuide from './WelcomeGuide';
-import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, TestTubeIcon, FolderIcon, ChevronDownIcon, SparklesIcon } from './icons/Icons';
+import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon } from './icons/Icons';
 
 const ReportCard = lazy(() => import('./ReportCard'));
 
 type AnalysisType = 'text' | 'video' | 'image';
-type LoadingStatus = 'idle' | 'transcribing' | 'analyzing';
 
 interface DashboardProps {
   activeWorkspaceId: string;
@@ -45,7 +44,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const [videoTranscript, setVideoTranscript] = useState<string>('');
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
-  const [loadingStatus, setLoadingStatus] = useState<LoadingStatus>('idle');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadingText, setLoadingText] = useState('Scanning...');
   const [report, setReport] = useState<ComplianceReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reportHistory, setReportHistory] = useState<ComplianceReport[]>([]);
@@ -104,7 +104,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const handleVideoUpload = useCallback(async (file: File | null) => {
     if (file) {
         setSelectedVideoFile(file);
-        setLoadingStatus('transcribing');
+        setIsLoading(true);
+        setLoadingText('Transcribing...');
         setError(null);
         setReport(null);
         setVideoTranscript('');
@@ -112,18 +113,18 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             const transcript = await transcribeVideo(file);
             setVideoTranscript(transcript);
 
-            setLoadingStatus('analyzing');
+            setLoadingText('Analyzing Video...');
             const result = await analyzeVideoContent(transcript, campaignName, file, customRules, handleInsightReceived);
             handleAnalysisCompletion(result);
         } catch (err) {
             setError(err instanceof Error ? err.message : "An unknown error occurred during video processing.");
         } finally {
-            setLoadingStatus('idle');
+            setIsLoading(false);
         }
     }
   }, [customRules, handleAnalysisCompletion, handleInsightReceived, campaignName]);
 
-  const showWelcomeGuide = !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && loadingStatus === 'idle';
+  const showWelcomeGuide = !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && !isLoading;
   
   const handleStartExample = () => {
     setAnalysisType('text');
@@ -132,7 +133,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
 
   const handleScan = useCallback(async (options: { contentOverride?: string; isRescan?: boolean; isQuickScan?: boolean } = {}) => {
     const { contentOverride, isRescan = false, isQuickScan = false } = options;
-    setLoadingStatus('analyzing');
+    setIsLoading(true);
+    setLoadingText('Scanning...');
     setReport(null);
     setError(null);
 
@@ -148,9 +150,11 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
          if (fileInputRef.current) {
             fileInputRef.current.click();
          }
+         // Don't set loading to false here; it's handled in handleVideoUpload
          return;
       } else if (analysisType === 'image') {
         if (!contentToScan.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
+        setLoadingText('Analyzing Image...');
         result = await analyzeImageContent(contentToScan, campaignName, selectedImageFile, customRules, handleInsightReceived);
       }
       
@@ -161,7 +165,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       setError(err instanceof Error ? err.message : "An unknown error occurred.");
     } finally {
        if (analysisType !== 'video') {
-        setLoadingStatus('idle');
+        setIsLoading(false);
       }
     }
   }, [analysisType, postContent, campaignName, selectedImageFile, customRules, handleAnalysisCompletion, handleInsightReceived]);
@@ -219,8 +223,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     setShareConfirmation(confirmation);
     setTimeout(() => setShareConfirmation(''), 2000);
   };
-
-  const isLoading = loadingStatus !== 'idle';
   
   const getButtonText = () => {
     if (analysisType === 'video') return 'Select & Analyze Video';
@@ -297,13 +299,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             Analyze content against FTC guidelines, brand safety, and your own custom rules.
           </p>
         </div>
-        <button 
-          onClick={() => onNavigate('sandbox')}
-          className="flex items-center gap-2 px-4 py-2 bg-secondary-dark border border-gray-700 rounded-md shadow-sm text-sm font-medium text-gray-300 hover:bg-gray-700"
-        >
-          <TestTubeIcon/>
-          Run QA Tests
-        </button>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -347,7 +342,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
 
                                 <div className="bg-dark p-3 rounded-md border border-gray-600 min-h-[100px]">
                                     <p className="text-sm font-medium text-gray-400">Generated Transcript:</p>
-                                    {loadingStatus === 'transcribing' 
+                                    {loadingText === 'Transcribing...'
                                         ? <Loader text="Transcribing video..." />
                                         : <p className="text-gray-300 whitespace-pre-wrap text-sm mt-2">{videoTranscript || "Transcript will appear here after video processing."}</p>}
                                 </div>
@@ -376,38 +371,40 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                                 </div>
                             )}
                          </div>
-                        <button
-                            onClick={() => handleScan()}
-                            disabled={isScanDisabled()}
-                            className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3"
-                        >
-                            {isLoading ? (
-                                <>
-                                    <Loader size="sm" />
-                                    <span className="animate-fade-in">{loadingStatus === 'transcribing' ? 'Transcribing video...' : 'Scanning...'}</span>
-                                </>
-                            ) : (
-                                <div className="flex items-center justify-between w-full">
+
+                        <div className="flex items-center justify-center p-0.5 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20">
+                            <button
+                                onClick={() => handleScan()}
+                                disabled={isScanDisabled()}
+                                className="w-full px-6 py-3 flex-grow flex items-center justify-center gap-3"
+                            >
+                                {isLoading ? (
+                                    <>
+                                        <Loader size="sm" />
+                                        <span>{loadingText}</span>
+                                    </>
+                                ) : (
                                     <span>{getButtonText()}</span>
-                                    {analysisType === 'text' && (
-                                        <div
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (!postContent.trim()) return;
-                                                handleScan({ isQuickScan: true });
-                                            }}
-                                            className="flex items-center pl-4 -mr-2 cursor-pointer group"
-                                            title="Quick Scan (Ctrl+Enter)"
-                                        >
-                                            <div className="h-6 border-l border-white/30 transition-colors group-hover:border-white/50"></div>
-                                            <div className="ml-3 p-1 rounded-full transition-colors group-hover:bg-black/20">
-                                                <SparklesIcon />
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                                )}
+                            </button>
+                             {analysisType === 'text' && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (isScanDisabled()) return;
+                                        handleScan({ isQuickScan: true });
+                                    }}
+                                    disabled={isScanDisabled()}
+                                    className="flex items-center pl-4 pr-3 self-stretch cursor-pointer group"
+                                    title="Quick Scan (Ctrl+Enter)"
+                                >
+                                    <div className="h-full border-l border-white/30 transition-colors group-hover:border-white/50"></div>
+                                    <div className="ml-3 p-1 rounded-full transition-colors group-hover:bg-black/20">
+                                        <SparklesIcon />
+                                    </div>
+                                </button>
                             )}
-                        </button>
+                        </div>
                      </div>
                   </div>
                 </>

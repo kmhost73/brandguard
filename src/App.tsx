@@ -8,7 +8,6 @@ const Hero = lazy(() => import('./components/Hero'));
 const Features = lazy(() => import('./components/Features'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const PublicReportView = lazy(() => import('./components/PublicReportView'));
-const TestingSandbox = lazy(() => import('./components/TestingSandbox'));
 const WorkspaceSettings = lazy(() => import('./components/WorkspaceSettings'));
 const CertificatesHub = lazy(() => import('./components/CertificatesHub'));
 
@@ -232,7 +231,6 @@ const App: React.FC = () => {
              {
               {
                 'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} onCreateCertificate={handleCreateCertificate} onNavigate={setMainView} />,
-                'sandbox': <TestingSandbox onNavigate={setMainView} />,
                 'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={setMainView} /> : <FullPageLoader />,
                 'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onRevokeCertificate={handleRevokeCertificate} onNavigate={setMainView} /> : <FullPageLoader />,
               }[mainView]
