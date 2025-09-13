@@ -437,8 +437,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                                 </div>
                             )}
                          </div>
-                        <div className="flex items-center gap-2">
-                            <button onClick={() => handleScan()} disabled={isScanDisabled()} className="flex-grow px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
+                        <div className="grid grid-cols-[1fr_auto] gap-2">
+                            <button onClick={() => handleScan()} disabled={isScanDisabled()} className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
                                 {isLoading && loadingStatus !== 'transcribing' && <Loader size="sm" />}
                                 <span key={loadingStatus === 'analyzing' ? loadingMessage : 'static'} className="inline-block animate-fade-in">
                                     {getButtonText()}
@@ -448,7 +448,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                                 <button 
                                     onClick={() => handleScan({ isQuickScan: true })}
                                     disabled={isLoading || !postContent.trim()}
-                                    className="flex-shrink-0 px-4 py-4 bg-secondary-dark text-primary-light border border-gray-600 rounded-md hover:bg-gray-700 hover:border-primary disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed transition-colors"
+                                    className="px-4 py-4 bg-secondary-dark text-primary-light border border-gray-600 rounded-md hover:bg-gray-700 hover:border-primary disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed transition-colors"
                                     title="Quick Scan (Ctrl+Enter)"
                                 >
                                     <SparklesIcon />
