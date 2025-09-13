@@ -4,7 +4,7 @@ import type { ComplianceReport, CustomRule, ReportStatus, MainView } from '../ty
 import Loader from './Loader';
 import Analytics from './Analytics';
 import WelcomeGuide from './WelcomeGuide';
-import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, TestTubeIcon, FolderIcon, ChevronDownIcon } from './icons/Icons';
+import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, TestTubeIcon, FolderIcon, ChevronDownIcon, SparklesIcon } from './icons/Icons';
 
 const ReportCard = lazy(() => import('./ReportCard'));
 
@@ -183,17 +183,20 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     setPostContent(examplePost);
   };
 
-  const handleScan = useCallback(async (contentOverride?: string, isRescan = false) => {
+  const handleScan = useCallback(async (options: { contentOverride?: string; isRescan?: boolean; isQuickScan?: boolean } = {}) => {
+    const { contentOverride, isRescan = false, isQuickScan = false } = options;
     setLoadingStatus('analyzing');
     setReport(null);
     setError(null);
+
     try {
       let result;
       const contentToScan = contentOverride !== undefined ? contentOverride : postContent;
-      
+      const campaignToScan = isQuickScan ? '' : campaignName;
+
       if (analysisType === 'text') {
         if (!contentToScan.trim()) throw new Error("Please enter post content to analyze.");
-        result = await analyzePostContent(contentToScan, campaignName, customRules, isRescan, handleInsightReceived);
+        result = await analyzePostContent(contentToScan, campaignToScan, customRules, isRescan, handleInsightReceived);
       } else if (analysisType === 'video') {
          if (fileInputRef.current) {
             fileInputRef.current.click();
@@ -203,6 +206,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
         if (!contentToScan.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
         result = await analyzeImageContent(contentToScan, campaignName, selectedImageFile, customRules, handleInsightReceived);
       }
+      
       if(result) {
         handleAnalysisCompletion(result);
       }
@@ -228,7 +232,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const handleAcceptRevision = (revisedContent: string) => {
       setPostContent(revisedContent);
       setReport(null);
-      handleScan(revisedContent, true);
+      handleScan({ contentOverride: revisedContent, isRescan: true });
   };
 
   const resetState = (clearInputs = true) => {
@@ -378,7 +382,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                     </div>
 
                      <div className="space-y-4">
-                         {analysisType !== 'video' && <textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} placeholder={analysisType === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
+                         {analysisType !== 'video' && <textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} onKeyDown={(e) => { if (analysisType === 'text' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (!isScanDisabled()) { handleScan({ isQuickScan: true }); } } }} placeholder={analysisType === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
                          {analysisType === 'image' && (
                              <div>
                                 <label htmlFor="image-upload" className="block text-sm font-medium text-gray-400 mb-2">Upload Image</label>
@@ -427,13 +431,24 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                                 </div>
                             )}
                          </div>
-
-                         <button onClick={() => handleScan()} disabled={isScanDisabled()} className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
-                             {isLoading && loadingStatus !== 'transcribing' && <Loader size="sm" />}
-                             <span key={loadingStatus === 'analyzing' ? loadingMessage : 'static'} className="inline-block animate-fade-in">
-                                {getButtonText()}
-                             </span>
-                         </button>
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => handleScan()} disabled={isScanDisabled()} className="w-full px-6 py-4 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
+                                {isLoading && loadingStatus !== 'transcribing' && <Loader size="sm" />}
+                                <span key={loadingStatus === 'analyzing' ? loadingMessage : 'static'} className="inline-block animate-fade-in">
+                                    {getButtonText()}
+                                </span>
+                            </button>
+                            {analysisType === 'text' && (
+                                <button 
+                                    onClick={() => handleScan({ isQuickScan: true })}
+                                    disabled={isLoading || !postContent.trim()}
+                                    className="px-4 py-4 bg-secondary-dark text-primary-light border border-gray-600 rounded-md hover:bg-gray-700 hover:border-primary disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed transition-colors"
+                                    title="Quick Scan (Ctrl+Enter)"
+                                >
+                                    <SparklesIcon />
+                                </button>
+                            )}
+                        </div>
                      </div>
                   </div>
                 </>

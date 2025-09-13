@@ -8,6 +8,55 @@ const API_KEY = (import.meta as any).env.VITE_GEMINI_API_KEY;
 
 const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
+/**
+ * A wrapper for the Gemini API's generateContent method that includes
+ * automatic retry logic for transient errors and user-friendly error mapping.
+ * @param request The parameters for the generateContent call.
+ * @returns The response from the Gemini API.
+ */
+async function generateContentWithRetry<T>(request: T): Promise<any> {
+    if (!ai) throw new Error("VITE_GEMINI_API_KEY is not configured.");
+
+    const maxRetries = 1;
+    let attempt = 0;
+
+    const attemptRequest = async (): Promise<any> => {
+        try {
+            // @ts-ignore
+            return await ai.models.generateContent(request);
+        } catch (e: any) {
+            console.error(`Gemini API Error (Attempt ${attempt + 1}):`, e);
+
+            const isRetryable = e.message && (
+                e.message.includes('overloaded') ||
+                e.message.includes('UNAVAILABLE') ||
+                (e.status && e.status === 'UNAVAILABLE')
+            );
+
+            if (attempt < maxRetries && isRetryable) {
+                attempt++;
+                console.warn(`Retryable error detected. Retrying in 2 seconds...`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                return attemptRequest();
+            }
+
+            if (e.message && e.message.toLowerCase().includes('safety')) {
+                 throw new Error("The request was blocked due to the content safety policy. Please modify your input and try again.");
+            }
+            if (isRetryable) {
+                throw new Error("The compliance engine is currently under heavy load. Please try your request again in a few moments.");
+            }
+             if (e.message && e.message.includes('API key not valid')) {
+                throw new Error("The configured API Key is invalid. Please check your configuration.");
+            }
+            throw new Error("An unexpected error occurred while communicating with the compliance engine. Check the console for details.");
+        }
+    };
+    
+    return attemptRequest();
+}
+
+
 const createErrorResponse = (summary: string, details: string): Omit<ComplianceReport, 'workspaceId'> => ({
     id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
@@ -124,8 +173,6 @@ const getUserName = (): string => {
 }
 
 const generateStrategicInsight = async (report: Omit<ComplianceReport, 'workspaceId'>): Promise<string> => {
-    if (!ai) return "";
-
     const failedChecks = report.checks.filter(c => c.status === 'fail' || c.status === 'warn');
     if (failedChecks.length === 0) return "";
 
@@ -142,7 +189,7 @@ const generateStrategicInsight = async (report: Omit<ComplianceReport, 'workspac
     Generate a single, helpful strategic insight based on these issues. For example: "Insight: While the message is engaging, the buried #ad poses a legal risk and can damage audience trust. The 'Magic Fix' revision places it upfront for maximum safety."`;
 
     try {
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithRetry({
             model: "gemini-2.5-flash",
             contents: prompt,
             config: { thinkingConfig: { thinkingBudget: 0 } } // Low latency for this quick task
@@ -155,8 +202,6 @@ const generateStrategicInsight = async (report: Omit<ComplianceReport, 'workspac
 };
 
 export const architectRule = async (intent: string): Promise<Omit<CustomRule, 'id' | 'intent'>> => {
-    if (!ai) throw new Error("VITE_GEMINI_API_KEY is not configured.");
-
     const fullPrompt = `You are a "Rules Architect" for an AI compliance system. Your job is to take a user's simple, natural language intent and convert it into a structured, detailed rule that an AI can understand and enforce. Provide a detailed description of the rule, a positive example of a post that follows it, and a negative example of a post that violates it.
 
     **User's Intent:**
@@ -164,7 +209,7 @@ export const architectRule = async (intent: string): Promise<Omit<CustomRule, 'i
 
     Return the result in the required JSON format. The examples must be creative and realistic social media posts.`;
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithRetry({
         model: "gemini-2.5-flash",
         contents: fullPrompt,
         config: {
@@ -182,8 +227,6 @@ export const architectRule = async (intent: string): Promise<Omit<CustomRule, 'i
 };
 
 export const generateTestScenario = async (profilePrompt: string): Promise<{ postContent: string; expectedSummary: string; expectedScoreText: string; expectedToPass: boolean; }> => {
-    if (!ai) throw new Error("VITE_GEMINI_API_KEY is not configured.");
-
     const fullPrompt = `You are a "Red Team" agent responsible for testing an AI compliance system. Your goal is to generate creative and tricky test cases for social media posts.
     
     **Your Persona and Goal:**
@@ -196,7 +239,7 @@ export const generateTestScenario = async (profilePrompt: string): Promise<{ pos
 
     Based on your persona, generate a single, unique social media post caption and predict its compliance outcome. Return the result in the required JSON format.`;
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithRetry({
         model: "gemini-2.5-flash",
         contents: fullPrompt,
         config: {
@@ -214,12 +257,10 @@ export const generateTestScenario = async (profilePrompt: string): Promise<{ pos
 };
 
 export const transcribeVideo = async (videoFile: File): Promise<string> => {
-    if (!ai) return Promise.reject(new Error("VITE_GEMINI_API_KEY is not configured."));
-
     const videoData64 = await fileToBase64(videoFile);
     const prompt = "Provide a full and accurate transcript of the audio in the provided video file. Return only the transcribed text, with no additional commentary or formatting.";
     
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithRetry({
         model: "gemini-2.5-flash",
         contents: {
             parts: [
@@ -259,7 +300,7 @@ export const analyzePostContent = (postContent: string, campaignName: string, cu
             ...(isRescan && { thinkingConfig: { thinkingBudget: 0 } }) 
         };
         
-        const response = await ai.models.generateContent({ 
+        const response = await generateContentWithRetry({ 
             model: "gemini-2.5-flash", 
             contents: fullPrompt, 
             config 
@@ -296,7 +337,7 @@ export const analyzeImageContent = (caption: string, campaignName: string, image
         const imageData64 = await fileToBase64(imageFile);
         const prompt = `Act as an expert social media compliance officer. Analyze the provided image and its caption for compliance. You must check BOTH the visual content and the text content.\n\n**Image Caption for Text Analysis:**\n"${caption}"\n\n**Standard Compliance Rules:**\n1.  **FTC Disclosure (Text):** The caption must contain a clear disclosure (e.g., #ad, #sponsored).\n2.  **Brand Safety (Visual & Text):** No profanity in text, no inappropriate imagery.\n3.  **Brand Representation (Visual):** The product must be clearly visible and not depicted negatively.\n${generateCustomRulesPrompt(customRules)}\nProvide a strict analysis covering both modalities ('visual' for image, 'text' for caption), recommend a status, and return the results in the required JSON format.`;
 
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithRetry({
             model: "gemini-2.5-flash",
             contents: { parts: [{ text: prompt }, { inlineData: { mimeType: imageFile.type, data: imageData64 } }] },
             config: { responseMimeType: "application/json", responseSchema: multimodalComplianceSchema }
@@ -331,7 +372,7 @@ export const analyzeVideoContent = (videoTranscript: string, campaignName: strin
         const videoData64 = await fileToBase64(videoFile);
         const actualFullPrompt = `Act as an expert social media compliance officer. Analyze the provided video and its transcript for compliance with FTC guidelines, brand safety, and custom campaign requirements. You must perform checks on BOTH the visual content of the video and the audio content from the transcript.\n\n**Video Transcript for Audio Analysis:**\n"${videoTranscript}"\n\n**Standard Compliance Rules (Check both Audio & Visuals):**\n1.  **FTC Disclosure:** Audio must contain a spoken disclosure, and visuals should have a text overlay.\n2.  **Brand Safety:** No profanity in audio, no inappropriate imagery in visuals.\n3.  **Brand Representation:** Speaker must mention "made with 100% organic materials", product must be clearly visible.\n${generateCustomRulesPrompt(customRules)}\nProvide a strict analysis covering both modalities, recommend a status, and return the results in the required JSON format. For each check, specify the modality as 'audio' or 'visual'.`;
 
-        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: { parts: [{ text: actualFullPrompt }, { inlineData: { mimeType: videoFile.type, data: videoData64 } }] }, config: { responseMimeType: "application/json", responseSchema: multimodalComplianceSchema }});
+        const response = await generateContentWithRetry({ model: "gemini-2.5-flash", contents: { parts: [{ text: actualFullPrompt }, { inlineData: { mimeType: videoFile.type, data: videoData64 } }] }, config: { responseMimeType: "application/json", responseSchema: multimodalComplianceSchema }});
         let partialReport;
         try {
             partialReport = JSON.parse(response.text);
