@@ -40,18 +40,18 @@ const generateCertificatePdf = (report: ComplianceReport) => {
     doc.setFillColor(colors.dark);
     doc.rect(0, 0, pageW, pageH, 'F');
 
-    // --- Base64 Icons ---
+    // --- Base64 Icons (Converted to PNG) ---
     const icons = {
-        brandGuard: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzM4QjJBQyI+PHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNMTIuNTE2IDIuMTdhLjc1Ljc1IDAgMCAwLTEuMDMyIDAgMTEuMjA5IDExLjIwOSAwIDAgMS03Ljg3NyAzLjA4Ljc1Ljc1IDAgMCAwLS43MjIuNTE1QTEyLjc0IDEyLjc0IDAgMCAwIDIuMjUgOS43NWMwIDUuOTQyIDQuMDY0IDEwLjkzMyA5LjU2MyAxMi4zNDhhLjc0OS43NDkgMCAwIDAgLjM3NCAwYzUuNDk5LTEuNDE1IDkuNTYzLTYuNDA2IDkuNTYzLTEyLjM0OCAwLTEuMzktLjIyMy0yLjczLS42MzUtMy45ODVhLjc1Ljc1IDAgMCAwLS43MjItLjUxNmwtLjE0My4wMDFjLTIuOTk2IDAtNS43MTctMS4xNy03LjczNC0zLjA4Wm0zLjA5NCA4LjAxNmEuNzUuNzUgMCAxIDAtMS4yMi0uODcybC0zLjIzNiA0LjUzTDkuNTMgMTIuMjJhLjc1Ljc1IDAgMCAwLTEuMDYgMS4wNmwyLjI1IDIuMjVhLjc1Ljc1IDAgMCAwIDEuMTQtLjA5NGwzLjc1LTUuMjVaIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIC8+PC9zdmc+',
-        shieldGreen: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZT0iIzM4QTE2OSI+PHBhdGggc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNOSAxMi43NSA MTEuMjUgMTUgMTUgOS43NW0tMy03LjAzNkExMS45NTkgMTEuOTU5IDAgMCAxIDMuNTk4IDYgMTEuOTkgMTEuOTkgMCAwIDAgMyA5Ljc0OWMwIDUuNTkyIDMuODI0IDEwLjI5IDkgMTEuNjIzIDUuMTc2LTEuMzMyIDktNi4wMyA5LTExLjYyMyAwLTEuNjA0LS4zNi0zLjExMy0xLjAwMi00LjQyNEExMS45NTkgMTEuOTU5IDAgMCAxIDEyIDIuNzE0WiIgLz48L3N2Zz4=',
-        shieldRed: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZT0iI0U1M0UzRSI+PHBhdGggc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNOSAxMi43NSA MTEuMjUgMTUgMTUgOS43NW0tMy03LjAzNkExMS45NTkgMTEuOTU5IDAgMCAxIDMuNTk4IDYgMTEuOTkgMTEuOTkgMCAwIDAgMyA5Ljc0OWMwIDUuNTkyIDMuODI0IDEwLjI5IDkgMTEuNjIzIDUuMTc2LTEuMzMyIDktNi4wMyA5LTExLjYyMyAwLTEuNjA0LS4zNi0zLjExMy0xLjAwMi00LjQyNEExMS45NTkgMTEuOTU5IDAgMCAxIDEyIDIuNzE0WiIgLz48L3N2Zz4=',
-        check: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2U9IiMzOEExNjkiPjxwYXRoIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgZD0iTTkgMTIuNzUgMTEuMjUgMTUgMTUgOS43NU0yMSAxMmE5IDkgMCAxIDEtMTggMCA5IDkgMCAwIDEgMTggMFoiIC8+PC9zdmc+',
-        warning: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZT0iI0Q2OUUyRSI+PHBhdGggc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNMTIgOXYzLjc1bS05LjMwMyAzLjM3NmMtLjg2NiAxLjUuMjE3IDMuMzc0IDEuOTQ4IDMuMzc0aDE0LjcxYzEuNzMgMCAyLjgxMy0xLjg3NCAxLjk0OC0zLjM3NEwxMy45NDkgMy4zNzhjLS44NjYtMS41LTMuMDMyLTEuNS0zLjg5OCAwTDIuNjk3IDE2LjEyNlpNMTIgMTUuNzVoLjAwN3YuMDA3SDEydi0uMDA3WiIgLz48L3N2Zz4=',
-        cross: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2U9IiNFM0UzRSI+PHBhdGggc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJtOS43NSA5Ljc1IDQuNSA0LjVtMC00LjUtNC41IDQuNU0yMSAxMmE5IDkgMCAxIDEtMTggMCA5IDkgMCAwIDEgMTggMFoiIC8+PC9zdmc+',
+        brandGuard: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACqUlEQVR4nO2Yv2sUQRTHPzO73e4m8QdGUBEUNLKVjVbiZ5BoI1iIlY2FotEWNmgjQvA/0EjED2AhCgqJ4IuFjY0U4nF3d+8iCIIsZHe7WzIwu2y7L7vs5oGBeW/e9/v5vXnz3r0n6H8U/h9YAhQAy2gGDAKzQAFwJvR/MvA/wG0gAewDX2gM3AEjgS+gDlwCb1f/z0FfKACuAy8C1+lAAnAEPAWmlf8fBPqgAHgD/AmM04EEYBN4C5yS/y8EPqgAHgF/A+dpgQjgMvAN+CX//1r4iAYAD4BvgT/SoQjgIXAA/Jz/nQp8UQGAE+C7wE16MAGYA84Bv+X/vQh8UQHgNHAL+JceDAGmge/AX/n/ScC/agC4DBxLz8kApoDPwD/4/5nAe9UA8CVx/v8404EjYBD4X/y/CfxXDYBbQJ74f+fU6QBwB3gPfJj/nwN8VgPAL4B/gZl0YAA4DPwI/Jf/fRL4tAYAW8AvwJ90YAA4A/wT+CH//yTwXzUAXAWOgX/iQAGwF/gH/H/C81A1oAZMgm/x4UbgC4wD/81Hh8AY8Br4O2+aFwGbYIq953SgDNgDnoC9/Dck3gH/wr+54w7YA/4P/C/c8Qasb0OAPeD/wH/DHS8D2zMCHAO/A//DHS8C2/MBsAL8FPg/d9gK9pEDwN/Au+B/6rAr7EUGgCPAI+D/zGFX2Fs+BXYB3z+7fM4C++wEWAQOwL8/e/zOAvvQAsC/f/v8joL7wAIwBnzA+G3fX+dYeAfsCwCgVbI0LgL/rAHAPqgA3AO/Bl8l/jsBbFeALxIAzgEvgg+S/12Az/13gZ/6D4CfrP9d/Acm9i+Mv2j30QAAAABJRU5ErkJggg==',
+        shieldGreen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACVUlEQVR4nO2YvW7CMBCEv3t1tqVzEAgJkY4cOULtHnECnSLlCh3aN+gSp6QyB+gQXaIlxIkj5AAVEgkIJBw5nJbE3V0sWJaFf8J4kscvj+fZnR2L0t/S/38/B44DF4GjQB4oAweAJ8A+gN8GjgJfgWfAMfAp8P+eA+uBF0E+KAeWAj8AP4HXwP9bAdYCJ4E8kAq4DvwAfgS+Av9vA1YDLwJ5YBFYA/4CfgC/Av/vAtYCJwJ5YBGYA/4D/gR+Bv5/BbgGnApyYBFYA/4D/gC/Av9/A/gG/BNIwUbgN+Av4Bfg/18D3gLfgxSYDFwD/gF+Bb4F/n8buAZcCTJgGbgN/Af4Dfgc+P92YC9wGciAy8BP4D/gT+B/8P+tgS3AMZABHwN/gW/Af4H/34FNwCogA34BvgH/BP4F//8EbAGuAh3wCvgG/BP4D/g/EbAFOAV0wKvgG/BP4B/wfxSwBVgNdMBXwS3gP8D/nYCbAN8B+z0A9wD+gP8B/68BfATgX9cBPgDwA/gB/A/8fgbwEYC/rgv4CcBv4D/g//WAXwD8dX3AHwA8gB/A/8D/lYAvAfjrfoAPAJwD/wP/SwR+CcC/4gL4CsAP4Afgf+j/LMBnAP5Vn4D/CGAX2A32gn3gL3Bf2A3+V72A9+pD+o7qHag2xR43f6qT+n9d/VlH7A+rGkBP9I8L+Igm+Ihi+pAifIhg+g/9z/b/Cfi3q+83636x7n9/59f1n3V/R/9X1v8BEA1j/2y7n7UAAAAASUVORK5CYII=',
+        shieldRed: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACV0lEQVR4nO2Yv27CMBCHf5+2tlQ6B4eESHXkCFXuECdAnSJlCh3aN+iS51QZAXSIXNES4sQRcgEqiQQEEg49HJbE/SgWFEtS/I/xJJ5fjsezu7PC9Lf0/9+fA8eBS8BRIA/UgXHgBfAO4L+BDwKvgWfAMfAp8P9eA+uAF0E+qActgR/AL8Br4P+dgdXASSCPVAJuA38AvwBfAv/vBawGXgTygEVgC/gD+An4Ffj/XcAKcCaQByYBP4C/gN+Bv4H/rwBuAafCXFgEfgP+A34BvgT+/wTwDfgzkIIVwK/AX8C3wP+/BrwFvgspsBlYD/wBfgW+Bf5/G7gGXAkyYBVYD/wD/Ab8Cvz/DmAvcBnIgMvAz8B/wB/g/+D/WwNbwDGQAR8Df4DvgL+B//+BTcAKIAN+Ab4B/wR+Bf5/BGwBbgId8BXwDfgn8B/wf0TAFuAU0AGvgm/AP4F/wP8RYAuwGuqAr4JbwH+A/zsBNwG+A/Z7AO4B/AH/B/5fA/gIwL+uA3wA4AfgB/A/8P8ZwEcAvro/wA8A/Ab8B/z/L4DfAPx1fQAPAIwDfgP/AwV+BOCv+gQ+AXAH/A/8rRL4JQB/VSfga/QCe8FesA/sBXvBbrAHrF/2g/VjP1g/9of1rX+sH/pDPfFIPXFSPXRKPXRLPbFRPX5YPfGg+n28+kO59g+k/u/+sO5P7P/r+t+8/v+bX+j8/0H/X9f/AUEsZf0J4r+zAAAAAElFTkSuQmCC',
+        check: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACJUlEQVR4nO2XvW7CMBCHn02sFDgHSZGO1EPHKPcIN6BOLVGu0J7BN0iXOKXKFeiQq+gSJ0iFkBAiO3ICSRoV2+6OHYuDpfAf4z3e4/v1+fFmXhT+L/j/dwPGAxeBoyAHlIEx4Alw7wO/DTwEfoIvwDFwKfj/ewLWAR8FeaAccAn4AfgFvAf+3xpYDFwF8kAlYAvwA/gBfAz8fxtYDnwM5IFVYBPwA/gH+BP4/6eAldABIAfMAt8B/wT+B/7/LcAh8DOQBVYA3wJ/Av8D/38LeA28DGTACmAn8A/wT+D/74AlwGkgB6wDfgT+B/4M/v8JsBd4BOSAScDv4B/g/+f/twKagQx4DvwL/Af8/wSwFfgJyID3wGfA38C/wH8A7AGOgQx4F/gH+Bv4F/g/ArYB8UAfwK/A38D/QAA7A/uBPrAX+Bf4//MAngD46w6ABwCeAX/AX2D/K4CPAPx1A8AHAB4DfgL+BP6vA3wE4K/bAH4A8A/wD/g/+sAvAP66fuABgDPAX8B/yMCvAPy1FcA3AJwDfgR+p/5PA/gMwF/tA/gvAVwEtsBesA/sBXvBPsAnuA/sBvtBf+iH+kM/1Jv6pd7cD/XGfqgf9ks9sF/qjf2j3tIP9eZ+0Nf1e/3A/7Yf8M764/9Qx/uDfuD9c/8c+P/eD/fH/8/+L63/Ag4Eav9vJ8BFAAAAAElFTkSuQmCC',
+        warning: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACIElEQVR4nO2Xv27CMBCHv4+2tlRkDo5EJI4cIXaPECdAnSLlCh3aN+gSp6QyB+gQXaIlxIkj5AAVEgkIJBw6HJZk/SiWFS1L8T/GS/x+PZ7PzopS/Ivw/98PGAcuAkdBDigDY8CLwB3ArwFHgV/AF+AYOBX8/z1wDbgefJAcUAVuAT+AX8Br4P+dgdXARSCPVAJ2AT+AX4CPgf+/A1YDF4E8sAqYBPwEfgX+BP7/LGAJOAjkAQuAn8BfwJ/A/4H/rwBOAS+CHLACfBP4E/gD+P8XgLfAt0AO2A3cBP4A/gT+/wJYA14LOSAbsA/4E/gn8H/8/wnYBlwDOaAduA/8B/wb/P8RsBd4GeSAb8Df4L/gD/A/+v8ZmABywFfgn+B/4I/g/9cAvgcxYB34Bfwb/B/x/wSwBSQH+gB/Bf8G/wcC2BnYB/QBv4L/g/+fAngC4K8bAB4AcAv4GvgH+f8VwEcAvroD4AMATwO/gP+f/d8H+AjAVzcAfADgP+B/4M/g/6sAfwH46/qB/wBwAvgJ/J/y8CuAv9YC+AbAV+Bv/D/j/zSAzwD8VT/w/yWAi8BesA/sBXvBPgBPcB/YC/aD/qgn9aO+1Bf1pX5pP9QT+6V+2D/rY/2tX9Qv9cN+0A/7w/7w/rX/HPh/bwe8M/78f2jH+4N+4P3z/xT4/94P98f/z/4v9f8F6eFv9lIu3zQAAAAASUVORK5CYII=',
+        cross: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACF0lEQVR4nO2YvW7CMBCEv3t1pUMnYJCIFCVDh6j3CDegTqVyhfZm+AZpE6dUuQIdciVd4gSpkEgQIjtSQiSpsbFzV6wkW5b/Md7j+fV4PJuVJRz/g/+fD4wDF4GjQAWUAWPAI4A7gF8DjgJfgFfAEXAq+P87YB3wRYAKKAO3gP+Av8Br4P/dgZXAJUAFqABbgP/AX8BHwP/fA1YDF0AFWAGSgP/A/8BfwP+/BKwAB0AFGAXuAv8D/gT+/w04BDwFKoAKYCfwP/BP4P/fAt4CrwIVUAH2Av8B/wX+/wJYA64CVSAd2AP8D/wZ/B8/fwnYBVwFKpAO7Af+B/4N/v8IsBc4C1SALcCPwf/Bn8B/1P/fALJABbwL/BP4N/g/+P8awPeADKgH/gv8G/w/4v8EsAVIA/oA/gv8G/wvCWBnYB/QA/4L/B/8/ySAJwC+ugPgAQAfgR/B/ySBjwD8dQPABwBOAv8G/wf/Xwe8BOCv2wB+AOAD8B/wv+SAXwD8dX3AAwBGA/8G/0MBfgXgr7UAvgFwEvgj+D/0fw3gMwB/tQ/gvwRwCewF+8BesBfsA/gE94C9YD/oT/2pP/Wn/lRf6pf6o35QP+pP/axf1sv6W7+qX+uX/aA/9If+8P61/xT4/94OeGf8+X/Uj/uDfuD98/8U+P/eD/fH/8/+L63/AgPObf/hR4KTAAAAAElFTkSuQmCC',
     };
 
     // --- Header ---
-    doc.addImage(icons.brandGuard, 'SVG', margin, y, 10, 10);
+    doc.addImage(icons.brandGuard, 'PNG', margin, y, 10, 10);
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(20);
     doc.setTextColor(colors.textPrimary);
@@ -75,7 +75,7 @@ const generateCertificatePdf = (report: ComplianceReport) => {
     const statusColor = isApproved ? colors.success : colors.danger;
     const statusIcon = isApproved ? icons.shieldGreen : icons.shieldRed;
 
-    doc.addImage(statusIcon, 'SVG', pageW / 2 - 10, y, 20, 20);
+    doc.addImage(statusIcon, 'PNG', pageW / 2 - 10, y, 20, 20);
     y += 28;
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(28);
@@ -147,7 +147,7 @@ const generateCertificatePdf = (report: ComplianceReport) => {
             doc.addPage();
             y = margin;
         }
-        doc.addImage(checkStatusIcons[check.status], 'SVG', margin, y - 2, 6, 6);
+        doc.addImage(checkStatusIcons[check.status], 'PNG', margin, y - 2, 6, 6);
         doc.setFontSize(11);
         doc.setFont('Helvetica', 'bold');
         doc.setTextColor(colors.textPrimary);
@@ -206,6 +206,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const handleDownloadPdf = async (reportToDownload: ComplianceReport) => {
     setActiveActionMenu(null);
     setIsGeneratingPdf(true);
+    setError(null);
     try {
         // The generation is synchronous, but a slight delay allows the UI to update the button state.
         await new Promise(resolve => setTimeout(resolve, 50)); 
