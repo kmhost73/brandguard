@@ -1,43 +1,185 @@
 import React, { useState, useCallback, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
-import type { ComplianceReport, CustomRule, ReportStatus, MainView } from '../types';
+import type { ComplianceReport, CustomRule, ReportStatus, MainView, CheckItem } from '../types';
 import Loader from './Loader';
 import Analytics from './Analytics';
 import WelcomeGuide from './WelcomeGuide';
-import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon, DownloadIcon } from './icons/Icons';
+import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon } from './icons/Icons';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 const ReportCard = lazy(() => import('./ReportCard'));
-const CertificatePDF = lazy(() => import('./CertificatePDF'));
 
 type AnalysisType = 'text' | 'video' | 'image';
 
+// --- PDF Generation Logic ---
+const generateCertificatePdf = (report: ComplianceReport) => {
+    const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4'
+    });
+
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    let y = margin;
+
+    // --- Colors & Fonts ---
+    const colors = {
+        primary: '#38B2AC',
+        dark: '#1A202C',
+        textPrimary: '#F7FAFC',
+        textSecondary: '#A0AEC0',
+        success: '#38A169',
+        danger: '#E53E3E',
+        warning: '#D69E2E',
+    };
+
+    doc.addFont('Helvetica', 'normal', 'normal');
+    doc.addFont('Helvetica', 'bold', 'bold');
+    doc.setFillColor(colors.dark);
+    doc.rect(0, 0, pageW, pageH, 'F');
+
+    // --- Base64 Icons ---
+    const icons = {
+        brandGuard: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzM4QjJBQyI+PHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNMTIuNTE2IDIuMTdhLjc1Ljc1IDAgMCAwLTEuMDMyIDAgMTEuMjA5IDExLjIwOSAwIDAgMS03Ljg3NyAzLjA4Ljc1Ljc1IDAgMCAwLS43MjIuNTE1QTEyLjc0IDEyLjc0IDAgMCAwIDIuMjUgOS43NWMwIDUuOTQyIDQuMDY0IDEwLjkzMyA5LjU2MyAxMi4zNDhhLjc0OS43NDkgMCAwIDAgLjM3NCAwYzUuNDk5LTEuNDE1IDkuNTYzLTYuNDA2IDkuNTYzLTEyLjM0OCAwLTEuMzktLjIyMy0yLjczLS42MzUtMy45ODVhLjc1Ljc1IDAgMCAwLS43MjItLjUxNmwtLjE0My4wMDFjLTIuOTk2IDAtNS43MTctMS4xNy03LjczNC0zLjA4Wm0zLjA5NCA4LjAxNmEuNzUuNzUgMCAxIDAtMS4yMi0uODcybC0zLjIzNiA0LjUzTDkuNTMgMTIuMjJhLjc1Ljc1IDAgMCAwLTEuMDYgMS4wNmwyLjI1IDIuMjVhLjc1Ljc1IDAgMCAwIDEuMTQtLjA5NGwzLjc1LTUuMjVaIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIC8+PC9zdmc+',
+        shieldGreen: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZT0iIzM4QTE2OSI+PHBhdGggc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNOSAxMi43NSA MTEuMjUgMTUgMTUgOS43NW0tMy03LjAzNkExMS45NTkgMTEuOTU5IDAgMCAxIDMuNTk4IDYgMTEuOTkgMTEuOTkgMCAwIDAgMyA5Ljc0OWMwIDUuNTkyIDMuODI0IDEwLjI5IDkgMTEuNjIzIDUuMTc2LTEuMzMyIDktNi4wMyA5LTExLjYyMyAwLTEuNjA0LS4zNi0zLjExMy0xLjAwMi00LjQyNEExMS45NTkgMTEuOTU5IDAgMCAxIDEyIDIuNzE0WiIgLz48L3N2Zz4=',
+        shieldRed: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZT0iI0U1M0UzRSI+PHBhdGggc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNOSAxMi43NSA MTEuMjUgMTUgMTUgOS43NW0tMy03LjAzNkExMS45NTkgMTEuOTU5IDAgMCAxIDMuNTk4IDYgMTEuOTkgMTEuOTkgMCAwIDAgMyA5Ljc0OWMwIDUuNTkyIDMuODI0IDEwLjI5IDkgMTEuNjIzIDUuMTc2LTEuMzMyIDktNi4wMyA5LTExLjYyMyAwLTEuNjA0LS4zNi0zLjExMy0xLjAwMi00LjQyNEExMS45NTkgMTEuOTU5IDAgMCAxIDEyIDIuNzE0WiIgLz48L3N2Zz4=',
+        check: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2U9IiMzOEExNjkiPjxwYXRoIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgZD0iTTkgMTIuNzUgMTEuMjUgMTUgMTUgOS43NU0yMSAxMmE5IDkgMCAxIDEtMTggMCA5IDkgMCAwIDEgMTggMFoiIC8+PC9zdmc+',
+        warning: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZT0iI0Q2OUUyRSI+PHBhdGggc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNMTIgOXYzLjc1bS05LjMwMyAzLjM3NmMtLjg2NiAxLjUuMjE3IDMuMzc0IDEuOTQ4IDMuMzc0aDE0LjcxYzEuNzMgMCAyLjgxMy0xLjg3NCAxLjk0OC0zLjM3NEwxMy45NDkgMy4zNzhjLS44NjYtMS41LTMuMDMyLTEuNS0zLjg5OCAwTDIuNjk3IDE2LjEyNlpNMTIgMTUuNzVoLjAwN3YuMDA3SDEydi0uMDA3WiIgLz48L3N2Zz4=',
+        cross: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2U9IiNFM0UzRSI+PHBhdGggc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJtOS43NSA5Ljc1IDQuNSA0LjVtMC00LjUtNC41IDQuNU0yMSAxMmE5IDkgMCAxIDEtMTggMCA5IDkgMCAwIDEgMTggMFoiIC8+PC9zdmc+',
+    };
+
+    // --- Header ---
+    doc.addImage(icons.brandGuard, 'SVG', margin, y, 10, 10);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.setTextColor(colors.textPrimary);
+    doc.text('BrandGuard', margin + 12, y + 7.5);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(12);
+    doc.setTextColor(colors.textSecondary);
+    doc.text('Certificate of Compliance', pageW - margin, y + 3, { align: 'right' });
+    doc.setFontSize(8);
+    doc.text(`ID: ${report.id.slice(0, 12)}`, pageW - margin, y + 8, { align: 'right' });
+    y += 15;
+    doc.setDrawColor(colors.textSecondary);
+    doc.setLineWidth(0.2);
+    doc.line(margin, y, pageW - margin, y);
+    y += 15;
+
+    // --- Main Status ---
+    const isApproved = report.overallScore >= 90;
+    const statusText = isApproved ? 'GREENLIT' : 'NEEDS REVISION';
+    const statusColor = isApproved ? colors.success : colors.danger;
+    const statusIcon = isApproved ? icons.shieldGreen : icons.shieldRed;
+
+    doc.addImage(statusIcon, 'SVG', pageW / 2 - 10, y, 20, 20);
+    y += 28;
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(28);
+    doc.setTextColor(statusColor);
+    doc.text(statusText, pageW / 2, y, { align: 'center' });
+    y += 10;
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(colors.textSecondary);
+    doc.text('This document certifies that the content has been analyzed by the BrandGuard Engine.', pageW / 2, y, { align: 'center' });
+    y += 20;
+
+    // --- Details & Summary ---
+    doc.setFontSize(12);
+    doc.setTextColor(colors.textPrimary);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Compliance Score', margin, y);
+    doc.text('Engine Summary', pageW / 2, y);
+
+    doc.setFontSize(28);
+    doc.setTextColor(isApproved ? colors.success : report.overallScore >= 60 ? colors.warning : colors.danger);
+    doc.text(`${report.overallScore}`, margin, y + 12);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(colors.textSecondary);
+    const summaryLines = doc.splitTextToSize(report.summary, pageW / 2 - margin - 5);
+    doc.text(summaryLines, pageW / 2, y + 7);
+    y += 25;
+
+    // --- Analysis Details Box ---
+    doc.setFillColor('#2D3748');
+    doc.roundedRect(margin, y, pageW - (margin * 2), 25, 3, 3, 'F');
+    let detailY = y + 8;
+    const detailCol1 = margin + 5;
+    const detailCol2 = margin + 40;
+    const detailCol3 = pageW / 2 + 5;
+    const detailCol4 = pageW / 2 + 40;
+    doc.setFontSize(9);
+    doc.setTextColor(colors.textPrimary);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Timestamp:', detailCol1, detailY);
+    if(report.campaignName) doc.text('Campaign:', detailCol1, detailY + 7);
+    doc.text('Analysis Type:', detailCol3, detailY);
+    if(report.userName) doc.text('Run by:', detailCol3, detailY + 7);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(colors.textSecondary);
+    doc.text(new Date(report.timestamp).toLocaleString(), detailCol2, detailY);
+    if(report.campaignName) doc.text(report.campaignName, detailCol2, detailY + 7);
+    doc.text(report.analysisType.charAt(0).toUpperCase() + report.analysisType.slice(1), detailCol4, detailY);
+    if(report.userName) doc.text(report.userName, detailCol4, detailY + 7);
+    y += 35;
+
+    // --- Detailed Checks ---
+    doc.setFontSize(14);
+    doc.setTextColor(colors.textPrimary);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Detailed Checks', margin, y);
+    y += 8;
+
+    const checkStatusIcons: Record<CheckItem['status'], string> = {
+        pass: icons.check,
+        warn: icons.warning,
+        fail: icons.cross,
+    };
+    report.checks.forEach(check => {
+        if (y > pageH - 40) { // Check for page break
+            doc.addPage();
+            y = margin;
+        }
+        doc.addImage(checkStatusIcons[check.status], 'SVG', margin, y - 2, 6, 6);
+        doc.setFontSize(11);
+        doc.setFont('Helvetica', 'bold');
+        doc.setTextColor(colors.textPrimary);
+        doc.text(check.name, margin + 10, y + 2);
+
+        doc.setFontSize(9);
+        doc.setFont('Helvetica', 'normal');
+        doc.setTextColor(colors.textSecondary);
+        const detailLines = doc.splitTextToSize(check.details, pageW - (margin * 2) - 10);
+        doc.text(detailLines, margin + 10, y + 7);
+        y += detailLines.length * 4 + 8;
+    });
+
+    // --- Footer ---
+    doc.setFontSize(8);
+    doc.setTextColor(colors.textSecondary);
+    const footerText = `© ${new Date().getFullYear()} BrandGuard. All rights reserved. This certificate is a record of an automated compliance scan and does not constitute legal advice.`;
+    const splitFooter = doc.splitTextToSize(footerText, pageW - margin*2);
+    doc.text(splitFooter, pageW/2, pageH - 10, { align: 'center'});
+
+
+    const fileName = `BrandGuard-Certificate-${report.id.slice(0, 8)}.pdf`;
+    doc.save(fileName);
+};
+
+// FIX: Define DashboardProps interface to resolve type error.
 interface DashboardProps {
   activeWorkspaceId: string;
   customRules: CustomRule[];
   onNavigate: (view: MainView) => void;
   onCreateCertificate: (report: ComplianceReport) => string;
 }
-
-const getReportHistory = (workspaceId: string): ComplianceReport[] => {
-    try {
-        const historyJson = localStorage.getItem(`brandGuardReportHistory_${workspaceId}`);
-        if (!historyJson) return [];
-        const history = JSON.parse(historyJson);
-        return history.map((report: any) => ({
-            ...report,
-            status: report.status || 'pending'
-        }));
-    } catch (e) { return []; }
-};
-
-const saveReportHistory = (workspaceId: string, history: ComplianceReport[]) => {
-    localStorage.setItem(`brandGuardReportHistory_${workspaceId}`, JSON.stringify(history));
-}
-
-const examplePost = `These new sneakers are a game-changer! So comfy and they look amazing. You absolutely have to try them out for your next run. #newgear #running #style`;
-
 
 const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, onNavigate, onCreateCertificate }) => {
   const [analysisType, setAnalysisType] = useState<AnalysisType>('text');
@@ -58,44 +200,22 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const [shareConfirmation, setShareConfirmation] = useState('');
   const [openCampaign, setOpenCampaign] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [pdfReport, setPdfReport] = useState<ComplianceReport | null>(null);
   const reportCardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pdfRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (pdfReport && isGeneratingPdf) {
-      const generatePdf = async () => {
-        const element = pdfRef.current;
-        if (!element) return;
-        
-        try {
-          const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#1A202C' });
-          const imgData = canvas.toDataURL('image/png');
-          
-          const pdf = new jsPDF('p', 'px', [canvas.width, canvas.height]);
-          pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-          
-          const fileName = `BrandGuard-Certificate-${pdfReport.id.slice(0, 8)}.pdf`;
-          pdf.save(fileName);
-
-        } catch (error) {
-          console.error("Error generating PDF:", error);
-          setError("Could not generate PDF certificate.");
-        } finally {
-          setIsGeneratingPdf(false);
-          setPdfReport(null);
-        }
-      };
-      // Delay to allow component to render offscreen
-      setTimeout(generatePdf, 100);
-    }
-  }, [pdfReport, isGeneratingPdf]);
-
-  const handleDownloadPdf = (reportToDownload: ComplianceReport) => {
+  const handleDownloadPdf = async (reportToDownload: ComplianceReport) => {
     setActiveActionMenu(null);
     setIsGeneratingPdf(true);
-    setPdfReport(reportToDownload);
+    try {
+        // The generation is synchronous, but a slight delay allows the UI to update the button state.
+        await new Promise(resolve => setTimeout(resolve, 50)); 
+        generateCertificatePdf(reportToDownload);
+    } catch (error) {
+        console.error("Error generating PDF:", error);
+        setError("Could not generate PDF certificate.");
+    } finally {
+        setIsGeneratingPdf(false);
+    }
   };
   
   useEffect(() => {
@@ -324,20 +444,25 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       if (status === 'all') return reportHistory.length;
       return reportHistory.filter(r => r.status === status).length;
   }
+const getReportHistory = (workspaceId: string): ComplianceReport[] => {
+    try {
+        const historyJson = localStorage.getItem(`brandGuardReportHistory_${workspaceId}`);
+        if (!historyJson) return [];
+        const history = JSON.parse(historyJson);
+        return history.map((report: any) => ({
+            ...report,
+            status: report.status || 'pending'
+        }));
+    } catch (e) { return []; }
+};
+
+const saveReportHistory = (workspaceId: string, history: ComplianceReport[]) => {
+    localStorage.setItem(`brandGuardReportHistory_${workspaceId}`, JSON.stringify(history));
+}
+
+const examplePost = `These new sneakers are a game-changer! So comfy and they look amazing. You absolutely have to try them out for your next run. #newgear #running #style`;
 
   return (
-    <>
-    {/* Offscreen container for PDF generation */}
-    {isGeneratingPdf && pdfReport && (
-        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-          <div ref={pdfRef} style={{ width: '800px', backgroundColor: '#1A202C' }}>
-            <Suspense fallback={<div>Loading PDF...</div>}>
-              <CertificatePDF report={pdfReport} />
-            </Suspense>
-          </div>
-        </div>
-      )}
-
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-gray-300">
 
       <Analytics reportHistory={reportHistory} />
@@ -540,7 +665,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
           </div>
       </div>
     </div>
-    </>
   );
 };
 
