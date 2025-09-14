@@ -4,9 +4,12 @@ import type { ComplianceReport, CustomRule, ReportStatus, MainView } from '../ty
 import Loader from './Loader';
 import Analytics from './Analytics';
 import WelcomeGuide from './WelcomeGuide';
-import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon } from './icons/Icons';
+import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon, DownloadIcon } from './icons/Icons';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const ReportCard = lazy(() => import('./ReportCard'));
+const CertificatePDF = lazy(() => import('./CertificatePDF'));
 
 type AnalysisType = 'text' | 'video' | 'image';
 
@@ -54,9 +57,47 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
   const [shareConfirmation, setShareConfirmation] = useState('');
   const [openCampaign, setOpenCampaign] = useState<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfReport, setPdfReport] = useState<ComplianceReport | null>(null);
   const reportCardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (pdfReport && isGeneratingPdf) {
+      const generatePdf = async () => {
+        const element = pdfRef.current;
+        if (!element) return;
+        
+        try {
+          const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#1A202C' });
+          const imgData = canvas.toDataURL('image/png');
+          
+          const pdf = new jsPDF('p', 'px', [canvas.width, canvas.height]);
+          pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+          
+          const fileName = `BrandGuard-Certificate-${pdfReport.id.slice(0, 8)}.pdf`;
+          pdf.save(fileName);
+
+        } catch (error) {
+          console.error("Error generating PDF:", error);
+          setError("Could not generate PDF certificate.");
+        } finally {
+          setIsGeneratingPdf(false);
+          setPdfReport(null);
+        }
+      };
+      // Delay to allow component to render offscreen
+      setTimeout(generatePdf, 100);
+    }
+  }, [pdfReport, isGeneratingPdf]);
+
+  const handleDownloadPdf = (reportToDownload: ComplianceReport) => {
+    setActiveActionMenu(null);
+    setIsGeneratingPdf(true);
+    setPdfReport(reportToDownload);
+  };
+  
   useEffect(() => {
     setReportHistory(getReportHistory(activeWorkspaceId));
     setReport(null); // Clear active report when switching workspace
@@ -231,7 +272,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   };
   
   const isScanDisabled = () => {
-      if (isLoading) return true;
+      if (isLoading || isGeneratingPdf) return true;
       if (analysisType === 'text' && !postContent.trim()) return true;
       if (analysisType === 'image' && (!postContent.trim() || !selectedImageFile)) return true;
       return false;
@@ -286,6 +327,17 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
 
   return (
     <>
+    {/* Offscreen container for PDF generation */}
+    {isGeneratingPdf && pdfReport && (
+        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+          <div ref={pdfRef} style={{ width: '800px', backgroundColor: '#1A202C' }}>
+            <Suspense fallback={<div>Loading PDF...</div>}>
+              <CertificatePDF report={pdfReport} />
+            </Suspense>
+          </div>
+        </div>
+      )}
+
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-gray-300">
 
       <Analytics reportHistory={reportHistory} />
@@ -306,7 +358,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
               
               {report && !isLoading ? (
                 <Suspense fallback={<div className="w-full min-h-[400px] flex items-center justify-center"><Loader /></div>}>
-                  <ReportCard report={report} onStatusChange={handleStatusChange} onAcceptRevision={handleAcceptRevision} />
+                  <ReportCard report={report} onStatusChange={handleStatusChange} onAcceptRevision={handleAcceptRevision} onDownloadPdf={handleDownloadPdf} isGeneratingPdf={isGeneratingPdf} />
                 </Suspense>
               ) : (
                 <>
@@ -467,6 +519,9 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
                                                         {activeActionMenu === r.id && (
                                                             <div className="absolute right-0 mt-2 w-48 bg-dark border border-gray-700 rounded-md shadow-lg z-10 animate-fade-in">
                                                                 <button onClick={() => viewHistoricReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">View Report</button>
+                                                                <button onClick={() => handleDownloadPdf(r)} disabled={isGeneratingPdf} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 disabled:opacity-50">
+                                                                    {isGeneratingPdf && activeActionMenu === r.id ? 'Generating...' : 'Download Certificate'}
+                                                                </button>
                                                                 <button onClick={() => handleShareReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">{shareConfirmation && activeActionMenu === r.id ? shareConfirmation : 'Share Certificate'}</button>
                                                                 <button onClick={() => deleteReport(r.id)} className="block w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger/20">Delete Report</button>
                                                             </div>

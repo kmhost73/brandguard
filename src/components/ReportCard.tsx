@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ComplianceReport, CheckItem, ReportStatus } from '../types';
-import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, FilmIcon, TagIcon, ChevronDownIcon, UserIcon, LightbulbIcon } from './icons/Icons';
+import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, FilmIcon, TagIcon, ChevronDownIcon, UserIcon, LightbulbIcon, DownloadIcon } from './icons/Icons';
+import Loader from './Loader';
 
 const statusConfig = {
   pass: { icon: <CheckIcon />, color: 'text-success', bgColor: 'bg-green-500/10', borderColor: 'border-green-500/30' },
@@ -49,9 +50,11 @@ interface ReportCardProps {
   report: ComplianceReport;
   onStatusChange?: (reportId: string, newStatus: ReportStatus) => void;
   onAcceptRevision?: (revisedContent: string) => void;
+  onDownloadPdf?: (report: ComplianceReport) => void;
+  isGeneratingPdf?: boolean;
 }
 
-const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAcceptRevision }) => {
+const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAcceptRevision, onDownloadPdf, isGeneratingPdf }) => {
   const hasCustomRules = report.customRulesApplied && report.customRulesApplied.length > 0;
   const hasSuggestedRevision = report.suggestedRevision && report.suggestedRevision.trim() !== '';
 
@@ -135,6 +138,20 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
         <h3 className="text-lg font-semibold text-white mb-4">Detailed Checks</h3>
         <div className="space-y-4">{report.checks.map((item, index) => (<CheckItemCard key={index} item={item} />))}</div>
       </div>
+      
+       {onDownloadPdf && (
+        <div className="p-6 border-t border-gray-700 bg-dark/50">
+           <button
+                onClick={() => onDownloadPdf(report)}
+                disabled={isGeneratingPdf}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-light transition-colors disabled:opacity-50 disabled:cursor-wait"
+            >
+                {isGeneratingPdf ? <Loader size="sm"/> : <DownloadIcon />}
+                {isGeneratingPdf ? 'Generating PDF...' : 'Download Certificate'}
+            </button>
+        </div>
+      )}
+
       {onAcceptRevision && hasSuggestedRevision && (
           <div className="p-6 border-t border-gray-700 bg-dark animate-fade-in">
               <h4 className="font-semibold text-gray-200 flex items-center gap-2 mb-2"><SparklesIcon /> Suggested Revision</h4>
