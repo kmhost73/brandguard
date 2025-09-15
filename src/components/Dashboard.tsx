@@ -1,177 +1,19 @@
 import React, { useState, useCallback, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
+import ReactDOM from 'react-dom/client';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
-import type { ComplianceReport, CustomRule, ReportStatus, MainView, CheckItem } from '../types';
+import type { ComplianceReport, CustomRule, ReportStatus, MainView } from '../types';
 import Loader from './Loader';
 import Analytics from './Analytics';
 import WelcomeGuide from './WelcomeGuide';
 import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon } from './icons/Icons';
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import CertificatePDF from './CertificatePDF';
+
 
 const ReportCard = lazy(() => import('./ReportCard'));
 
 type AnalysisType = 'text' | 'video' | 'image';
-
-// --- PDF Generation Logic ---
-const generateCertificatePdf = (report: ComplianceReport) => {
-    const doc = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4'
-    });
-
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    const margin = 15;
-    let y = margin;
-
-    // --- Colors & Fonts ---
-    const colors = {
-        primary: '#38B2AC',
-        dark: '#1A202C',
-        textPrimary: '#F7FAFC',
-        textSecondary: '#A0AEC0',
-        success: '#38A169',
-        danger: '#E53E3E',
-        warning: '#D69E2E',
-    };
-
-    doc.addFont('Helvetica', 'normal', 'normal');
-    doc.addFont('Helvetica', 'bold', 'bold');
-    doc.setFillColor(colors.dark);
-    doc.rect(0, 0, pageW, pageH, 'F');
-
-    // --- Base64 Icons (Converted to PNG) ---
-    const icons = {
-        brandGuard: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACqUlEQVR4nO2Yv2sUQRTHPzO73e4m8QdGUBEUNLKVjVbiZ5BoI1iIlY2FotEWNmgjQvA/0EjED2AhCgqJ4IuFjY0U4nF3d+8iCIIsZHe7WzIwu2y7L7vs5oGBeW/e9/v5vXnz3r0n6H8U/h9YAhQAy2gGDAKzQAFwJvR/MvA/wG0gAewDX2gM3AEjgS+gDlwCb1f/z0FfKACuAy8C1+lAAnAEPAWmlf8fBPqgAHgD/AmM04EEYBN4C5yS/y8EPqgAHgF/A+dpgQjgMvAN+CX//1r4iAYAD4BvgT/SoQjgIXAA/Jz/nQp8UQGAE+C7wE16MAGYA84Bv+X/vQh8UQHgNHAL+JceDAGmge/AX/n/ScC/agC4DBxLz8kApoDPwD/4/5nAe9UA8CVx/v8404EjYBD4X/y/CfxXDYBbQJ74f+fU6QBwB3gPfJj/nwN8VgPAL4B/gZl0YAA4DPwI/Jf/fRL4tAYAW8AvwJ90YAA4A/wT+CH//yTwXzUAXAWOgX/iQAGwF/gH/H/C81A1oAZMgm/x4UbgC4wD/81Hh8AY8Br4O2+aFwGbYIq953SgDNgDnoC9/Dck3gH/wr+54w7YA/4P/C/c8Qasb0OAPeD/wH/DHS8D2zMCHAO/A//DHS8C2/MBsAL8FPg/d9gK9pEDwN/Au+B/6rAr7EUGgCPAI+D/zGFX2Fs+BXYB3z+7fM4C++wEWAQOwL8/e/zOAvvQAsC/f/v8joL7wAIwBnzA+G3fX+dYeAfsCwCgVbI0LgL/rAHAPqgA3AO/Bl8l/jsBbFeALxIAzgEvgg+S/12Az/13gZ/6D4CfrP9d/Acm9i+Mv2j30QAAAABJRU5kJggg==',
-        shieldGreen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACVUlEQVR4nO2YvW7CMBCEv3t1tqVzEAgJkY4cOULtHnECnSLlCh3aN+gSp6QyB+gQXaIlxIkj5AAVEgkIJBw5nJbE3V0sWJaFf8J4kscvj+fZnR2L0t/S/38/B44DF4GjQB4oAweAJ8A+gN8GjgJfgWfAMfAp8P+eA+uBF0E+KAeWAj8AP4HXwP9bAdYCJ4E8kAq4DvwAfgS+Av9vA1YDLwJ5YBFYA/4CfgC/Av/vAtYCJwJ5YBGYA/4D/gR+Bv5/BbgGnApyYBFYA/4D/gC/Av9/A/gG/BNIwUbgN+Av4Bfg/18D3gLfgxSYDFwD/gF+Bb4F/n8buAZcCTJgGbgN/Af4Dfgc+P92YC9wGciAy8BP4D/gT+B/8P+tgS3AMZABHwN/gW/Af4H/34FNwCogA34BvgH/BP4F//8EbAGuAh3wCvgG/BP4D/g/EbAFOAV0wKvgG/BP4B/wfxSwBVgNdMBXwS3gP8D/nYCbAN8B+z0A9wD+gP8B/68BfATgX9cBPgDwA/gB/A/8fgbwEYC/rgv4CcBv4D/g//WAXwD8dX3AHwA8gB/A/8D/lYAvAfjrfoAPAJwD/wP/SwR+CcC/4gL4CsAP4Afgf+j/LMBnAP5Vn4D/CGAX2A32gn3gL3Bf2A3+V72A9+pD+o7qHag2xR43f6qT+n9d/VlH7A+rGkBP9I8L+Igm+Ihi+pAifIhg+g/9z/b/Cfi3q+83636x7n9/59f1n3V/R/9X1v8BEA1j/2y7n7UAAAAASUVORK5CYII=',
-        shieldRed: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACV0lEQVR4nO2Yv27CMBCHf5+2tlQ6B4eESHXkCFXuECdAnSJlCh3aN+iS51QZAXSIXNES4sQRcgEqiQQEEg49HJbE/SgWFEtS/I/xJJ5fjsezu7PC9Lf0/9+fA8eBS8BRIA/UgXHgBfAO4L+BDwKvgWfAMfAp8P9eA+uAF0E+qActgR/AL8Br4P+dgdXASSCPVAJuA38AvwBfAv/vBawGXgTygEVgC/gD+An4Ffj/XcAKcCaQByYBP4C/gN+Bv4H/rwBuAafCXFgEfgP+A34BvgT+/wTwDfgzkIIVwK/AX8C3wP+/BrwFvgspsBlYD/wBfgW+Bf5/G7gGXAkyYBVYD/wD/Ab8Cvz/DmAvcBnIgMvAz8B/wB/g/+D/WwNbwDGQAR8Df4DvgL+B//+BTcAKIAN+Ab4B/wR+Bf5/BGwBbgId8BXwDfgn8B/wf0TAFuAU0AGvgm/AP4F/wP8RYAuwGuqAr4JbwH+A/zsBNwG+A/Z7AO4B/AH/B/5fA/gIwL+uA3wA4AfgB/A/8P8ZwEcAvro/wA8A/Ab8B/z/L4DfAPx1fQAPAIwDfgP/AwV+BOCv+gQ+AXAH/A/8rRL4JQB/VSfga/QCe8FesA/sBXvBbrAHrF/2g/VjP1g/9of1rX+sH/pDPfFIPXFSPXRKPXRLPbFRPX5YPfGg+n28+kO59g+k/u/+sO5P7P/r+t+8/v+bX+j8/0H/X9f/AUEsZf0J4r+zAAAAAElFTkSuQmCC',
-        check: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACJUlEQVR4nO2XvW7CMBCHn02sFDgHSZGO1EPHKPcIN6BOLVGu0J7BN0iXOKXKFeiQq+gSJ0iFkBAiO3ICSRoV2+6OHYuDpfAf4z3e4/v1+fFmXhT+L/j/dwPGAxeBoyAHlIEx4Alw7wO/DTwEfoIvwDFwKfj/ewLWAR8FeaAccAn4AfgFvAf+3xpYDFwF8kAlYAvwA/gBfAz8fxtYDnwM5IFVYBPwA/gH+BP4/6eAldABIAfMAt8B/wT+B/7/LcAh8DOQBVYA3wJ/Av8D/38LeA28DGTACmAn8A/wT+D/74AlwGkgB6wDfgT+B/4M/v8JsBd4BOSAScDv4B/g/+f/twKagQx4DvwL/Af8/wSwFfgJyID3wGfA38C/wH8A7AGOgQx4F/gH+Bv4F/g/ArYB8UAfwK/A38D/QAA7A/uBPrAX+Bf4//MAngD46w6ABwCeAX/AX2D/K4CPAPx1A8AHAB4DfgL+BP6vA3wE4K/bAH4A8A/wD/g/+sAvAP66fuABgDPAX8B/yMCvAPy1FcA3AJwDfgR+p/5PA/gMwF/tA/gvAVwEtsBesA/sBXvBPsAnuA/sBvtBf+iH+kM/1Jv6pd7cD/XGfqgf9ks9sF/qjf2j3tIP9eZ+0Nf1e/3A/7Yf8M764/9Qx/uDfuD9c/8c+P/eD/fH/8/+L63/Ag4Eav9vJ8BFAAAAAElFTkSuQmCC',
-        warning: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACIElEQVR4nO2Xv27CMBCHv4+2tlRkDo5EJI4cIXaPECdAnSLlCh3aN+gSp6QyB+gQXaIlxIkj5AAVEgkIJBw6HJZk/SiWFS1L8T/GS/x+PZ7PzopS/Ivw/98PGAcuAkdBDigDY8CLwB3ArwFHgV/AF+AYOBX8/z1wDbgefJAcUAVuAT+AX8Br4P+dgdXARSCPVAJ2AT+AX4CPgf+/A1YDF4E8sAqYBPwEfgX+BP7/LGAJOAjkAQuAn8BfwJ/A/4H/rwBOAS+CHLACfBP4E/gD+P8XgLfAt0AO2A3cBP4A/gT+/wJYA14LOSAbsA/4E/gn8H/8/wnYBlwDOaAduA/8B/wb/P8RsBd4GeSAb8Df4L/gD/A/+v8ZmABywFfgn+B/4I/g/9cAvgcxYB34Bfwb/B/x/wSwBSQH+gB/Bf8G/wcC2BnYB/QBv4L/g/+fAngC4K8bAB4AcAv4GvgH+f8VwEcAvroD4AMATwO/gP+f/d8H+AjAVzcAfADgP+B/4M/g/6sAfwH46/qB/wBwAvgJ/J/y8CuAv9YC+AbAV+Bv/D/j/zSAzwD8VT/w/yWAi8BesA/sBXvBPgBPcB/YC/aD/qgn9aO+1Bf1pX5pP9QT+6V+2D/rY/2tX9Qv9cN+0A/7w/7w/rX/HPh/bwe8M/78f2jH+4N+4P3z/xT4/94P98f/z/4v9f8F6eFv9lIu3zQAAAAASUVORK5CYII=',
-        cross: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACF0lEQVR4nO2YvW7CMBCEv3t1pUMnYJCIFCVDh6j3CDegTqVyhfZm+AZpE6dUuQIdciVd4gSpkEgQIjtSQiSpsbFzV6wkW5b/Md7j+fV4PJuVJRz/g/+fD4wDF4GjQAWUAWPAI4A7gF8DjgJfgFfAEXAq+P87YB3wRYAKKAO3gP+Av8Br4P/dgZXAJUAFqABbgP/AX8BHwP/fA1YDF0AFWAGSgP/A/8BfwP+/BKwAB0AFGAXuAv8D/gT+/w04BDwFKoAKYCfwP/BP4P/fAt4CrwIVUAH2Av8B/wX+/wJYA64CVSAd2AP8D/wZ/B8/fwnYBVwFKpAO7Af+B/4N/v8IsBc4C1SALcCPwf/Bn8B/1P/fALJABbwL/BP4N/g/+P8awPeADKgH/gv8G/w/4v8EsAVIA/oA/gv8G/wvCWBnYB/QA/4L/B/8/ySAJwC+ugPgAQAfgR/B/ySBjwD8dQPABwBOAv8G/wf/Xwe8BOCv2wB+AOAD8B/wv+SAXwD8dX3AAwBGA/8G/0MBfgXgr7UAvgFwEvgj+D/0fw3gMwB/tQ/gvwRwCewF+8BesBfsA/gE94C9YD/oT/2pP/Wn/lRf6pf6o35QP+pP/axf1sv6W7+qX+uX/aA/9If+8P61/xT4/94OeGf8+X/Uj/uDfuD98/8U+P/eD/fH/8/+L63/AgPObf/hR4KTAAAAAElFTkSuQmCC',
-    };
-
-    // --- Header ---
-    doc.addImage(icons.brandGuard, 'PNG', margin, y, 10, 10);
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(20);
-    doc.setTextColor(colors.textPrimary);
-    doc.text('BrandGuard', margin + 12, y + 7.5);
-
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(12);
-    doc.setTextColor(colors.textSecondary);
-    doc.text('Certificate of Compliance', pageW - margin, y + 3, { align: 'right' });
-    doc.setFontSize(8);
-    doc.text(`ID: ${report.id.slice(0, 12)}`, pageW - margin, y + 8, { align: 'right' });
-    y += 15;
-    doc.setDrawColor(colors.textSecondary);
-    doc.setLineWidth(0.2);
-    doc.line(margin, y, pageW - margin, y);
-    y += 15;
-
-    // --- Main Status ---
-    const isApproved = report.overallScore >= 90;
-    const statusText = isApproved ? 'GREENLIT' : 'NEEDS REVISION';
-    const statusColor = isApproved ? colors.success : colors.danger;
-    const statusIcon = isApproved ? icons.shieldGreen : icons.shieldRed;
-
-    doc.addImage(statusIcon, 'PNG', pageW / 2 - 10, y, 20, 20);
-    y += 28;
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(28);
-    doc.setTextColor(statusColor);
-    doc.text(statusText, pageW / 2, y, { align: 'center' });
-    y += 10;
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(colors.textSecondary);
-    doc.text('This document certifies that the content has been analyzed by the BrandGuard Engine.', pageW / 2, y, { align: 'center' });
-    y += 20;
-
-    // --- Details & Summary ---
-    doc.setFontSize(12);
-    doc.setTextColor(colors.textPrimary);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Compliance Score', margin, y);
-    doc.text('Engine Summary', pageW / 2, y);
-
-    doc.setFontSize(28);
-    doc.setTextColor(isApproved ? colors.success : report.overallScore >= 60 ? colors.warning : colors.danger);
-    doc.text(`${report.overallScore}`, margin, y + 12);
-
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(colors.textSecondary);
-    const summaryLines = doc.splitTextToSize(report.summary, pageW / 2 - margin - 5);
-    doc.text(summaryLines, pageW / 2, y + 7);
-    y += 25;
-
-    // --- Analysis Details Box ---
-    doc.setFillColor('#2D3748');
-    doc.roundedRect(margin, y, pageW - (margin * 2), 25, 3, 3, 'F');
-    let detailY = y + 8;
-    const detailCol1 = margin + 5;
-    const detailCol2 = margin + 40;
-    const detailCol3 = pageW / 2 + 5;
-    const detailCol4 = pageW / 2 + 40;
-    doc.setFontSize(9);
-    doc.setTextColor(colors.textPrimary);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Timestamp:', detailCol1, detailY);
-    if(report.campaignName) doc.text('Campaign:', detailCol1, detailY + 7);
-    doc.text('Analysis Type:', detailCol3, detailY);
-    if(report.userName) doc.text('Run by:', detailCol3, detailY + 7);
-
-    doc.setFont('Helvetica', 'normal');
-    doc.setTextColor(colors.textSecondary);
-    doc.text(new Date(report.timestamp).toLocaleString(), detailCol2, detailY);
-    if(report.campaignName) doc.text(report.campaignName, detailCol2, detailY + 7);
-    doc.text(report.analysisType.charAt(0).toUpperCase() + report.analysisType.slice(1), detailCol4, detailY);
-    if(report.userName) doc.text(report.userName, detailCol4, detailY + 7);
-    y += 35;
-
-    // --- Detailed Checks ---
-    doc.setFontSize(14);
-    doc.setTextColor(colors.textPrimary);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Detailed Checks', margin, y);
-    y += 8;
-
-    const checkStatusIcons: Record<CheckItem['status'], string> = {
-        pass: icons.check,
-        warn: icons.warning,
-        fail: icons.cross,
-    };
-    report.checks.forEach(check => {
-        if (y > pageH - 40) { // Check for page break
-            doc.addPage();
-            y = margin;
-        }
-        doc.addImage(checkStatusIcons[check.status], 'PNG', margin, y - 2, 6, 6);
-        doc.setFontSize(11);
-        doc.setFont('Helvetica', 'bold');
-        doc.setTextColor(colors.textPrimary);
-        doc.text(check.name, margin + 10, y + 2);
-
-        doc.setFontSize(9);
-        doc.setFont('Helvetica', 'normal');
-        doc.setTextColor(colors.textSecondary);
-        const detailLines = doc.splitTextToSize(check.details, pageW - (margin * 2) - 10);
-        doc.text(detailLines, margin + 10, y + 7);
-        y += detailLines.length * 4 + 8;
-    });
-
-    // --- Footer ---
-    doc.setFontSize(8);
-    doc.setTextColor(colors.textSecondary);
-    const footerText = `© ${new Date().getFullYear()} BrandGuard. All rights reserved. This certificate is a record of an automated compliance scan and does not constitute legal advice.`;
-    const splitFooter = doc.splitTextToSize(footerText, pageW - margin*2);
-    doc.text(splitFooter, pageW/2, pageH - 10, { align: 'center'});
-
-
-    const fileName = `BrandGuard-Certificate-${report.id.slice(0, 8)}.pdf`;
-    doc.save(fileName);
-};
 
 // FIX: Define DashboardProps interface to resolve type error.
 interface DashboardProps {
@@ -208,12 +50,43 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     setIsGeneratingPdf(true);
     setError(null);
     try {
-        // The generation is synchronous, but a slight delay allows the UI to update the button state.
-        await new Promise(resolve => setTimeout(resolve, 50)); 
-        generateCertificatePdf(reportToDownload);
-    } catch (error) {
-        console.error("Error generating PDF:", error);
-        setError("Could not generate PDF certificate.");
+        const container = document.createElement('div');
+        container.style.position = 'fixed';
+        container.style.left = '-9999px';
+        container.style.width = '827px'; // A4 width at 96 DPI
+        document.body.appendChild(container);
+
+        const root = ReactDOM.createRoot(container);
+        
+        // Use a promise with a callback prop to ensure the component is rendered
+        // before we try to capture it. This is more reliable than a setTimeout.
+        await new Promise<void>((resolve) => {
+            root.render(<CertificatePDF report={reportToDownload} onRendered={resolve} />);
+        });
+        
+        const canvas = await html2canvas(container, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#1A202C',
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({
+            orientation: 'p',
+            unit: 'px',
+            format: [canvas.width, canvas.height]
+        });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        
+        const fileName = `BrandGuard-Certificate-${reportToDownload.id.slice(0, 8)}.pdf`;
+        pdf.save(fileName);
+
+        root.unmount();
+        document.body.removeChild(container);
+
+    } catch (err) {
+        console.error("Error generating PDF:", err);
+        setError("Could not generate PDF certificate. There might be an issue with rendering the content.");
     } finally {
         setIsGeneratingPdf(false);
     }
@@ -550,11 +423,11 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                             )}
                          </div>
 
-                        <div className="flex items-center justify-center p-0.5 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20">
+                        <div className="flex items-stretch gap-2">
                             <button
                                 onClick={() => handleScan()}
                                 disabled={isScanDisabled()}
-                                className="w-full px-6 py-3 flex-grow flex items-center justify-center gap-3"
+                                className="flex-grow px-6 py-3 flex items-center justify-center gap-3 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20"
                             >
                                 {isLoading ? (
                                     <>
@@ -565,7 +438,7 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                                     <span>{getButtonText()}</span>
                                 )}
                             </button>
-                             {analysisType === 'text' && (
+                            {analysisType === 'text' && (
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -573,13 +446,11 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                                         handleScan({ isQuickScan: true });
                                     }}
                                     disabled={isScanDisabled()}
-                                    className="flex items-center pl-4 pr-3 self-stretch cursor-pointer group"
-                                    title="Quick Scan (Ctrl+Enter)"
+                                    className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-light disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                                    title="Quick Scan (without campaign name) (Cmd/Ctrl+Enter)"
                                 >
-                                    <div className="h-full border-l border-white/30 transition-colors group-hover:border-white/50"></div>
-                                    <div className="ml-3 p-1 rounded-full transition-colors group-hover:bg-black/20">
-                                        <SparklesIcon />
-                                    </div>
+                                    <SparklesIcon />
+                                    <span>Quick Scan</span>
                                 </button>
                             )}
                         </div>

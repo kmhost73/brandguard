@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import type { ComplianceReport, CheckItem } from '../types';
 import { BrandGuardLogoIcon, CheckIcon, WarningIcon, XIcon, CogIcon, FilmIcon, UserIcon, ShieldCheckIcon } from './icons/Icons';
 
@@ -39,11 +39,18 @@ const CheckItemCard: React.FC<{ item: CheckItem }> = ({ item }) => {
 
 interface CertificatePDFProps {
   report: ComplianceReport;
+  onRendered?: () => void;
 }
 
-const CertificatePDF: React.FC<CertificatePDFProps> = ({ report }) => {
+const CertificatePDF: React.FC<CertificatePDFProps> = ({ report, onRendered }) => {
   const hasCustomRules = report.customRulesApplied && report.customRulesApplied.length > 0;
   const isApproved = report.overallScore >= 90;
+
+  useEffect(() => {
+    // Signal that the component has mounted and rendered.
+    // This is more reliable than a timeout for PDF generation.
+    onRendered?.();
+  }, [onRendered]);
 
   return (
     <div className="bg-dark text-gray-300 p-10 font-sans">
