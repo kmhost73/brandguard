@@ -89,3 +89,14 @@ export interface DynamicTestResult {
   expectedToPass: boolean;
   actualReport: ComplianceReport;
 }
+
+// New types for managing test state in the QA Sandbox
+export type TestResultStatus = 'pending' | 'running' | 'pass' | 'fail';
+
+export interface StaticTestRunResult {
+  testCaseId: string;
+  status: TestResultStatus;
+  report?: ComplianceReport | null;
+  error?: string;
+  isMismatch?: boolean;
+}

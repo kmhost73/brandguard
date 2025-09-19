@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { analyzePostContent, analyzeImageContent, generateTestScenario } from '../services/geminiService';
-import type { ComplianceReport, TestCase, MainView, TestProfile, DynamicTestResult } from '../types';
+import type { ComplianceReport, TestCase, MainView, TestProfile, DynamicTestResult, TestResultStatus, StaticTestRunResult } from '../types';
 import { testCases } from '../testCases';
 import Loader from './Loader';
 import { CheckIcon, XIcon, SparklesIcon, TestTubeIcon } from './icons/Icons';
@@ -41,47 +41,43 @@ const ResultDisplay: React.FC<{ label: string; value: string; pass: boolean }> =
 );
 
 
-const TestCaseCard: React.FC<{ testCase: TestCase }> = ({ testCase }) => {
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [report, setReport] = useState<ComplianceReport | null>(null);
+const TestCaseCard: React.FC<{
+    testCase: TestCase;
+    runTest: (testCase: TestCase, imageFile?: File | null) => void;
+    result?: StaticTestRunResult;
+    isRunning: boolean;
+}> = ({ testCase, runTest, result, isRunning }) => {
     const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
 
-    const runTest = async () => {
-        setIsLoading(true);
-        setError(null);
-        setReport(null);
-        try {
-            let result;
-            if (testCase.type === 'text') {
-                 // FIX: Added an empty string for the 'campaignName' argument to satisfy the function signature.
-                 result = await analyzePostContent(testCase.content.text!, '');
-            } else if (testCase.type === 'image') {
-                if (!selectedImageFile) throw new Error("Please select a sample image file to run this test.");
-                // FIX: Added an empty string for the 'campaignName' argument to satisfy the function signature.
-                result = await analyzeImageContent(testCase.content.text!, '', selectedImageFile);
-            } else {
-                 throw new Error("This test type is not yet implemented in the sandbox.");
-            }
-            // FIX: Add a dummy workspaceId to satisfy the ComplianceReport type.
-            setReport({ ...result, workspaceId: 'sandbox' });
-        } catch (err)
- {
-            setError(err instanceof Error ? err.message : "An unknown error occurred.");
-        } finally {
-            setIsLoading(false);
-        }
+    const onRunTest = () => {
+        runTest(testCase, selectedImageFile);
     };
 
-    const scorePass = report ? testCase.expected.score(report.overallScore) : false;
-    const summaryPass = report ? testCase.expected.summary(report.summary) : false;
-    const checksPass = report ? testCase.expected.checks(report.checks) : false;
-    const allPass = scorePass && summaryPass && checksPass;
+    let scorePass = false, summaryPass = false, checksPass = false, allPass = false;
+    if (result?.report) {
+        scorePass = testCase.expected.score(result.report.overallScore);
+        summaryPass = testCase.expected.summary(result.report.summary);
+        checksPass = testCase.expected.checks(result.report.checks);
+        allPass = scorePass && summaryPass && checksPass;
+    }
+
+    const getStatusBadge = () => {
+        if (!result || result.status === 'pending') return null;
+        if (result.status === 'running') return <span className="px-3 py-1 text-sm font-bold rounded-full bg-yellow-500/20 text-yellow-300">RUNNING...</span>;
+        if (result.status === 'fail') return <span className="px-3 py-1 text-sm font-bold rounded-full bg-red-500/20 text-red-300">ERROR</span>;
+        if (result.isMismatch) return <span className="px-3 py-1 text-sm font-bold rounded-full bg-red-500/20 text-red-300">FAIL</span>;
+        return <span className="px-3 py-1 text-sm font-bold rounded-full bg-green-500/20 text-green-300">PASS</span>;
+    };
 
     return (
         <div className="bg-secondary-dark p-6 rounded-lg shadow-md border border-gray-700">
-            <h3 className="font-bold text-lg text-white">{testCase.title}</h3>
-            <p className="text-sm text-gray-400 mt-1">{testCase.description}</p>
+            <div className="flex justify-between items-start">
+                <div>
+                    <h3 className="font-bold text-lg text-white">{testCase.title}</h3>
+                    <p className="text-sm text-gray-400 mt-1">{testCase.description}</p>
+                </div>
+                {getStatusBadge()}
+            </div>
             
             <div className="my-4 p-3 bg-dark rounded-md border border-gray-600">
                 <p className="text-xs font-semibold text-gray-500 uppercase">Test Content</p>
@@ -89,30 +85,24 @@ const TestCaseCard: React.FC<{ testCase: TestCase }> = ({ testCase }) => {
                 {testCase.type === 'image' && (
                      <div className="mt-2">
                         <label htmlFor={`image-upload-${testCase.id}`} className="block text-xs font-semibold text-gray-500 uppercase">Required Action</label>
-                        <input id={`image-upload-${testCase.id}`} type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="mt-1 block w-full max-w-sm text-sm text-gray-400 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20" disabled={isLoading}/>
+                        <input id={`image-upload-${testCase.id}`} type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="mt-1 block w-full max-w-sm text-sm text-gray-400 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20" disabled={isRunning}/>
                         {selectedImageFile && <p className="text-xs text-gray-500 mt-1">Selected: {selectedImageFile.name}</p>}
                     </div>
                 )}
             </div>
 
-            <button onClick={runTest} disabled={isLoading || (testCase.type === 'image' && !selectedImageFile)} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-md shadow-sm hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed">
-                <SparklesIcon /> {isLoading ? "Running..." : "Run Test"}
+            <button onClick={onRunTest} disabled={isRunning || (testCase.type === 'image' && !selectedImageFile)} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-md shadow-sm hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed">
+                <SparklesIcon /> {isRunning && result?.status === 'running' ? "Running..." : "Run Test"}
             </button>
-
-            {isLoading && <div className="mt-4"><Loader /></div>}
-            {error && <div className="mt-4 bg-red-900/50 border-l-4 border-danger text-red-300 p-4 rounded-md" role="alert"><p className="font-bold">Error</p><p>{error}</p></div>}
             
-            {report && (
+            {result?.status === 'fail' && <div className="mt-4 bg-red-900/50 border-l-4 border-danger text-red-300 p-4 rounded-md" role="alert"><p className="font-bold">Error</p><p>{result.error}</p></div>}
+            
+            {result?.report && (
                 <div className="mt-6 space-y-4">
-                    <div className="flex justify-between items-center">
-                         <h4 className="font-bold text-md text-white">Test Results</h4>
-                         <span className={`px-3 py-1 text-sm font-bold rounded-full ${allPass ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
-                            {allPass ? 'PASS' : 'FAIL'}
-                         </span>
-                    </div>
+                    <h4 className="font-bold text-md text-white">Test Results</h4>
                     <div className="p-4 bg-dark rounded-lg border border-gray-700 space-y-2">
-                        <ResultDisplay label="Score" value={`Got ${report.overallScore}, Expected ${testCase.expected.scoreText}`} pass={scorePass} />
-                        <ResultDisplay label="Summary" value={`Got "${report.summary}"`} pass={summaryPass} />
+                        <ResultDisplay label="Score" value={`Got ${result.report.overallScore}, Expected ${testCase.expected.scoreText}`} pass={scorePass} />
+                        <ResultDisplay label="Summary" value={`Got "${result.report.summary}"`} pass={summaryPass} />
                         <ResultDisplay label="Checks" value={`Specific checks validated`} pass={checksPass} />
                     </div>
                 </div>
@@ -121,7 +111,7 @@ const TestCaseCard: React.FC<{ testCase: TestCase }> = ({ testCase }) => {
     );
 };
 
-const RedTeamAgent: React.FC = () => {
+const RedTeamAgent: React.FC<{ onTestComplete: (result: boolean) => void }> = ({ onTestComplete }) => {
     const [selectedProfileId, setSelectedProfileId] = useState<string>(testProfiles[0].id);
     const [isDynamicTestLoading, setIsDynamicTestLoading] = useState(false);
     const [dynamicTestError, setDynamicTestError] = useState<string | null>(null);
@@ -135,26 +125,25 @@ const RedTeamAgent: React.FC = () => {
             const profile = testProfiles.find(p => p.id === selectedProfileId);
             if (!profile) throw new Error("Selected test profile not found.");
 
-            // 1. Generate the scenario from the Red Team Agent
             const scenario = await generateTestScenario(profile.prompt);
-
-            // 2. Run the generated content through the actual analysis engine
-            // FIX: Added an empty string for the 'campaignName' argument to satisfy the function signature.
-            const partialReport = await analyzePostContent(scenario.postContent, '');
-            // FIX: Add a dummy workspaceId to satisfy the ComplianceReport type, which is required by DynamicTestResult.
+            const partialReport = await analyzePostContent(scenario.postContent, '', [], false, () => {});
             const actualReport: ComplianceReport = { ...partialReport, workspaceId: 'sandbox' };
             
-            // FIX: Map `scenario.postContent` to `generatedContent` to match the `DynamicTestResult` type.
-            setDynamicTestResult({
+            const result = {
                 generatedContent: scenario.postContent,
                 expectedSummary: scenario.expectedSummary,
                 expectedScoreText: scenario.expectedScoreText,
                 expectedToPass: scenario.expectedToPass,
                 actualReport,
-            });
+            };
+            setDynamicTestResult(result);
+            const actualPass = result.actualReport.overallScore >= 90;
+            onTestComplete(actualPass === result.expectedToPass);
 
         } catch (err) {
-            setDynamicTestError(err instanceof Error ? err.message : "An unknown error occurred.");
+            const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+            setDynamicTestError(errorMessage);
+            onTestComplete(false); // An error is a failed test
         } finally {
             setIsDynamicTestLoading(false);
         }
@@ -232,13 +221,110 @@ const RedTeamAgent: React.FC = () => {
     );
 };
 
+const TestSummary: React.FC<{ results: StaticTestRunResult[], onRunAll: () => void, onReset: () => void, isRunning: boolean }> = ({ results, onRunAll, onReset, isRunning }) => {
+    const summary = useMemo(() => {
+        return results.reduce((acc, result) => {
+            if (result.status === 'pass' && !result.isMismatch) acc.pass++;
+            else if (result.isMismatch || result.status === 'fail') acc.fail++;
+            else if (result.status !== 'pending') acc.run++;
+            return acc;
+        }, { pass: 0, fail: 0, run: 0 });
+    }, [results]);
+
+    const progress = results.length > 0 ? (summary.run / results.length) * 100 : 0;
+
+    return (
+         <div className="bg-secondary-dark p-6 rounded-lg shadow-md border border-gray-700 mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                <div>
+                    <h2 className="font-bold text-xl text-white">Test Session Summary</h2>
+                    <p className="text-sm text-gray-400 mt-1">Run tests to validate engine performance.</p>
+                </div>
+                <div className="flex gap-2 mt-4 sm:mt-0">
+                    <button onClick={onReset} disabled={isRunning} className="px-4 py-2 text-sm font-semibold text-gray-300 bg-dark border border-gray-600 rounded-md hover:bg-gray-800 disabled:opacity-50">Reset</button>
+                    <button onClick={onRunAll} disabled={isRunning} className="px-4 py-2 text-sm font-semibold text-white bg-primary rounded-md hover:bg-primary-dark disabled:bg-gray-600">
+                        {isRunning ? 'Running...' : 'Run All Static Tests'}
+                    </button>
+                </div>
+            </div>
+            <div className="mt-4">
+                <div className="flex justify-between mb-1 text-sm">
+                    <span className="font-semibold text-gray-300">{summary.run} / {results.length} Run</span>
+                    <div className="space-x-4">
+                        <span className="text-green-400 font-semibold">{summary.pass} Passed</span>
+                        <span className="text-red-400 font-semibold">{summary.fail} Failed</span>
+                    </div>
+                </div>
+                <div className="w-full bg-dark rounded-full h-2.5 border border-gray-600">
+                    <div className="bg-primary h-2 rounded-full" style={{ width: `${progress}%` }}></div>
+                </div>
+            </div>
+         </div>
+    );
+};
+
+
 const TestingSandbox: React.FC<TestingSandboxProps> = ({ onNavigate }) => {
+    const [staticTestResults, setStaticTestResults] = useState<StaticTestRunResult[]>(() => testCases.map(tc => ({ testCaseId: tc.id, status: 'pending' })));
+    const [redTeamResults, setRedTeamResults] = useState<{ pass: number, fail: number }>({ pass: 0, fail: 0 });
+    const [isRunning, setIsRunning] = useState(false);
+    
+    const runSingleTest = useCallback(async (testCase: TestCase, imageFile?: File | null) => {
+        setStaticTestResults(prev => prev.map(r => r.testCaseId === testCase.id ? { ...r, status: 'running', report: null, error: undefined, isMismatch: false } : r));
+
+        try {
+            let result;
+            if (testCase.type === 'text') {
+                 result = await analyzePostContent(testCase.content.text!, '', [], false, () => {});
+            } else if (testCase.type === 'image') {
+                if (!imageFile) throw new Error("Please select a sample image file to run this test.");
+                result = await analyzeImageContent(testCase.content.text!, '', imageFile, [], () => {});
+            } else {
+                 throw new Error("This test type is not yet implemented in the sandbox.");
+            }
+            
+            const report = { ...result, workspaceId: 'sandbox' };
+            const scorePass = testCase.expected.score(report.overallScore);
+            const summaryPass = testCase.expected.summary(report.summary);
+            const checksPass = testCase.expected.checks(report.checks);
+            const allPass = scorePass && summaryPass && checksPass;
+
+            setStaticTestResults(prev => prev.map(r => r.testCaseId === testCase.id ? { ...r, status: 'pass', report, isMismatch: !allPass } : r));
+
+        } catch (err) {
+            const error = err instanceof Error ? err.message : "An unknown error occurred.";
+            setStaticTestResults(prev => prev.map(r => r.testCaseId === testCase.id ? { ...r, status: 'fail', error } : r));
+        }
+    }, []);
+
+    const handleRunAllStaticTests = useCallback(async () => {
+        setIsRunning(true);
+        for (const testCase of testCases) {
+            // Cannot run image tests in batch mode for now as they require user input
+            if (testCase.type === 'image') {
+                setStaticTestResults(prev => prev.map(r => r.testCaseId === testCase.id ? { ...r, status: 'pending', error: "Skipped: Image required" } : r));
+                continue;
+            }
+            await runSingleTest(testCase);
+        }
+        setIsRunning(false);
+    }, [runSingleTest]);
+
+    const resetSession = () => {
+        setStaticTestResults(testCases.map(tc => ({ testCaseId: tc.id, status: 'pending' })));
+        setRedTeamResults({ pass: 0, fail: 0 });
+    };
+
+    const handleRedTeamTestComplete = (result: boolean) => {
+        setRedTeamResults(prev => result ? { ...prev, pass: prev.pass + 1 } : { ...prev, fail: prev.fail + 1 });
+    };
+
     return (
         <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-gray-300">
              <div className="flex justify-between items-center mb-6">
                 <div>
                     <h1 className="text-3xl font-bold text-white mb-2">Internal QA Sandbox</h1>
-                    <p className="text-gray-400">Validate performance with static test cases or challenge it with the Red Team Agent.</p>
+                    <p className="text-gray-400">Validate engine performance with static test cases and the Red Team Agent.</p>
                 </div>
                 <button 
                     onClick={() => onNavigate('dashboard')}
@@ -248,12 +334,20 @@ const TestingSandbox: React.FC<TestingSandboxProps> = ({ onNavigate }) => {
                 </button>
             </div>
 
-            <RedTeamAgent />
+            <TestSummary results={staticTestResults} onRunAll={handleRunAllStaticTests} onReset={resetSession} isRunning={isRunning} />
+
+            <RedTeamAgent onTestComplete={handleRedTeamTestComplete} />
 
             <div className="space-y-6">
                  <h2 className="font-bold text-xl text-white mt-8 border-t border-gray-700 pt-6">Static Test Cases</h2>
                 {testCases.map(tc => (
-                    <TestCaseCard key={tc.id} testCase={tc} />
+                    <TestCaseCard 
+                        key={tc.id} 
+                        testCase={tc} 
+                        runTest={runSingleTest}
+                        result={staticTestResults.find(r => r.testCaseId === tc.id)}
+                        isRunning={isRunning || staticTestResults.find(r => r.testCaseId === tc.id)?.status === 'running'}
+                    />
                 ))}
             </div>
         </div>
