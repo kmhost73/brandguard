@@ -4,10 +4,10 @@ import Loader from './Loader';
 import { SparklesIcon, PhotoIcon, CheckIcon } from './icons/Icons';
 
 interface ImageStudioProps {
-  onImageSelectForAnalysis: (base64Data: string, mimeType: string) => void;
+  onImageGenerated: (base64Data: string, mimeType: string) => void;
 }
 
-const ImageStudio: React.FC<ImageStudioProps> = ({ onImageSelectForAnalysis }) => {
+const ImageStudio: React.FC<ImageStudioProps> = ({ onImageGenerated }) => {
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +34,7 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ onImageSelectForAnalysis }) =
   
   const handleSendToCompliance = () => {
     if (generatedImage) {
-        onImageSelectForAnalysis(generatedImage, 'image/png');
+        onImageGenerated(generatedImage, 'image/png');
     }
   };
 
@@ -85,7 +85,7 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ onImageSelectForAnalysis }) =
                             className="mt-4 inline-flex items-center justify-center gap-2 px-6 py-2 bg-success text-white font-semibold rounded-md hover:bg-green-600 transition-colors"
                         >
                             <CheckIcon />
-                            Send to Compliance Scan
+                            Use This Image
                         </button>
                     </div>
                 )}

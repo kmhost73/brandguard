@@ -10,6 +10,7 @@ const Dashboard = lazy(() => import('./components/Dashboard'));
 const PublicReportView = lazy(() => import('./components/PublicReportView'));
 const WorkspaceSettings = lazy(() => import('./components/WorkspaceSettings'));
 const CertificatesHub = lazy(() => import('./components/CertificatesHub'));
+const TestingSandbox = lazy(() => import('./components/TestingSandbox'));
 
 
 const FullPageLoader: React.FC = () => (
@@ -233,6 +234,7 @@ const App: React.FC = () => {
                 'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} onCreateCertificate={handleCreateCertificate} onNavigate={setMainView} />,
                 'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={setMainView} /> : <FullPageLoader />,
                 'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onRevokeCertificate={handleRevokeCertificate} onNavigate={setMainView} /> : <FullPageLoader />,
+                'sandbox': <TestingSandbox onNavigate={setMainView} />,
               }[mainView]
             }
           </SignedIn>

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Workspace, MainView } from '../types';
-import { ChevronUpDownIcon, CheckIcon, PlusCircleIcon, CogIcon } from './icons/Icons';
+import { ChevronUpDownIcon, CheckIcon, PlusCircleIcon, CogIcon, TestTubeIcon } from './icons/Icons';
 
 interface WorkspaceSwitcherProps {
   workspaces: Workspace[];
@@ -86,6 +86,13 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
               >
                 <CogIcon />
                 Workspace Settings
+              </button>
+              <button
+                onClick={() => handleNavigate('sandbox')}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-yellow-400 hover:text-white hover:bg-gray-700 rounded-md"
+              >
+                <TestTubeIcon />
+                QA Sandbox (Internal)
               </button>
           </div>
           <div className="border-t border-gray-700 p-2">

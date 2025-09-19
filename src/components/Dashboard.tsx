@@ -5,12 +5,13 @@ import type { ComplianceReport, CustomRule, ReportStatus, MainView, DashboardVie
 import Loader from './Loader';
 import Analytics from './Analytics';
 import WelcomeGuide from './WelcomeGuide';
-import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon } from './icons/Icons';
+import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon, XIcon, PhotoIcon, VideoCameraIcon } from './icons/Icons';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import CertificatePDF from './CertificatePDF';
 
 const ReportCard = lazy(() => import('./ReportCard'));
+const ImageStudio = lazy(() => import('./ImageStudio'));
 
 // FIX: Define DashboardProps interface to resolve type error.
 interface DashboardProps {
@@ -20,8 +21,22 @@ interface DashboardProps {
   onCreateCertificate: (report: ComplianceReport) => string;
 }
 
+// Helper to convert a base64 string to a File object
+const base64StringToFile = (base64String: string, filename: string, mimeType: string): File => {
+    const byteCharacters = atob(base64String);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mimeType });
+    return new File([blob], filename, { type: mimeType });
+};
+
+
 const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, onNavigate, onCreateCertificate }) => {
   const [activeView, setActiveView] = useState<DashboardView>('text');
+  const [imageSourceMode, setImageSourceMode] = useState<'upload' | 'generate'>('upload');
   const [postContent, setPostContent] = useState<string>('');
   const [campaignName, setCampaignName] = useState<string>('');
   const [campaignSuggestions, setCampaignSuggestions] = useState<string[]>([]);
@@ -132,6 +147,12 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
         return updatedReport;
       });
   }, [activeWorkspaceId]);
+
+  const handleImageGenerated = (base64Data: string, mimeType: string) => {
+    const filename = `generated-image-${Date.now()}.png`;
+    const file = base64StringToFile(base64Data, filename, mimeType);
+    setSelectedImageFile(file);
+  };
 
   const handleVideoUpload = useCallback(async (file: File | null) => {
     if (file) {
@@ -346,17 +367,47 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
 
            <div className="space-y-4">
                {activeView !== 'video' && <textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} onKeyDown={(e) => { if (activeView === 'text' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (!isScanDisabled()) { handleScan({ isQuickScan: true }); } } }} placeholder={activeView === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
+               
                {activeView === 'image' && (
-                   <div>
-                      <label htmlFor="image-upload" className="block text-sm font-medium text-gray-400 mb-2">Upload Image</label>
-                      <input id="image-upload" type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLoading}/>
-                       {selectedImageFile && <p className="text-xs text-gray-500 mt-2">Selected: {selectedImageFile.name}</p>}
-                   </div>
-               )}
+                  <div>
+                    {selectedImageFile ? (
+                      <div className="bg-dark p-3 rounded-lg border border-gray-600 flex items-center justify-between animate-fade-in">
+                        <div className="flex items-center gap-3">
+                            <img src={URL.createObjectURL(selectedImageFile)} alt="Selected preview" className="w-16 h-16 rounded-md object-cover" />
+                            <div>
+                                <p className="text-sm font-medium text-white truncate">{selectedImageFile.name}</p>
+                                <p className="text-xs text-gray-400">{(selectedImageFile.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setSelectedImageFile(null)} disabled={isLoading} className="text-gray-500 hover:text-white disabled:opacity-50">
+                            <XIcon />
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+                            <button onClick={() => setImageSourceMode('upload')} className={`p-3 rounded-md border-2 ${imageSourceMode === 'upload' ? 'border-primary bg-primary/10' : 'border-gray-600 bg-dark hover:bg-gray-800'}`}>Upload an Image</button>
+                            <button onClick={() => setImageSourceMode('generate')} className={`p-3 rounded-md border-2 ${imageSourceMode === 'generate' ? 'border-primary bg-primary/10' : 'border-gray-600 bg-dark hover:bg-gray-800'}`}>Generate an Image</button>
+                        </div>
+                        {imageSourceMode === 'upload' ? (
+                           <div>
+                              <label htmlFor="image-upload" className="block text-sm font-medium text-gray-400 mb-2">Upload Image</label>
+                              <input id="image-upload" type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLoading}/>
+                           </div>
+                        ) : (
+                          <Suspense fallback={<Loader />}>
+                            <ImageStudio onImageGenerated={handleImageGenerated} />
+                          </Suspense>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+               
                {activeView === 'video' && (
                    <div className="space-y-4">
                       <div className="text-center p-4 border-2 border-dashed border-gray-600 rounded-lg">
-                        <FilmIcon />
+                        <VideoCameraIcon className="mx-auto h-12 w-12 text-gray-500" />
                         <p className="mt-2 text-sm text-gray-400">The "Select & Analyze Video" button below will open a file dialog.</p>
                         <p className="text-xs text-gray-500">The video will be automatically transcribed and analyzed in one step.</p>
                         {selectedVideoFile && <p className="text-xs text-gray-400 mt-2 font-semibold">Selected: {selectedVideoFile.name}</p>}

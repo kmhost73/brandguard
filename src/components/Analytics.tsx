@@ -76,11 +76,14 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
   const passRate = Math.round((reportHistory.filter(r => r.overallScore >= 90).length / totalScans) * 100);
   
   const allFailedChecks = reportHistory.flatMap(r => r.checks.filter(c => c.status === 'fail'));
+  // FIX: Explicitly typed the accumulator and initial value for the reduce function.
+  // This ensures `failureCounts` is correctly inferred as `Record<string, number>`,
+  // preventing downstream errors in arithmetic operations.
   const failureCounts = allFailedChecks.reduce((acc: Record<string, number>, check) => {
     const checkName = check.name.split(':')[0].trim(); // Group custom rules together
     acc[checkName] = (acc[checkName] || 0) + 1;
     return acc;
-  }, {});
+  }, {} as Record<string, number>);
 
   const mostCommonIssue = Object.entries(failureCounts).sort(([, a], [, b]) => b - a)[0];
   const failureAnalysis = Object.entries(failureCounts)
