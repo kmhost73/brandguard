@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
-import type { ComplianceReport, CustomRule, ReportStatus, MainView } from '../types';
+import type { ComplianceReport, CustomRule, ReportStatus, MainView, DashboardView } from '../types';
 import Loader from './Loader';
 import Analytics from './Analytics';
 import WelcomeGuide from './WelcomeGuide';
@@ -10,10 +10,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import CertificatePDF from './CertificatePDF';
 
-
 const ReportCard = lazy(() => import('./ReportCard'));
-
-type AnalysisType = 'text' | 'video' | 'image';
 
 // FIX: Define DashboardProps interface to resolve type error.
 interface DashboardProps {
@@ -24,7 +21,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, onNavigate, onCreateCertificate }) => {
-  const [analysisType, setAnalysisType] = useState<AnalysisType>('text');
+  const [activeView, setActiveView] = useState<DashboardView>('text');
   const [postContent, setPostContent] = useState<string>('');
   const [campaignName, setCampaignName] = useState<string>('');
   const [campaignSuggestions, setCampaignSuggestions] = useState<string[]>([]);
@@ -162,7 +159,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const showWelcomeGuide = !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && !isLoading;
   
   const handleStartExample = () => {
-    setAnalysisType('text');
+    setActiveView('text');
     setPostContent(examplePost);
   };
 
@@ -178,16 +175,16 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       const contentToScan = contentOverride !== undefined ? contentOverride : postContent;
       const campaignToScan = isQuickScan ? '' : campaignName;
 
-      if (analysisType === 'text') {
+      if (activeView === 'text') {
         if (!contentToScan.trim()) throw new Error("Please enter post content to analyze.");
         result = await analyzePostContent(contentToScan, campaignToScan, customRules, isRescan, handleInsightReceived);
-      } else if (analysisType === 'video') {
+      } else if (activeView === 'video') {
          if (fileInputRef.current) {
             fileInputRef.current.click();
          }
          // Don't set loading to false here; it's handled in handleVideoUpload
          return;
-      } else if (analysisType === 'image') {
+      } else if (activeView === 'image') {
         if (!contentToScan.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
         setLoadingText('Analyzing Image...');
         result = await analyzeImageContent(contentToScan, campaignName, selectedImageFile, customRules, handleInsightReceived);
@@ -199,11 +196,11 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred.");
     } finally {
-       if (analysisType !== 'video') {
+       if (activeView !== 'video') {
         setIsLoading(false);
       }
     }
-  }, [analysisType, postContent, campaignName, selectedImageFile, customRules, handleAnalysisCompletion, handleInsightReceived]);
+  }, [activeView, postContent, campaignName, selectedImageFile, customRules, handleAnalysisCompletion, handleInsightReceived]);
   
   const handleStatusChange = (reportId: string, newStatus: ReportStatus) => {
     const updatedHistory = reportHistory.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
@@ -220,7 +217,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       setReport(null);
       handleScan({ contentOverride: revisedContent, isRescan: true });
   };
-
+  
   const resetState = (clearInputs = true) => {
     setReport(null);
     setError(null);
@@ -232,8 +229,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       setSelectedImageFile(null);
     }
   };
-  const switchTab = (type: AnalysisType) => {
-    setAnalysisType(type);
+  const switchTab = (type: DashboardView) => {
+    setActiveView(type);
     resetState();
   };
   const viewHistoricReport = (historicReport: ComplianceReport) => {
@@ -260,15 +257,15 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   };
   
   const getButtonText = () => {
-    if (analysisType === 'video') return 'Select & Analyze Video';
-    if (analysisType === 'image') return 'Scan Image & Caption';
+    if (activeView === 'video') return 'Select & Analyze Video';
+    if (activeView === 'image') return 'Scan Image & Caption';
     return 'Scan Post';
   };
   
   const isScanDisabled = () => {
       if (isLoading || isGeneratingPdf) return true;
-      if (analysisType === 'text' && !postContent.trim()) return true;
-      if (analysisType === 'image' && (!postContent.trim() || !selectedImageFile)) return true;
+      if (activeView === 'text' && !postContent.trim()) return true;
+      if (activeView === 'image' && (!postContent.trim() || !selectedImageFile)) return true;
       return false;
   }
   
@@ -336,6 +333,104 @@ const saveReportHistory = (workspaceId: string, history: ComplianceReport[]) => 
 
 const examplePost = `These new sneakers are a game-changer! So comfy and they look amazing. You absolutely have to try them out for your next run. #newgear #running #style`;
 
+  const renderActiveView = () => {
+    return (
+       <div className="bg-secondary-dark p-6 rounded-lg border border-gray-700 shadow-lg">
+          <div className="mb-4 border-b border-gray-700">
+              <nav className="-mb-px flex space-x-6">
+                  <button onClick={() => switchTab('text')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeView === 'text' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Text Post</button>
+                  <button onClick={() => switchTab('image')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeView === 'image' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Image Post</button>
+                  <button onClick={() => switchTab('video')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeView === 'video' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Video Post</button>
+              </nav>
+          </div>
+
+           <div className="space-y-4">
+               {activeView !== 'video' && <textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} onKeyDown={(e) => { if (activeView === 'text' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (!isScanDisabled()) { handleScan({ isQuickScan: true }); } } }} placeholder={activeView === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
+               {activeView === 'image' && (
+                   <div>
+                      <label htmlFor="image-upload" className="block text-sm font-medium text-gray-400 mb-2">Upload Image</label>
+                      <input id="image-upload" type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLoading}/>
+                       {selectedImageFile && <p className="text-xs text-gray-500 mt-2">Selected: {selectedImageFile.name}</p>}
+                   </div>
+               )}
+               {activeView === 'video' && (
+                   <div className="space-y-4">
+                      <div className="text-center p-4 border-2 border-dashed border-gray-600 rounded-lg">
+                        <FilmIcon />
+                        <p className="mt-2 text-sm text-gray-400">The "Select & Analyze Video" button below will open a file dialog.</p>
+                        <p className="text-xs text-gray-500">The video will be automatically transcribed and analyzed in one step.</p>
+                        {selectedVideoFile && <p className="text-xs text-gray-400 mt-2 font-semibold">Selected: {selectedVideoFile.name}</p>}
+                      </div>
+                       <input ref={fileInputRef} id="video-upload" type="file" accept="video/mp4, video/quicktime, video/webm" onChange={(e) => handleVideoUpload(e.target.files ? e.target.files[0] : null)} className="hidden" disabled={isLoading}/>
+
+                      <div className="bg-dark p-3 rounded-md border border-gray-600 min-h-[100px]">
+                          <p className="text-sm font-medium text-gray-400">Generated Transcript:</p>
+                          {loadingText === 'Transcribing...'
+                              ? <Loader text="Transcribing video..." />
+                              : <p className="text-gray-300 whitespace-pre-wrap text-sm mt-2">{videoTranscript || "Transcript will appear here after video processing."}</p>}
+                      </div>
+                   </div>
+               )}
+               
+               <div className="relative">
+                  <label htmlFor="campaign-name" className="block text-sm font-medium text-gray-400 mb-1">Campaign Name (Optional)</label>
+                  <input 
+                      id="campaign-name" 
+                      type="text" 
+                      value={campaignName}
+                      onChange={handleCampaignNameChange}
+                      placeholder="e.g., Q3 Sneaker Launch"
+                      className="w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50"
+                      disabled={isLoading}
+                      autoComplete="off"
+                  />
+                   {campaignSuggestions.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-dark border border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                          {campaignSuggestions.map(suggestion => (
+                              <button key={suggestion} onClick={() => selectCampaign(suggestion)} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700">
+                                  {suggestion}
+                              </button>
+                          ))}
+                      </div>
+                  )}
+               </div>
+
+              <div className="flex items-stretch gap-2">
+                  <button
+                      onClick={() => handleScan()}
+                      disabled={isScanDisabled()}
+                      className="flex-grow px-6 py-3 flex items-center justify-center gap-3 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20"
+                  >
+                      {isLoading ? (
+                          <>
+                              <Loader size="sm" />
+                              <span>{loadingText}</span>
+                          </>
+                      ) : (
+                          <span>{getButtonText()}</span>
+                      )}
+                  </button>
+                  {activeView === 'text' && (
+                      <button
+                          onClick={(e) => {
+                              e.stopPropagation();
+                              if (isScanDisabled()) return;
+                              handleScan({ isQuickScan: true });
+                          }}
+                          disabled={isScanDisabled()}
+                          className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-light disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                          title="Quick Scan (without campaign name) (Cmd/Ctrl+Enter)"
+                      >
+                          <SparklesIcon />
+                          <span>Quick Scan</span>
+                      </button>
+                  )}
+              </div>
+           </div>
+        </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-gray-300">
 
@@ -362,100 +457,7 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
               ) : (
                 <>
                   {showWelcomeGuide && <WelcomeGuide onStartExample={handleStartExample} />}
-
-                  <div className="bg-secondary-dark p-6 rounded-lg border border-gray-700 shadow-lg">
-                    <div className="mb-4 border-b border-gray-700">
-                        <nav className="-mb-px flex space-x-6">
-                            <button onClick={() => switchTab('text')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${analysisType === 'text' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Text Post</button>
-                            <button onClick={() => switchTab('image')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${analysisType === 'image' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Image Post</button>
-                            <button onClick={() => switchTab('video')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${analysisType === 'video' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Video Post</button>
-                        </nav>
-                    </div>
-
-                     <div className="space-y-4">
-                         {analysisType !== 'video' && <textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} onKeyDown={(e) => { if (analysisType === 'text' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (!isScanDisabled()) { handleScan({ isQuickScan: true }); } } }} placeholder={analysisType === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
-                         {analysisType === 'image' && (
-                             <div>
-                                <label htmlFor="image-upload" className="block text-sm font-medium text-gray-400 mb-2">Upload Image</label>
-                                <input id="image-upload" type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLoading}/>
-                                 {selectedImageFile && <p className="text-xs text-gray-500 mt-2">Selected: {selectedImageFile.name}</p>}
-                             </div>
-                         )}
-                         {analysisType === 'video' && (
-                             <div className="space-y-4">
-                                <div className="text-center p-4 border-2 border-dashed border-gray-600 rounded-lg">
-                                  <FilmIcon />
-                                  <p className="mt-2 text-sm text-gray-400">The "Select & Analyze Video" button below will open a file dialog.</p>
-                                  <p className="text-xs text-gray-500">The video will be automatically transcribed and analyzed in one step.</p>
-                                  {selectedVideoFile && <p className="text-xs text-gray-400 mt-2 font-semibold">Selected: {selectedVideoFile.name}</p>}
-                                </div>
-                                 <input ref={fileInputRef} id="video-upload" type="file" accept="video/mp4, video/quicktime, video/webm" onChange={(e) => handleVideoUpload(e.target.files ? e.target.files[0] : null)} className="hidden" disabled={isLoading}/>
-
-                                <div className="bg-dark p-3 rounded-md border border-gray-600 min-h-[100px]">
-                                    <p className="text-sm font-medium text-gray-400">Generated Transcript:</p>
-                                    {loadingText === 'Transcribing...'
-                                        ? <Loader text="Transcribing video..." />
-                                        : <p className="text-gray-300 whitespace-pre-wrap text-sm mt-2">{videoTranscript || "Transcript will appear here after video processing."}</p>}
-                                </div>
-                             </div>
-                         )}
-                         
-                         <div className="relative">
-                            <label htmlFor="campaign-name" className="block text-sm font-medium text-gray-400 mb-1">Campaign Name (Optional)</label>
-                            <input 
-                                id="campaign-name" 
-                                type="text" 
-                                value={campaignName}
-                                onChange={handleCampaignNameChange}
-                                placeholder="e.g., Q3 Sneaker Launch"
-                                className="w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50"
-                                disabled={isLoading}
-                                autoComplete="off"
-                            />
-                             {campaignSuggestions.length > 0 && (
-                                <div className="absolute z-10 w-full mt-1 bg-dark border border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
-                                    {campaignSuggestions.map(suggestion => (
-                                        <button key={suggestion} onClick={() => selectCampaign(suggestion)} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700">
-                                            {suggestion}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                         </div>
-
-                        <div className="flex items-stretch gap-2">
-                            <button
-                                onClick={() => handleScan()}
-                                disabled={isScanDisabled()}
-                                className="flex-grow px-6 py-3 flex items-center justify-center gap-3 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20"
-                            >
-                                {isLoading ? (
-                                    <>
-                                        <Loader size="sm" />
-                                        <span>{loadingText}</span>
-                                    </>
-                                ) : (
-                                    <span>{getButtonText()}</span>
-                                )}
-                            </button>
-                            {analysisType === 'text' && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (isScanDisabled()) return;
-                                        handleScan({ isQuickScan: true });
-                                    }}
-                                    disabled={isScanDisabled()}
-                                    className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-light disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-                                    title="Quick Scan (without campaign name) (Cmd/Ctrl+Enter)"
-                                >
-                                    <SparklesIcon />
-                                    <span>Quick Scan</span>
-                                </button>
-                            )}
-                        </div>
-                     </div>
-                  </div>
+                  {renderActiveView()}
                 </>
               )}
                {error && <div className="mt-4 bg-red-900/50 border border-danger text-red-300 px-4 py-3 rounded-lg" role="alert"><p className="font-bold">Error</p><p>{error}</p></div>}

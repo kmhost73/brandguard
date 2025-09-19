@@ -226,6 +226,35 @@ export const architectRule = async (intent: string): Promise<Omit<CustomRule, 'i
     }
 };
 
+// FIX: Added the generateImage function to enable image generation capabilities in the Image Studio.
+// This function calls the Gemini API to generate an image from a text prompt.
+export const generateImage = async (prompt: string): Promise<string[]> => {
+    if (!ai) throw new Error("VITE_GEMINI_API_KEY is not configured.");
+
+    try {
+        const response = await ai.models.generateImages({
+            model: 'imagen-4.0-generate-001',
+            prompt: prompt,
+            config: {
+              numberOfImages: 1,
+              outputMimeType: 'image/png',
+              aspectRatio: '1:1',
+            },
+        });
+    
+        return response.generatedImages.map(img => img.image.imageBytes);
+    } catch(e: any) {
+        console.error("Error generating image:", e);
+        if (e.message && e.message.toLowerCase().includes('safety')) {
+            throw new Error("The request was blocked due to the content safety policy. Please modify your prompt and try again.");
+       }
+       if (e.message && e.message.includes('API key not valid')) {
+            throw new Error("The configured API Key is invalid. Please check your configuration.");
+        }
+       throw new Error("An unexpected error occurred while generating the image. Check the console for details.");
+    }
+};
+
 export const generateTestScenario = async (profilePrompt: string): Promise<{ postContent: string; expectedSummary: string; expectedScoreText: string; expectedToPass: boolean; }> => {
     const fullPrompt = `You are a "Red Team" agent responsible for testing an AI compliance system. Your goal is to generate creative and tricky test cases for social media posts.
     

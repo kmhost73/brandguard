@@ -6,6 +6,8 @@ export type ReportStatus = 'pending' | 'approved' | 'revision';
 
 export type MainView = 'dashboard' | 'settings' | 'certificates';
 
+export type DashboardView = 'text' | 'video' | 'image';
+
 export interface CheckItem {
   name: string;
   status: ComplianceStatus;
