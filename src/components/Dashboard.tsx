@@ -239,6 +239,12 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       handleScan({ contentOverride: revisedContent, isRescan: true });
   };
   
+  const handleAcceptImageRevision = (newImageFile: File) => {
+    setSelectedImageFile(newImageFile);
+    setReport(null);
+    handleScan({ isRescan: true });
+  };
+  
   const resetState = (clearInputs = true) => {
     setReport(null);
     setError(null);
@@ -503,7 +509,14 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
               
               {report && !isLoading ? (
                 <Suspense fallback={<div className="w-full min-h-[400px] flex items-center justify-center"><Loader /></div>}>
-                  <ReportCard report={report} onStatusChange={handleStatusChange} onAcceptRevision={handleAcceptRevision} onDownloadPdf={handleDownloadPdf} isGeneratingPdf={isGeneratingPdf} />
+                  <ReportCard
+                    report={report}
+                    onStatusChange={handleStatusChange}
+                    onAcceptRevision={handleAcceptRevision}
+                    onDownloadPdf={handleDownloadPdf}
+                    isGeneratingPdf={isGeneratingPdf}
+                    onAcceptImageRevision={handleAcceptImageRevision}
+                  />
                 </Suspense>
               ) : (
                 <>

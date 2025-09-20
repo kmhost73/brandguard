@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { ComplianceReport, CustomRule, CheckItem } from '../types';
 
 // FIX: Workaround for TypeScript errors when accessing Vite environment variables.
@@ -198,6 +198,48 @@ const generateStrategicInsight = async (report: Omit<ComplianceReport, 'workspac
     } catch (e) {
         console.error("Error generating strategic insight:", e);
         return ""; // Fail silently, as this is an enhancement not a core feature.
+    }
+};
+
+export const editImage = async (base64ImageData: string, mimeType: string, prompt: string): Promise<string | null> => {
+    if (!ai) throw new Error("VITE_GEMINI_API_KEY is not configured.");
+
+    try {
+        const response = await generateContentWithRetry({
+            model: 'gemini-2.5-flash-image-preview',
+            contents: {
+                parts: [
+                    {
+                        inlineData: {
+                            data: base64ImageData,
+                            mimeType: mimeType,
+                        },
+                    },
+                    {
+                        text: prompt,
+                    },
+                ],
+            },
+            config: {
+                responseModalities: [Modality.IMAGE, Modality.TEXT],
+            },
+        });
+
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                return part.inlineData.data; // Return the base64 of the new image
+            }
+        }
+        return null; // Should not happen if Modality.IMAGE is requested
+    } catch (e: any) {
+        console.error("Error editing image:", e);
+        if (e.message && e.message.toLowerCase().includes('safety')) {
+            throw new Error("The request was blocked due to the content safety policy. Please modify your prompt and try again.");
+        }
+        if (e.message && e.message.includes('API key not valid')) {
+            throw new Error("The configured API Key is invalid. Please check your configuration.");
+        }
+        throw new Error("An unexpected error occurred while editing the image. Check the console for details.");
     }
 };
 

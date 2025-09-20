@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { ComplianceReport, CheckItem, ReportStatus } from '../types';
 import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, FilmIcon, TagIcon, ChevronDownIcon, UserIcon, LightbulbIcon, DownloadIcon } from './icons/Icons';
 import Loader from './Loader';
+import { editImage } from '../services/geminiService';
 
 const statusConfig = {
   pass: { icon: <CheckIcon />, color: 'text-success', bgColor: 'bg-green-500/10', borderColor: 'border-green-500/30' },
@@ -33,6 +34,18 @@ const ModalityTag: React.FC<{ modality: CheckItem['modality'] }> = ({ modality }
   return (<span className={`ml-2 px-2 py-0.5 text-xs font-medium rounded-full ${className}`}>{text}</span>);
 };
 
+// Helper to convert a base64 string to a File object
+const base64StringToFile = (base64String: string, filename: string, mimeType: string): File => {
+    const byteCharacters = atob(base64String);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mimeType });
+    return new File([blob], filename, { type: mimeType });
+};
+
 const CheckItemCard: React.FC<{ item: CheckItem }> = ({ item }) => {
   const config = statusConfig[item.status];
   return (
@@ -52,11 +65,52 @@ interface ReportCardProps {
   onAcceptRevision?: (revisedContent: string) => void;
   onDownloadPdf?: (report: ComplianceReport) => void;
   isGeneratingPdf?: boolean;
+  onAcceptImageRevision?: (newImageFile: File) => void;
 }
 
-const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAcceptRevision, onDownloadPdf, isGeneratingPdf }) => {
+const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAcceptRevision, onDownloadPdf, isGeneratingPdf, onAcceptImageRevision }) => {
   const hasCustomRules = report.customRulesApplied && report.customRulesApplied.length > 0;
+  
+  // State for image magic fix
+  const [imageFixPrompt, setImageFixPrompt] = useState('');
+  const [isFixingImage, setIsFixingImage] = useState(false);
+  const [fixedImageBase64, setFixedImageBase64] = useState<string | null>(null);
+  const [imageFixError, setImageFixError] = useState<string | null>(null);
+
+
+  const handleImageFix = async () => {
+    if (!imageFixPrompt.trim() || !report.sourceMedia) return;
+    setIsFixingImage(true);
+    setFixedImageBase64(null);
+    setImageFixError(null);
+    try {
+        const newImage = await editImage(report.sourceMedia.data, report.sourceMedia.mimeType, imageFixPrompt);
+        if (newImage) {
+            setFixedImageBase64(newImage);
+        } else {
+            throw new Error("The AI did not return an image. Please try a different prompt.");
+        }
+    } catch(err) {
+        setImageFixError(err instanceof Error ? err.message : "An unknown error occurred.");
+    } finally {
+        setIsFixingImage(false);
+    }
+  };
+
+  const handleUseFixedImage = () => {
+    if (fixedImageBase64 && report.sourceMedia && onAcceptImageRevision) {
+        const newImageFile = base64StringToFile(
+            fixedImageBase64,
+            `fixed-${report.id}.png`,
+            'image/png' // The edit model returns PNG
+        );
+        onAcceptImageRevision(newImageFile);
+    }
+  };
+
   const hasSuggestedRevision = report.suggestedRevision && report.suggestedRevision.trim() !== '';
+  const showImageFix = report.analysisType === 'image' && report.overallScore < 90 && onAcceptImageRevision && report.sourceMedia;
+
 
   return (
     <div className="bg-secondary-dark shadow-lg rounded-lg overflow-hidden animate-fade-in border border-gray-700">
@@ -152,19 +206,61 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
         </div>
       )}
 
-      {onAcceptRevision && hasSuggestedRevision && (
+      {(onAcceptRevision && hasSuggestedRevision) || showImageFix ? (
           <div className="p-6 border-t border-gray-700 bg-dark animate-fade-in">
-              <h4 className="font-semibold text-gray-200 flex items-center gap-2 mb-2"><SparklesIcon /> Suggested Revision</h4>
-              <div className="mt-2 p-4 bg-green-900/30 border-l-4 border-success text-gray-200 rounded-r-lg">
-                  <p className="whitespace-pre-wrap font-mono text-sm">{report.suggestedRevision}</p>
-              </div>
-              <button
-                  onClick={() => onAcceptRevision(report.suggestedRevision!)}
-                  className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-success text-white font-semibold rounded-md hover:bg-green-600 transition-colors">
-                  <CheckIcon /> Accept Revision & Re-Scan
-              </button>
+              <h4 className="font-semibold text-gray-200 flex items-center gap-2 mb-2"><SparklesIcon /> Magic Fix</h4>
+              
+              {onAcceptRevision && hasSuggestedRevision && (
+                  <div>
+                      <p className="text-sm text-gray-400 mb-2">The engine has suggested a compliant revision for your caption.</p>
+                      <div className="mt-2 p-4 bg-green-900/30 border-l-4 border-success text-gray-200 rounded-r-lg">
+                          <p className="whitespace-pre-wrap font-mono text-sm">{report.suggestedRevision}</p>
+                      </div>
+                      <button
+                          onClick={() => onAcceptRevision(report.suggestedRevision!)}
+                          className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-success text-white font-semibold rounded-md hover:bg-green-600 transition-colors">
+                          <CheckIcon /> Accept Revision & Re-Scan
+                      </button>
+                  </div>
+              )}
+
+              {showImageFix && (
+                  <div className={`${hasSuggestedRevision ? 'mt-6 pt-6 border-t border-gray-700' : ''}`}>
+                      <p className="text-sm text-gray-400 mb-2">Describe a change to fix the compliance issues in your image.</p>
+                      <div className="flex gap-2">
+                           <input type="text" value={imageFixPrompt} onChange={(e) => setImageFixPrompt(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleImageFix()} placeholder="e.g., Add a bright #ad logo to the top right" className="flex-grow p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isFixingImage}/>
+                           <button onClick={handleImageFix} className="px-4 py-2 bg-primary text-white font-semibold rounded-md hover:bg-primary-dark transition-colors flex items-center gap-2 disabled:bg-gray-600" disabled={isFixingImage || !imageFixPrompt.trim()}>
+                                {isFixingImage ? <Loader size="sm" /> : <SparklesIcon />}
+                                {isFixingImage ? 'Fixing...' : 'Generate Fix'}
+                           </button>
+                      </div>
+
+                      {isFixingImage && <div className="mt-4 flex justify-center"><Loader text="Applying Magic Fix to image..." /></div>}
+                      {imageFixError && <div className="mt-4 bg-red-900/50 border border-danger text-red-300 px-4 py-3 rounded-lg" role="alert"><p className="font-bold">Error</p><p>{imageFixError}</p></div>}
+                      
+                      {fixedImageBase64 && (
+                          <div className="mt-4 animate-fade-in">
+                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-center text-sm font-semibold mb-2">Original</p>
+                                        <img src={`data:${report.sourceMedia?.mimeType};base64,${report.sourceMedia?.data}`} alt="Original" className="rounded-lg shadow-md w-full" />
+                                    </div>
+                                    <div>
+                                        <p className="text-center text-sm font-semibold mb-2">Suggested Fix</p>
+                                        <img src={`data:image/png;base64,${fixedImageBase64}`} alt="Fixed" className="rounded-lg shadow-md w-full" />
+                                    </div>
+                               </div>
+                               <button
+                                  onClick={handleUseFixedImage}
+                                  className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-success text-white font-semibold rounded-md hover:bg-green-600 transition-colors">
+                                  <CheckIcon /> Use This Image & Re-Scan
+                              </button>
+                          </div>
+                      )}
+                  </div>
+              )}
           </div>
-      )}
+      ) : null}
     </div>
   );
 };
