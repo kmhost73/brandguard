@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import type { ComplianceReport, CustomRule, CheckItem } from '../types';
+import type { ComplianceReport, CustomRule, CheckItem, GreenlightBrief } from '../types';
 
 // FIX: Workaround for TypeScript errors when accessing Vite environment variables.
 // The reference to "vite/client" types was not being found in the provided environment.
@@ -138,6 +138,26 @@ const ruleArchitectSchema = {
     required: ["description", "positiveExample", "negativeExample"]
 };
 
+const greenlightBriefSchema = {
+    type: Type.OBJECT,
+    properties: {
+        campaignOverview: { type: Type.STRING, description: "A brief, 2-3 sentence paragraph summarizing the campaign's goal, product, and target audience." },
+        keyDos: { 
+            type: Type.ARRAY,
+            description: "A list of critical 'Do' items for the creator. These should be clear, actionable instructions, including required phrases or claims.",
+            items: { type: Type.STRING }
+        },
+        keyDonts: { 
+            type: Type.ARRAY,
+            description: "A list of critical 'Don't' items. These should cover brand safety, off-limit topics, and things to avoid saying.",
+            items: { type: Type.STRING }
+        },
+        disclosureGuide: { type: Type.STRING, description: "A simple, clear instruction on how and where to place the FTC disclosure (e.g., '#ad at the beginning of the caption')." },
+        compliantExample: { type: Type.STRING, description: "A full, creative example of a social media post caption that perfectly follows all the rules outlined in the brief." }
+    },
+    required: ["campaignOverview", "keyDos", "keyDonts", "disclosureGuide", "compliantExample"]
+};
+
 
 const generateCustomRulesPrompt = (customRules?: CustomRule[]): string => {
     if (!customRules || customRules.length === 0) return "";
@@ -198,6 +218,45 @@ const generateStrategicInsight = async (report: Omit<ComplianceReport, 'workspac
     } catch (e) {
         console.error("Error generating strategic insight:", e);
         return ""; // Fail silently, as this is an enhancement not a core feature.
+    }
+};
+
+export const generateGreenlightBrief = async (
+    campaignInfo: { product: string; message: string; audience: string; },
+    customRules?: CustomRule[]
+): Promise<GreenlightBrief> => {
+
+    const rulesPrompt = generateCustomRulesPrompt(customRules);
+    const fullPrompt = `You are a "Creative Brief Architect" for a marketing compliance tool. Your job is to generate a clear, concise, and fully compliant creative brief for an influencer. The brief must incorporate standard FTC rules, brand safety, and specific custom rules provided.
+
+    **Campaign Details:**
+    - **Product/Service:** ${campaignInfo.product}
+    - **Key Message:** ${campaignInfo.message}
+    - **Target Audience:** ${campaignInfo.audience}
+
+    **Standard Compliance Rules to Enforce:**
+    1.  **FTC Disclosure:** Must contain a clear disclosure like #ad or #sponsored at the beginning of the caption.
+    2.  **Brand Safety:** No profanity or controversial topics.
+    3.  **Claim Accuracy:** All claims must be truthful. For this campaign, the post must mention "made with 100% organic materials".
+
+    ${rulesPrompt}
+
+    Based on all the information above, generate a structured creative brief. Ensure the "keyDos" and "keyDonts" are direct and unambiguous. The "compliantExample" must be a creative, engaging post that follows every single rule. Return the result in the required JSON format.`;
+    
+    const response = await generateContentWithRetry({
+        model: "gemini-2.5-flash",
+        contents: fullPrompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: greenlightBriefSchema
+        }
+    });
+
+    try {
+        return JSON.parse(response.text);
+    } catch (e) {
+        console.error("Failed to parse JSON for Greenlight Brief:", response.text);
+        throw new Error("The engine could not generate a brief from the provided details. Please try rephrasing them.");
     }
 };
 

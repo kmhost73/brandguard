@@ -4,7 +4,7 @@ export type AnalysisType = 'text' | 'video' | 'image';
 
 export type ReportStatus = 'pending' | 'approved' | 'revision';
 
-export type MainView = 'dashboard' | 'settings' | 'certificates' | 'sandbox';
+export type MainView = 'dashboard' | 'settings' | 'certificates' | 'sandbox' | 'brief-studio';
 
 export type DashboardView = 'text' | 'video' | 'image';
 
@@ -99,4 +99,12 @@ export interface StaticTestRunResult {
   report?: ComplianceReport | null;
   error?: string;
   isMismatch?: boolean;
+}
+
+export interface GreenlightBrief {
+    campaignOverview: string;
+    keyDos: string[];
+    keyDonts: string[];
+    disclosureGuide: string;
+    compliantExample: string;
 }
