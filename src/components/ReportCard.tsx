@@ -116,6 +116,17 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
     }
   };
 
+  const handleDownloadFixedImage = () => {
+    if (fixedImageBase64) {
+      const link = document.createElement('a');
+      link.href = `data:image/png;base64,${fixedImageBase64}`;
+      link.download = `brandguard-fixed-image-${report.id.slice(0, 8)}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   const hasSuggestedRevision = report.suggestedRevision && report.suggestedRevision.trim() !== '';
   const showImageFix = report.analysisType === 'image' && report.overallScore < 90 && onAcceptImageRevision && report.sourceMedia;
 
@@ -266,11 +277,18 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
                                         <img src={`data:image/png;base64,${fixedImageBase64}`} alt="Fixed" className="rounded-lg shadow-md w-full" />
                                     </div>
                                </div>
-                               <button
-                                  onClick={handleUseFixedImage}
-                                  className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-success text-white font-semibold rounded-md hover:bg-green-600 transition-colors">
-                                  <CheckIcon /> Use This Image & Re-Scan
-                              </button>
+                               <div className="mt-4 flex flex-wrap items-center gap-3">
+                                   <button
+                                      onClick={handleUseFixedImage}
+                                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-success text-white font-semibold rounded-md hover:bg-green-600 transition-colors">
+                                      <CheckIcon /> Use This Image & Re-Scan
+                                  </button>
+                                  <button
+                                    onClick={handleDownloadFixedImage}
+                                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-light transition-colors">
+                                    <DownloadIcon /> Download Fix
+                                  </button>
+                               </div>
                           </div>
                       )}
                   </div>
