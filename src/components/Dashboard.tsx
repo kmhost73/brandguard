@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
 import type { ComplianceReport, CustomRule, ReportStatus, MainView, DashboardView } from '../types';
 import Loader from './Loader';
-import Analytics from './Analytics';
 import WelcomeGuide from './WelcomeGuide';
 import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon, XIcon, PhotoIcon, VideoCameraIcon } from './icons/Icons';
 import jsPDF from 'jspdf';
@@ -490,10 +489,8 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-gray-300">
-
-      <Analytics reportHistory={reportHistory} />
       
-      <div className="flex justify-between items-center mt-8 mb-4">
+      <div className="flex justify-between items-center mb-4">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">
             Compliance Dashboard

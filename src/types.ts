@@ -4,7 +4,7 @@ export type AnalysisType = 'text' | 'video' | 'image';
 
 export type ReportStatus = 'pending' | 'approved' | 'revision';
 
-export type MainView = 'dashboard' | 'settings' | 'certificates' | 'sandbox' | 'brief-studio';
+export type MainView = 'dashboard' | 'settings' | 'certificates' | 'sandbox';
 
 export type DashboardView = 'text' | 'video' | 'image';
 
@@ -90,6 +90,15 @@ export interface DynamicTestResult {
   actualReport: ComplianceReport;
 }
 
+// FIX: Add GreenlightBrief type for the Brief Studio feature.
+export interface GreenlightBrief {
+  campaignOverview: string;
+  keyDos: string[];
+  keyDonts: string[];
+  disclosureGuide: string;
+  compliantExample: string;
+}
+
 // New types for managing test state in the QA Sandbox
 export type TestResultStatus = 'pending' | 'running' | 'pass' | 'fail';
 
@@ -99,12 +108,4 @@ export interface StaticTestRunResult {
   report?: ComplianceReport | null;
   error?: string;
   isMismatch?: boolean;
-}
-
-export interface GreenlightBrief {
-    campaignOverview: string;
-    keyDos: string[];
-    keyDonts: string[];
-    disclosureGuide: string;
-    compliantExample: string;
 }

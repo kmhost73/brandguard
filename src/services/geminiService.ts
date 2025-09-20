@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
+// FIX: Add GreenlightBrief to type imports for the new feature.
 import type { ComplianceReport, CustomRule, CheckItem, GreenlightBrief } from '../types';
 
 // FIX: Workaround for TypeScript errors when accessing Vite environment variables.
@@ -138,26 +139,18 @@ const ruleArchitectSchema = {
     required: ["description", "positiveExample", "negativeExample"]
 };
 
+// FIX: Add a schema for the Greenlight Brief feature.
 const greenlightBriefSchema = {
     type: Type.OBJECT,
     properties: {
-        campaignOverview: { type: Type.STRING, description: "A brief, 2-3 sentence paragraph summarizing the campaign's goal, product, and target audience." },
-        keyDos: { 
-            type: Type.ARRAY,
-            description: "A list of critical 'Do' items for the creator. These should be clear, actionable instructions, including required phrases or claims.",
-            items: { type: Type.STRING }
-        },
-        keyDonts: { 
-            type: Type.ARRAY,
-            description: "A list of critical 'Don't' items. These should cover brand safety, off-limit topics, and things to avoid saying.",
-            items: { type: Type.STRING }
-        },
-        disclosureGuide: { type: Type.STRING, description: "A simple, clear instruction on how and where to place the FTC disclosure (e.g., '#ad at the beginning of the caption')." },
-        compliantExample: { type: Type.STRING, description: "A full, creative example of a social media post caption that perfectly follows all the rules outlined in the brief." }
+        campaignOverview: { type: Type.STRING, description: "A one-paragraph overview of the campaign's goal, tone, and feel, based on the provided inputs." },
+        keyDos: { type: Type.ARRAY, description: "A bulleted list of 3-5 essential 'Do's' for creators, focusing on positive actions and brand voice.", items: { type: Type.STRING } },
+        keyDonts: { type: Type.ARRAY, description: "A bulleted list of 3-5 critical 'Don'ts' for creators, highlighting common pitfalls, off-brand messaging, or specific words to avoid.", items: { type: Type.STRING } },
+        disclosureGuide: { type: Type.STRING, description: "A concise, easy-to-understand paragraph explaining exactly how and where to place FTC disclosures like #ad, tailored to the campaign type." },
+        compliantExample: { type: Type.STRING, description: "A creative, fully compliant example of a social media post that perfectly follows all the rules and guidelines in this brief." }
     },
     required: ["campaignOverview", "keyDos", "keyDonts", "disclosureGuide", "compliantExample"]
 };
-
 
 const generateCustomRulesPrompt = (customRules?: CustomRule[]): string => {
     if (!customRules || customRules.length === 0) return "";
@@ -218,45 +211,6 @@ const generateStrategicInsight = async (report: Omit<ComplianceReport, 'workspac
     } catch (e) {
         console.error("Error generating strategic insight:", e);
         return ""; // Fail silently, as this is an enhancement not a core feature.
-    }
-};
-
-export const generateGreenlightBrief = async (
-    campaignInfo: { product: string; message: string; audience: string; },
-    customRules?: CustomRule[]
-): Promise<GreenlightBrief> => {
-
-    const rulesPrompt = generateCustomRulesPrompt(customRules);
-    const fullPrompt = `You are a "Creative Brief Architect" for a marketing compliance tool. Your job is to generate a clear, concise, and fully compliant creative brief for an influencer. The brief must incorporate standard FTC rules, brand safety, and specific custom rules provided.
-
-    **Campaign Details:**
-    - **Product/Service:** ${campaignInfo.product}
-    - **Key Message:** ${campaignInfo.message}
-    - **Target Audience:** ${campaignInfo.audience}
-
-    **Standard Compliance Rules to Enforce:**
-    1.  **FTC Disclosure:** Must contain a clear disclosure like #ad or #sponsored at the beginning of the caption.
-    2.  **Brand Safety:** No profanity or controversial topics.
-    3.  **Claim Accuracy:** All claims must be truthful. For this campaign, the post must mention "made with 100% organic materials".
-
-    ${rulesPrompt}
-
-    Based on all the information above, generate a structured creative brief. Ensure the "keyDos" and "keyDonts" are direct and unambiguous. The "compliantExample" must be a creative, engaging post that follows every single rule. Return the result in the required JSON format.`;
-    
-    const response = await generateContentWithRetry({
-        model: "gemini-2.5-flash",
-        contents: fullPrompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: greenlightBriefSchema
-        }
-    });
-
-    try {
-        return JSON.parse(response.text);
-    } catch (e) {
-        console.error("Failed to parse JSON for Greenlight Brief:", response.text);
-        throw new Error("The engine could not generate a brief from the provided details. Please try rephrasing them.");
     }
 };
 
@@ -324,6 +278,44 @@ export const architectRule = async (intent: string): Promise<Omit<CustomRule, 'i
     } catch (e) {
         console.error("Failed to parse JSON for rule architect:", response.text);
         throw new Error("The engine could not generate a rule from the provided intent. Please try rephrasing it.");
+    }
+};
+
+// FIX: Add generateGreenlightBrief function to support the Brief Studio feature.
+export const generateGreenlightBrief = async (
+    inputs: { product: string; message: string; audience: string },
+    customRules?: CustomRule[]
+): Promise<GreenlightBrief> => {
+    const fullPrompt = `You are an expert marketing strategist and compliance officer creating a "Greenlight Brief" for social media influencers. The brief must be clear, concise, and help creators produce effective, compliant content.
+
+    **Campaign Inputs:**
+    - **Product/Service:** ${inputs.product}
+    - **Key Message:** ${inputs.message}
+    - **Target Audience:** ${inputs.audience}
+
+    **Standard Compliance Rules to Enforce:**
+    1.  **FTC Disclosure:** All sponsored content must be clearly and conspicuously disclosed (e.g., #ad, #sponsored).
+    2.  **Brand Safety:** No profanity, controversial topics, or disparagement of competitors.
+    3.  **Claim Accuracy:** Any product claims must be truthful and not misleading. For this campaign, creators must mention "made with 100% organic materials".
+
+    ${generateCustomRulesPrompt(customRules)}
+
+    Based on all the information above, generate a complete Greenlight Brief in the required JSON format. The brief should be encouraging and empowering for the creator.`;
+
+    const response = await generateContentWithRetry({
+        model: "gemini-2.5-flash",
+        contents: fullPrompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: greenlightBriefSchema
+        }
+    });
+
+    try {
+        return JSON.parse(response.text);
+    } catch (e) {
+        console.error("Failed to parse JSON for Greenlight Brief:", response.text);
+        throw new Error("The engine could not generate a brief from the provided inputs. Please try rephrasing them.");
     }
 };
 

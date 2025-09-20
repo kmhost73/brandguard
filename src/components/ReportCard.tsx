@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { ComplianceReport, CheckItem, ReportStatus } from '../types';
-import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, FilmIcon, TagIcon, ChevronDownIcon, UserIcon, LightbulbIcon, DownloadIcon } from './icons/Icons';
+import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, FilmIcon, TagIcon, ChevronDownIcon, UserIcon, LightbulbIcon, DownloadIcon, ClipboardIcon } from './icons/Icons';
 import Loader from './Loader';
 import { editImage } from '../services/geminiService';
 
@@ -76,7 +76,15 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
   const [isFixingImage, setIsFixingImage] = useState(false);
   const [fixedImageBase64, setFixedImageBase64] = useState<string | null>(null);
   const [imageFixError, setImageFixError] = useState<string | null>(null);
+  const [copyRevisionConfirmation, setCopyRevisionConfirmation] = useState('');
 
+  const handleCopyRevision = () => {
+    if (report.suggestedRevision) {
+        navigator.clipboard.writeText(report.suggestedRevision);
+        setCopyRevisionConfirmation('Copied!');
+        setTimeout(() => setCopyRevisionConfirmation(''), 2000);
+    }
+  };
 
   const handleImageFix = async () => {
     if (!imageFixPrompt.trim() || !report.sourceMedia) return;
@@ -194,7 +202,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
       </div>
       
        {onDownloadPdf && (
-        <div className="p-6 border-t border-gray-700 bg-dark/50">
+        <div className="p-6 border-t border-gray-700 bg-dark/50 flex flex-wrap items-center gap-4">
            <button
                 onClick={() => onDownloadPdf(report)}
                 disabled={isGeneratingPdf}
@@ -216,11 +224,19 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
                       <div className="mt-2 p-4 bg-green-900/30 border-l-4 border-success text-gray-200 rounded-r-lg">
                           <p className="whitespace-pre-wrap font-mono text-sm">{report.suggestedRevision}</p>
                       </div>
-                      <button
-                          onClick={() => onAcceptRevision(report.suggestedRevision!)}
-                          className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-success text-white font-semibold rounded-md hover:bg-green-600 transition-colors">
-                          <CheckIcon /> Accept Revision & Re-Scan
-                      </button>
+                      <div className="mt-4 flex flex-wrap items-center gap-3">
+                          <button
+                              onClick={() => onAcceptRevision(report.suggestedRevision!)}
+                              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-success text-white font-semibold rounded-md hover:bg-green-600 transition-colors">
+                              <CheckIcon /> Accept Revision & Re-Scan
+                          </button>
+                          <button
+                              onClick={handleCopyRevision}
+                              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-light transition-colors"
+                          >
+                            <ClipboardIcon /> {copyRevisionConfirmation || 'Copy Revision'}
+                          </button>
+                      </div>
                   </div>
               )}
 

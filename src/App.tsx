@@ -11,7 +11,6 @@ const PublicReportView = lazy(() => import('./components/PublicReportView'));
 const WorkspaceSettings = lazy(() => import('./components/WorkspaceSettings'));
 const CertificatesHub = lazy(() => import('./components/CertificatesHub'));
 const TestingSandbox = lazy(() => import('./components/TestingSandbox'));
-const BriefStudio = lazy(() => import('./components/BriefStudio'));
 
 
 const FullPageLoader: React.FC = () => (
@@ -154,10 +153,10 @@ const App: React.FC = () => {
       localStorage.setItem(`brandGuardCertificates_${workspaceId}`, JSON.stringify(certificates));
   };
   
-
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const certId = params.get('certId');
+
     if (certId) {
       let found = false;
       const allWorkspacesJson = localStorage.getItem('brandGuardWorkspaces');
@@ -176,9 +175,7 @@ const App: React.FC = () => {
           }
         }
       }
-      if (!found) {
-        setSharedReport('invalid');
-      }
+      if (!found) setSharedReport('invalid');
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -236,7 +233,6 @@ const App: React.FC = () => {
                 'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={setMainView} /> : <FullPageLoader />,
                 'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onRevokeCertificate={handleRevokeCertificate} onNavigate={setMainView} /> : <FullPageLoader />,
                 'sandbox': <TestingSandbox onNavigate={setMainView} />,
-                'brief-studio': activeWorkspaceId ? <BriefStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} onNavigate={setMainView} /> : <FullPageLoader />,
               }[mainView]
             }
           </SignedIn>
