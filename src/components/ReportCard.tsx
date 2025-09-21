@@ -66,11 +66,9 @@ interface ReportCardProps {
   onDownloadPdf?: (report: ComplianceReport) => void;
   isGeneratingPdf?: boolean;
   onAcceptImageRevision?: (newImageFile: File) => void;
-  magicFixRef?: React.RefObject<HTMLDivElement>;
-  rescanButtonRef?: React.RefObject<HTMLButtonElement>;
 }
 
-const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAcceptRevision, onDownloadPdf, isGeneratingPdf, onAcceptImageRevision, magicFixRef, rescanButtonRef }) => {
+const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAcceptRevision, onDownloadPdf, isGeneratingPdf, onAcceptImageRevision }) => {
   const hasCustomRules = report.customRulesApplied && report.customRulesApplied.length > 0;
   
   // State for image magic fix
@@ -228,7 +226,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
       )}
 
       {(onAcceptRevision && hasSuggestedRevision) || showImageFix ? (
-          <div ref={magicFixRef} className="p-6 border-t border-gray-700 bg-dark animate-fade-in">
+          <div className="p-6 border-t border-gray-700 bg-dark animate-fade-in">
               <h4 className="font-semibold text-gray-200 flex items-center gap-2 mb-2"><SparklesIcon /> Magic Fix</h4>
               
               {onAcceptRevision && hasSuggestedRevision && (
@@ -239,7 +237,6 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
                       </div>
                       <div className="mt-4 flex flex-wrap items-center gap-3">
                           <button
-                              ref={rescanButtonRef}
                               onClick={() => onAcceptRevision(report.suggestedRevision!)}
                               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-success text-white font-semibold rounded-md hover:bg-green-600 transition-colors">
                               <CheckIcon /> Accept Revision & Re-Scan

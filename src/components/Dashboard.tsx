@@ -1,14 +1,13 @@
 import React, { useState, useCallback, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
-import type { ComplianceReport, CustomRule, ReportStatus, MainView, DashboardView, TourStep } from '../types';
+import type { ComplianceReport, CustomRule, ReportStatus, MainView, DashboardView } from '../types';
 import Loader from './Loader';
 import WelcomeGuide from './WelcomeGuide';
 import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon, XIcon, PhotoIcon, VideoCameraIcon } from './icons/Icons';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import CertificatePDF from './CertificatePDF';
-import OnboardingTour from './OnboardingTour';
 
 const ReportCard = lazy(() => import('./ReportCard'));
 const ImageStudio = lazy(() => import('./ImageStudio'));
@@ -54,13 +53,10 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const [shareConfirmation, setShareConfirmation] = useState('');
   const [openCampaign, setOpenCampaign] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [tourStep, setTourStep] = useState<TourStep>(null);
   
   const reportCardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const scanButtonRef = useRef<HTMLButtonElement>(null);
-  const magicFixRef = useRef<HTMLDivElement>(null);
-  const rescanButtonRef = useRef<HTMLButtonElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 
   const handleDownloadPdf = async (reportToDownload: ComplianceReport) => {
@@ -116,6 +112,13 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   }, [activeWorkspaceId]);
 
   useEffect(() => {
+    // Auto-focus the textarea on load for quicker pasting, enhancing workflow velocity.
+    if (!report && activeView === 'text' && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [report, activeView]);
+
+  useEffect(() => {
     if (report && report.id === newReportId) {
       reportCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       // When a new report is created, automatically open its campaign group
@@ -137,13 +140,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     saveReportHistory(activeWorkspaceId, newHistory);
     setReportHistory(newHistory);
     
-    if (tourStep === 'scan') {
-        setTimeout(() => setTourStep('review'), 500);
-    }
-    if (tourStep === 'rescan') {
-        setTimeout(() => setTourStep('complete'), 500);
-    }
-  }, [activeWorkspaceId, tourStep]);
+  }, [activeWorkspaceId]);
 
   const handleInsightReceived = useCallback((insight: string) => {
       setReport(currentReport => {
@@ -190,12 +187,11 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     }
   }, [customRules, handleAnalysisCompletion, handleInsightReceived, campaignName]);
 
-  const showWelcomeGuide = !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && !isLoading && !tourStep;
+  const showWelcomeGuide = !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && !isLoading;
   
   const handleStartExample = () => {
     setActiveView('text');
     setPostContent(examplePost);
-    setTourStep('start');
   };
 
   const handleScan = useCallback(async (options: { contentOverride?: string; isRescan?: boolean; isQuickScan?: boolean } = {}) => {
@@ -204,10 +200,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     setLoadingText('Scanning...');
     setReport(null);
     setError(null);
-
-    if (tourStep === 'scan') {
-        setTourStep(null); // Tour continues in completion handler
-    }
 
     try {
       let result;
@@ -239,7 +231,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
         setIsLoading(false);
       }
     }
-  }, [activeView, postContent, campaignName, selectedImageFile, customRules, handleAnalysisCompletion, handleInsightReceived, tourStep]);
+  }, [activeView, postContent, campaignName, selectedImageFile, customRules, handleAnalysisCompletion, handleInsightReceived]);
   
   const handleStatusChange = (reportId: string, newStatus: ReportStatus) => {
     const updatedHistory = reportHistory.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
@@ -254,9 +246,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const handleAcceptRevision = (revisedContent: string) => {
       setPostContent(revisedContent);
       setReport(null);
-      if (tourStep === 'fix') {
-          setTourStep('rescan');
-      }
       handleScan({ contentOverride: revisedContent, isRescan: true });
   };
   
@@ -269,7 +258,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const resetState = (clearInputs = true) => {
     setReport(null);
     setError(null);
-    setTourStep(null);
     if (clearInputs) {
       setPostContent('');
       setCampaignName('');
@@ -394,7 +382,7 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
           </div>
 
            <div className="space-y-4">
-               {activeView !== 'video' && <textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} onKeyDown={(e) => { if (activeView === 'text' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (!isScanDisabled()) { handleScan({ isQuickScan: true }); } } }} placeholder={activeView === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
+               {activeView !== 'video' && <textarea ref={textareaRef} value={postContent} onChange={(e) => setPostContent(e.target.value)} onKeyDown={(e) => { if (activeView === 'text' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (!isScanDisabled()) { handleScan({ isQuickScan: true }); } } }} placeholder={activeView === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
                
                {activeView === 'image' && (
                   <div>
@@ -476,7 +464,6 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
 
               <div className="flex items-stretch gap-2">
                   <button
-                      ref={scanButtonRef}
                       onClick={() => handleScan()}
                       disabled={isScanDisabled()}
                       className="flex-grow px-6 py-3 flex items-center justify-center gap-3 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20"
@@ -514,25 +501,6 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-gray-300">
       
-       {tourStep && (
-            <OnboardingTour 
-                step={tourStep}
-                onStepChange={setTourStep}
-                onScan={() => {
-                    if (scanButtonRef.current) {
-                        scanButtonRef.current.click();
-                        setTourStep('scan');
-                    }
-                }}
-                targetRefs={{
-                    scan: scanButtonRef,
-                    fix: magicFixRef,
-                    rescan: rescanButtonRef
-                }}
-                onEndTour={() => setTourStep(null)}
-            />
-        )}
-      
       <div className="flex justify-between items-center mb-4">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">
@@ -556,8 +524,6 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                     onDownloadPdf={handleDownloadPdf}
                     isGeneratingPdf={isGeneratingPdf}
                     onAcceptImageRevision={handleAcceptImageRevision}
-                    magicFixRef={magicFixRef}
-                    rescanButtonRef={rescanButtonRef}
                   />
                 </Suspense>
               ) : (

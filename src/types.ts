@@ -8,9 +8,6 @@ export type MainView = 'dashboard' | 'settings' | 'certificates' | 'sandbox';
 
 export type DashboardView = 'text' | 'video' | 'image';
 
-export type TourStep = 'start' | 'scan' | 'review' | 'fix' | 'rescan' | 'complete' | null;
-
-
 export interface CheckItem {
   name: string;
   status: ComplianceStatus;
