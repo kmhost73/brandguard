@@ -75,10 +75,11 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
   const averageScore = Math.round(reportHistory.reduce((acc, r) => acc + r.overallScore, 0) / totalScans);
   const passRate = Math.round((reportHistory.filter(r => r.overallScore >= 90).length / totalScans) * 100);
   
-  const allFailedChecks = reportHistory.flatMap(r => r.checks.filter(c => c.status === 'fail'));
-  // FIX: The `reduce` generic type argument was causing a compile error.
-  // Casting the initial value `{}` to Record<string, number> correctly types
-  // the accumulator and resolves the downstream arithmetic errors.
+  const allFailedChecks = reportHistory.flatMap(r => r.checks.filter(c => c.status === 'fail' || c.status === 'warn'));
+  // FIX: The `reduce` call was not correctly typed, causing downstream errors.
+  // Casting the initial empty object `{}` to `Record<string, number>` ensures
+  // the accumulator `acc` is properly typed, allowing for correct property
+  // access and type inference for `failureCounts`.
   const failureCounts = allFailedChecks.reduce((acc, check) => {
     const checkName = check.name.split(':')[0].trim(); // Group custom rules together
     acc[checkName] = (acc[checkName] || 0) + 1;

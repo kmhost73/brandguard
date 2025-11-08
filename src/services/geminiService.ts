@@ -219,7 +219,7 @@ export const editImage = async (base64ImageData: string, mimeType: string, promp
 
     try {
         const response = await generateContentWithRetry({
-            model: 'gemini-2.5-flash-image-preview',
+            model: 'gemini-2.5-flash-image',
             contents: {
                 parts: [
                     {
@@ -234,7 +234,7 @@ export const editImage = async (base64ImageData: string, mimeType: string, promp
                 ],
             },
             config: {
-                responseModalities: [Modality.IMAGE, Modality.TEXT],
+                responseModalities: [Modality.IMAGE],
             },
         });
 

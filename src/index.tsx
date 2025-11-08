@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import { ClerkProvider } from '@clerk/clerk-react'
+import { Analytics } from '@vercel/analytics/react';
 import { BrandGuardLogoIcon } from './components/icons/Icons.tsx';
 
 // FIX: Workaround for TypeScript errors when accessing Vite environment variables.
@@ -38,6 +39,7 @@ if (!PUBLISHABLE_KEY) {
     <React.StrictMode>
       <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
         <App />
+        <Analytics />
       </ClerkProvider>
     </React.StrictMode>,
   );

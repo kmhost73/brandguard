@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
@@ -64,19 +65,22 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     setActiveActionMenu(null);
     setIsGeneratingPdf(true);
     setError(null);
+    
+    const container = document.createElement('div');
+    let root: ReactDOM.Root | null = null;
+
     try {
-        const container = document.createElement('div');
         container.style.position = 'fixed';
         container.style.left = '-9999px';
         container.style.width = '827px'; // A4 width at 96 DPI
         document.body.appendChild(container);
 
-        const root = ReactDOM.createRoot(container);
+        root = ReactDOM.createRoot(container);
         
         // Use a promise with a callback prop to ensure the component is rendered
         // before we try to capture it. This is more reliable than a setTimeout.
         await new Promise<void>((resolve) => {
-            root.render(<CertificatePDF report={reportToDownload} onRendered={resolve} />);
+            root!.render(<CertificatePDF report={reportToDownload} onRendered={resolve} />);
         });
         
         const canvas = await html2canvas(container, {
@@ -96,13 +100,17 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
         const fileName = `BrandGuard-Certificate-${reportToDownload.id.slice(0, 8)}.pdf`;
         pdf.save(fileName);
 
-        root.unmount();
-        document.body.removeChild(container);
-
     } catch (err) {
         console.error("Error generating PDF:", err);
         setError("Could not generate PDF certificate. There might be an issue with rendering the content.");
     } finally {
+        // Ensure the React root and DOM element are always cleaned up
+        if (root) {
+            root.unmount();
+        }
+        if (container.parentNode) {
+            container.parentNode.removeChild(container);
+        }
         setIsGeneratingPdf(false);
     }
   };
