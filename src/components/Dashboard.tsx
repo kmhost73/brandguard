@@ -18,6 +18,8 @@ interface DashboardProps {
   customRules: CustomRule[];
   onNavigate: (view: MainView) => void;
   onCreateCertificate: (report: ComplianceReport) => string;
+  reportHistory: ComplianceReport[];
+  onUpdateHistory: (history: ComplianceReport[]) => void;
 }
 
 // Helper to convert a base64 string to a File object
@@ -33,7 +35,7 @@ const base64StringToFile = (base64String: string, filename: string, mimeType: st
 };
 
 
-const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, onNavigate, onCreateCertificate }) => {
+const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, onNavigate, onCreateCertificate, reportHistory, onUpdateHistory }) => {
   const [activeView, setActiveView] = useState<DashboardView>('text');
   const [imageSourceMode, setImageSourceMode] = useState<'upload' | 'generate'>('upload');
   const [postContent, setPostContent] = useState<string>('');
@@ -46,7 +48,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const [loadingText, setLoadingText] = useState('Scanning...');
   const [report, setReport] = useState<ComplianceReport | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [reportHistory, setReportHistory] = useState<ComplianceReport[]>([]);
   const [historyFilter, setHistoryFilter] = useState<ReportStatus | 'all'>('all');
   const [newReportId, setNewReportId] = useState<string | null>(null);
   const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
@@ -107,7 +108,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   };
   
   useEffect(() => {
-    setReportHistory(getReportHistory(activeWorkspaceId));
     setReport(null); // Clear active report when switching workspace
   }, [activeWorkspaceId]);
 
@@ -135,28 +135,21 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     const reportWithInitialStatus = { ...reportWithWorkspace, status: newReport.recommendedStatus || 'pending' };
     setReport(reportWithInitialStatus);
     setNewReportId(reportWithInitialStatus.id);
-    const history = getReportHistory(activeWorkspaceId);
-    const newHistory = [reportWithInitialStatus, ...history];
-    saveReportHistory(activeWorkspaceId, newHistory);
-    setReportHistory(newHistory);
+    onUpdateHistory([reportWithInitialStatus, ...reportHistory]);
     
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, reportHistory, onUpdateHistory]);
 
   const handleInsightReceived = useCallback((insight: string) => {
       setReport(currentReport => {
         if (!currentReport) return null;
         const updatedReport = { ...currentReport, strategicInsight: insight };
         
-        // Also update the history
-        setReportHistory(currentHistory => {
-            const newHistory = currentHistory.map(r => r.id === updatedReport.id ? updatedReport : r);
-            saveReportHistory(activeWorkspaceId, newHistory);
-            return newHistory;
-        });
+        const newHistory = reportHistory.map(r => r.id === updatedReport.id ? updatedReport : r);
+        onUpdateHistory(newHistory);
 
         return updatedReport;
       });
-  }, [activeWorkspaceId]);
+  }, [reportHistory, onUpdateHistory]);
 
   const handleImageGenerated = (base64Data: string, mimeType: string) => {
     const filename = `generated-image-${Date.now()}.png`;
@@ -235,8 +228,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   
   const handleStatusChange = (reportId: string, newStatus: ReportStatus) => {
     const updatedHistory = reportHistory.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
-    setReportHistory(updatedHistory);
-    saveReportHistory(activeWorkspaceId, updatedHistory);
+    onUpdateHistory(updatedHistory);
 
     if (report?.id === reportId) {
         setReport(prev => prev ? { ...prev, status: newStatus } : null);
@@ -279,8 +271,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const deleteReport = (reportId: string) => {
     setActiveActionMenu(null);
     const newHistory = reportHistory.filter(r => r.id !== reportId);
-    saveReportHistory(activeWorkspaceId, newHistory);
-    setReportHistory(newHistory);
+    onUpdateHistory(newHistory);
     if (report?.id === reportId) {
       setReport(null);
     }
@@ -352,21 +343,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       if (status === 'all') return reportHistory.length;
       return reportHistory.filter(r => r.status === status).length;
   }
-const getReportHistory = (workspaceId: string): ComplianceReport[] => {
-    try {
-        const historyJson = localStorage.getItem(`brandGuardReportHistory_${workspaceId}`);
-        if (!historyJson) return [];
-        const history = JSON.parse(historyJson);
-        return history.map((report: any) => ({
-            ...report,
-            status: report.status || 'pending'
-        }));
-    } catch (e) { return []; }
-};
-
-const saveReportHistory = (workspaceId: string, history: ComplianceReport[]) => {
-    localStorage.setItem(`brandGuardReportHistory_${workspaceId}`, JSON.stringify(history));
-}
 
 const examplePost = `These new sneakers are a game-changer! So comfy and they look amazing. You absolutely have to try them out for your next run. #newgear #running #style`;
 

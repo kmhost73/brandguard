@@ -4,7 +4,7 @@ export type AnalysisType = 'text' | 'video' | 'image';
 
 export type ReportStatus = 'pending' | 'approved' | 'revision';
 
-export type MainView = 'dashboard' | 'settings' | 'certificates' | 'sandbox';
+export type MainView = 'dashboard' | 'settings' | 'certificates' | 'sandbox' | 'brief-studio' | 'analytics';
 
 export type DashboardView = 'text' | 'video' | 'image';
 

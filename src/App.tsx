@@ -11,6 +11,8 @@ const PublicReportView = lazy(() => import('./components/PublicReportView'));
 const WorkspaceSettings = lazy(() => import('./components/WorkspaceSettings'));
 const CertificatesHub = lazy(() => import('./components/CertificatesHub'));
 const TestingSandbox = lazy(() => import('./components/TestingSandbox'));
+const BriefStudio = lazy(() => import('./components/BriefStudio'));
+const Analytics = lazy(() => import('./components/Analytics'));
 
 
 const FullPageLoader: React.FC = () => (
@@ -19,6 +21,22 @@ const FullPageLoader: React.FC = () => (
   </div>
 );
 
+const getReportHistory = (workspaceId: string): ComplianceReport[] => {
+    try {
+        const historyJson = localStorage.getItem(`brandGuardReportHistory_${workspaceId}`);
+        if (!historyJson) return [];
+        const history = JSON.parse(historyJson);
+        return history.map((report: any) => ({
+            ...report,
+            status: report.status || 'pending'
+        }));
+    } catch (e) { return []; }
+};
+
+const saveReportHistory = (workspaceId: string, history: ComplianceReport[]) => {
+    localStorage.setItem(`brandGuardReportHistory_${workspaceId}`, JSON.stringify(history));
+}
+
 const App: React.FC = () => {
   const [sharedReport, setSharedReport] = useState<ComplianceReport | null | 'invalid'>(null);
   const { user, isLoaded } = useUser();
@@ -26,6 +44,7 @@ const App: React.FC = () => {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<MainView>('dashboard');
   const [customRules, setCustomRules] = useState<CustomRule[]>([]);
+  const [reportHistory, setReportHistory] = useState<ComplianceReport[]>([]);
 
 
   // Initialize workspaces and perform one-time migration for existing users
@@ -64,7 +83,7 @@ const App: React.FC = () => {
 
   }, []);
 
-  // Effect to load custom rules when active workspace changes
+  // Effect to load custom rules and report history when active workspace changes
   useEffect(() => {
     if (activeWorkspaceId) {
       try {
@@ -73,6 +92,7 @@ const App: React.FC = () => {
       } catch (e) { 
         setCustomRules([]);
       }
+      setReportHistory(getReportHistory(activeWorkspaceId));
     }
   }, [activeWorkspaceId]);
 
@@ -82,6 +102,13 @@ const App: React.FC = () => {
         localStorage.setItem(`brandGuardCustomRules_${activeWorkspaceId}`, JSON.stringify(rules));
     }
   };
+
+  const handleUpdateHistory = (history: ComplianceReport[]) => {
+      setReportHistory(history);
+      if (activeWorkspaceId) {
+          saveReportHistory(activeWorkspaceId, history);
+      }
+  }
 
   const handleCreateWorkspace = (name: string) => {
     const newWorkspace = { id: crypto.randomUUID(), name };
@@ -229,10 +256,12 @@ const App: React.FC = () => {
           <SignedIn>
              {
               {
-                'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} onCreateCertificate={handleCreateCertificate} onNavigate={setMainView} />,
+                'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} reportHistory={reportHistory} onUpdateHistory={handleUpdateHistory} onCreateCertificate={handleCreateCertificate} onNavigate={setMainView} />,
                 'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={setMainView} /> : <FullPageLoader />,
                 'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onRevokeCertificate={handleRevokeCertificate} onNavigate={setMainView} /> : <FullPageLoader />,
                 'sandbox': <TestingSandbox onNavigate={setMainView} />,
+                'brief-studio': activeWorkspaceId ? <BriefStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} onNavigate={setMainView} /> : <FullPageLoader />,
+                'analytics': activeWorkspaceId ? <Analytics reportHistory={reportHistory} /> : <FullPageLoader />,
               }[mainView]
             }
           </SignedIn>

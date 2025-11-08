@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Workspace, MainView } from '../types';
-import { ChevronUpDownIcon, CheckIcon, PlusCircleIcon, CogIcon, TestTubeIcon } from './icons/Icons';
+import { ChevronUpDownIcon, CheckIcon, PlusCircleIcon, CogIcon, TestTubeIcon, DocumentTextIcon, TrendingUpIcon } from './icons/Icons';
 
 interface WorkspaceSwitcherProps {
   workspaces: Workspace[];
@@ -61,7 +61,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 bg-secondary-dark border border-gray-700 rounded-md shadow-sm text-sm font-medium text-gray-200 hover:bg-gray-700"
       >
-        <span>{activeWorkspace?.name || 'Select Workspace'}</span>
+        <span className="truncate max-w-[150px]">{activeWorkspace?.name || 'Select Workspace'}</span>
         <ChevronUpDownIcon />
       </button>
 
@@ -80,6 +80,20 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
               </button>
             ))}
              <div className="border-t border-gray-700 my-1"></div>
+             <button
+                onClick={() => handleNavigate('brief-studio')}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"
+              >
+                <DocumentTextIcon />
+                Brief Studio
+              </button>
+              <button
+                onClick={() => handleNavigate('analytics')}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"
+              >
+                <TrendingUpIcon />
+                Analytics
+              </button>
              <button
                 onClick={() => handleNavigate('settings')}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"
