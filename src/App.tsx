@@ -2,17 +2,19 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { SignedIn, SignedOut, UserButton, useUser } from '@clerk/clerk-react';
 import Header from './components/Header';
 import Loader from './components/Loader';
-import type { ComplianceReport, Workspace, CustomRule, MainView, Certificate } from './types';
+import type { ComplianceReport, Workspace, CustomRule, MainView, Certificate, RevisionRequest } from './types';
 
 const Hero = lazy(() => import('./components/Hero'));
 const Features = lazy(() => import('./components/Features'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const PublicReportView = lazy(() => import('./components/PublicReportView'));
+const RevisionRequestView = lazy(() => import('./components/RevisionRequestView'));
 const WorkspaceSettings = lazy(() => import('./components/WorkspaceSettings'));
 const CertificatesHub = lazy(() => import('./components/CertificatesHub'));
 const TestingSandbox = lazy(() => import('./components/TestingSandbox'));
 const BriefStudio = lazy(() => import('./components/BriefStudio'));
 const Analytics = lazy(() => import('./components/Analytics'));
+const VideoStudio = lazy(() => import('./components/VideoStudio'));
 
 
 const FullPageLoader: React.FC = () => (
@@ -39,6 +41,7 @@ const saveReportHistory = (workspaceId: string, history: ComplianceReport[]) => 
 
 const App: React.FC = () => {
   const [sharedReport, setSharedReport] = useState<ComplianceReport | null | 'invalid'>(null);
+  const [sharedRevisionRequest, setSharedRevisionRequest] = useState<ComplianceReport | null | 'invalid'>(null);
   const { user, isLoaded } = useUser();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
@@ -137,6 +140,7 @@ const App: React.FC = () => {
     localStorage.removeItem(`brandGuardReportHistory_${id}`);
     localStorage.removeItem(`brandGuardCustomRules_${id}`);
     localStorage.removeItem(`brandGuardCertificates_${id}`);
+    localStorage.removeItem(`brandGuardRevisionRequests_${id}`);
 
     if (remainingWorkspaces.length > 0) {
         setWorkspaces(remainingWorkspaces);
@@ -179,10 +183,29 @@ const App: React.FC = () => {
       certificates = certificates.filter(c => c.id !== certId);
       localStorage.setItem(`brandGuardCertificates_${workspaceId}`, JSON.stringify(certificates));
   };
+
+  const handleCreateRevisionRequest = (report: ComplianceReport) => {
+    const newRequest: RevisionRequest = {
+      id: `rev_${crypto.randomUUID()}`,
+      report: report,
+      createdAt: new Date().toISOString()
+    };
+    
+    const requestsJson = localStorage.getItem(`brandGuardRevisionRequests_${report.workspaceId}`);
+    const requests: RevisionRequest[] = requestsJson ? JSON.parse(requestsJson) : [];
+    requests.unshift(newRequest);
+    localStorage.setItem(`brandGuardRevisionRequests_${report.workspaceId}`, JSON.stringify(requests));
+
+    const url = `${window.location.origin}${window.location.pathname}?revId=${newRequest.id}`;
+    navigator.clipboard.writeText(url);
+    
+    return "Revision Request Link Copied!";
+  };
   
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const certId = params.get('certId');
+    const revId = params.get('revId');
 
     if (certId) {
       let found = false;
@@ -204,6 +227,26 @@ const App: React.FC = () => {
       }
       if (!found) setSharedReport('invalid');
       window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (revId) {
+      let found = false;
+      const allWorkspacesJson = localStorage.getItem('brandGuardWorkspaces');
+      if (allWorkspacesJson) {
+        const allWorkspaces: Workspace[] = JSON.parse(allWorkspacesJson);
+        for (const workspace of allWorkspaces) {
+          const requestsJson = localStorage.getItem(`brandGuardRevisionRequests_${workspace.id}`);
+          if (requestsJson) {
+            const requests: RevisionRequest[] = JSON.parse(requestsJson);
+            const foundReq = requests.find(r => r.id === revId);
+            if (foundReq) {
+              setSharedRevisionRequest(foundReq.report);
+              found = true;
+              break;
+            }
+          }
+        }
+      }
+      if (!found) setSharedRevisionRequest('invalid');
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
@@ -224,6 +267,14 @@ const App: React.FC = () => {
     return (
       <Suspense fallback={<FullPageLoader />}>
         <PublicReportView report={sharedReport} />
+      </Suspense>
+    );
+  }
+
+  if (sharedRevisionRequest) {
+    return (
+      <Suspense fallback={<FullPageLoader />}>
+        <RevisionRequestView report={sharedRevisionRequest} />
       </Suspense>
     );
   }
@@ -256,7 +307,8 @@ const App: React.FC = () => {
           <SignedIn>
              {
               {
-                'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} reportHistory={reportHistory} onUpdateHistory={handleUpdateHistory} onCreateCertificate={handleCreateCertificate} onNavigate={setMainView} />,
+                'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} reportHistory={reportHistory} onUpdateHistory={handleUpdateHistory} onCreateCertificate={handleCreateCertificate} onNavigate={setMainView} revisionRequests={[]} onCreateRevisionRequest={handleCreateRevisionRequest} />,
+                'video-studio': activeWorkspaceId ? <VideoStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} onNavigate={setMainView} reportHistory={reportHistory} onUpdateHistory={handleUpdateHistory} /> : <FullPageLoader />,
                 'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={setMainView} /> : <FullPageLoader />,
                 'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onRevokeCertificate={handleRevokeCertificate} onNavigate={setMainView} /> : <FullPageLoader />,
                 'sandbox': <TestingSandbox onNavigate={setMainView} />,

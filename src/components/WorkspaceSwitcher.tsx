@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Workspace, MainView } from '../types';
-import { ChevronUpDownIcon, CheckIcon, PlusCircleIcon, CogIcon, TestTubeIcon, DocumentTextIcon, TrendingUpIcon } from './icons/Icons';
+import { ChevronUpDownIcon, CheckIcon, PlusCircleIcon, CogIcon, TestTubeIcon, DocumentTextIcon, TrendingUpIcon, VideoCameraIcon } from './icons/Icons';
 
 interface WorkspaceSwitcherProps {
   workspaces: Workspace[];
@@ -80,6 +80,13 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
               </button>
             ))}
              <div className="border-t border-gray-700 my-1"></div>
+             <button
+                onClick={() => handleNavigate('video-studio')}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"
+              >
+                <VideoCameraIcon />
+                Video Studio
+              </button>
              <button
                 onClick={() => handleNavigate('brief-studio')}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"

@@ -4,7 +4,7 @@ export type AnalysisType = 'text' | 'video' | 'image';
 
 export type ReportStatus = 'pending' | 'approved' | 'revision';
 
-export type MainView = 'dashboard' | 'settings' | 'certificates' | 'sandbox' | 'brief-studio' | 'analytics';
+export type MainView = 'dashboard' | 'settings' | 'certificates' | 'sandbox' | 'brief-studio' | 'analytics' | 'video-studio';
 
 export type DashboardView = 'text' | 'video' | 'image';
 
@@ -90,7 +90,6 @@ export interface DynamicTestResult {
   actualReport: ComplianceReport;
 }
 
-// FIX: Add GreenlightBrief type for the Brief Studio feature.
 export interface GreenlightBrief {
   campaignOverview: string;
   keyDos: string[];
@@ -108,4 +107,21 @@ export interface StaticTestRunResult {
   report?: ComplianceReport | null;
   error?: string;
   isMismatch?: boolean;
+}
+
+export interface RevisionRequest {
+  id: string;
+  report: ComplianceReport;
+  createdAt: string;
+}
+
+export type QueueItemStatus = 'Queued' | 'Running' | 'Complete' | 'Error';
+
+export interface QueueItem {
+    id: string;
+    status: QueueItemStatus;
+    content?: string;
+    file?: File; // Added to support batch image uploads
+    result?: ComplianceReport;
+    error?: string;
 }

@@ -1,7 +1,6 @@
 import React from 'react';
 import type { ComplianceReport } from '../types';
 import ReportCard from './ReportCard';
-// FIX: Replaced non-existent 'XCircleIcon' with the available 'XIcon'.
 import { BrandGuardLogoIcon, ShieldCheckIcon, XIcon } from './icons/Icons';
 
 const PublicReportView: React.FC<{ report: ComplianceReport | 'invalid' }> = ({ report }) => {

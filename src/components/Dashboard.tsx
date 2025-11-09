@@ -1,19 +1,18 @@
-
 import React, { useState, useCallback, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
-import type { ComplianceReport, CustomRule, ReportStatus, MainView, DashboardView } from '../types';
+import type { ComplianceReport, CustomRule, ReportStatus, MainView, DashboardView, QueueItem, RevisionRequest } from '../types';
 import Loader from './Loader';
 import WelcomeGuide from './WelcomeGuide';
-import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon, XIcon, PhotoIcon, VideoCameraIcon } from './icons/Icons';
+import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon, XIcon, PhotoIcon, VideoCameraIcon, ShareIcon } from './icons/Icons';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import CertificatePDF from './CertificatePDF';
+import GreenlightQueue from './GreenlightQueue';
 
 const ReportCard = lazy(() => import('./ReportCard'));
 const ImageStudio = lazy(() => import('./ImageStudio'));
 
-// FIX: Define DashboardProps interface to resolve type error.
 interface DashboardProps {
   activeWorkspaceId: string;
   customRules: CustomRule[];
@@ -21,6 +20,8 @@ interface DashboardProps {
   onCreateCertificate: (report: ComplianceReport) => string;
   reportHistory: ComplianceReport[];
   onUpdateHistory: (history: ComplianceReport[]) => void;
+  revisionRequests: RevisionRequest[];
+  onCreateRevisionRequest: (report: ComplianceReport) => string;
 }
 
 // Helper to convert a base64 string to a File object
@@ -36,8 +37,9 @@ const base64StringToFile = (base64String: string, filename: string, mimeType: st
 };
 
 
-const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, onNavigate, onCreateCertificate, reportHistory, onUpdateHistory }) => {
+const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, onNavigate, onCreateCertificate, reportHistory, onUpdateHistory, revisionRequests, onCreateRevisionRequest }) => {
   const [activeView, setActiveView] = useState<DashboardView>('text');
+  const [batchMode, setBatchMode] = useState(false);
   const [imageSourceMode, setImageSourceMode] = useState<'upload' | 'generate'>('upload');
   const [postContent, setPostContent] = useState<string>('');
   const [campaignName, setCampaignName] = useState<string>('');
@@ -53,13 +55,15 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const [newReportId, setNewReportId] = useState<string | null>(null);
   const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
   const [shareConfirmation, setShareConfirmation] = useState('');
+  const [revisionConfirmation, setRevisionConfirmation] = useState('');
   const [openCampaign, setOpenCampaign] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
   
   const reportCardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
+  const isProcessingQueue = useRef(false);
 
   const handleDownloadPdf = async (reportToDownload: ComplianceReport) => {
     setActiveActionMenu(null);
@@ -77,8 +81,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
 
         root = ReactDOM.createRoot(container);
         
-        // Use a promise with a callback prop to ensure the component is rendered
-        // before we try to capture it. This is more reliable than a setTimeout.
         await new Promise<void>((resolve) => {
             root!.render(<CertificatePDF report={reportToDownload} onRendered={resolve} />);
         });
@@ -104,7 +106,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
         console.error("Error generating PDF:", err);
         setError("Could not generate PDF certificate. There might be an issue with rendering the content.");
     } finally {
-        // Ensure the React root and DOM element are always cleaned up
         if (root) {
             root.unmount();
         }
@@ -117,19 +118,19 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   
   useEffect(() => {
     setReport(null); // Clear active report when switching workspace
+    setQueue([]);
+    setBatchMode(false);
   }, [activeWorkspaceId]);
 
   useEffect(() => {
-    // Auto-focus the textarea on load for quicker pasting, enhancing workflow velocity.
-    if (!report && activeView === 'text' && textareaRef.current) {
+    if (!report && activeView === 'text' && textareaRef.current && !batchMode) {
       textareaRef.current.focus();
     }
-  }, [report, activeView]);
+  }, [report, activeView, batchMode]);
 
   useEffect(() => {
     if (report && report.id === newReportId) {
       reportCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      // When a new report is created, automatically open its campaign group
       setOpenCampaign(report.campaignName || 'General Scans');
       const timer = setTimeout(() => {
         setNewReportId(null);
@@ -141,23 +142,20 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const handleAnalysisCompletion = useCallback((newReport: Omit<ComplianceReport, 'workspaceId'>) => {
     const reportWithWorkspace = { ...newReport, workspaceId: activeWorkspaceId };
     const reportWithInitialStatus = { ...reportWithWorkspace, status: newReport.recommendedStatus || 'pending' };
-    setReport(reportWithInitialStatus);
-    setNewReportId(reportWithInitialStatus.id);
-    onUpdateHistory([reportWithInitialStatus, ...reportHistory]);
     
-  }, [activeWorkspaceId, reportHistory, onUpdateHistory]);
+    onUpdateHistory([reportWithInitialStatus, ...reportHistory]);
 
-  const handleInsightReceived = useCallback((insight: string) => {
+    return reportWithInitialStatus;
+    
+  }, [activeWorkspaceId, onUpdateHistory, reportHistory]);
+
+  const handleInsightReceived = useCallback((insight: string, reportId: string) => {
+      onUpdateHistory(reportHistory.map(r => r.id === reportId ? {...r, strategicInsight: insight} : r));
       setReport(currentReport => {
-        if (!currentReport) return null;
-        const updatedReport = { ...currentReport, strategicInsight: insight };
-        
-        const newHistory = reportHistory.map(r => r.id === updatedReport.id ? updatedReport : r);
-        onUpdateHistory(newHistory);
-
-        return updatedReport;
+        if (!currentReport || currentReport.id !== reportId) return currentReport;
+        return { ...currentReport, strategicInsight: insight };
       });
-  }, [reportHistory, onUpdateHistory]);
+  }, [onUpdateHistory, reportHistory]);
 
   const handleImageGenerated = (base64Data: string, mimeType: string) => {
     const filename = `generated-image-${Date.now()}.png`;
@@ -178,8 +176,10 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             setVideoTranscript(transcript);
 
             setLoadingText('Analyzing Video...');
-            const result = await analyzeVideoContent(transcript, campaignName, file, customRules, handleInsightReceived);
-            handleAnalysisCompletion(result);
+            const result = await analyzeVideoContent(transcript, campaignName, file, customRules, (insight) => handleInsightReceived(insight, result.id));
+            const finalReport = handleAnalysisCompletion(result);
+            setReport(finalReport);
+            setNewReportId(finalReport.id);
         } catch (err) {
             setError(err instanceof Error ? err.message : "An unknown error occurred during video processing.");
         } finally {
@@ -187,8 +187,44 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
         }
     }
   }, [customRules, handleAnalysisCompletion, handleInsightReceived, campaignName]);
+  
+  const processQueue = useCallback(async () => {
+    if (isProcessingQueue.current || queue.every(item => item.status !== 'Queued')) {
+      return;
+    }
+    isProcessingQueue.current = true;
 
-  const showWelcomeGuide = !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && !isLoading;
+    for (const item of queue) {
+        if (item.status === 'Queued') {
+            setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'Running' } : q));
+            try {
+                let result;
+                if (item.content) { // Batch Text
+                    result = await analyzePostContent(item.content, campaignName, customRules, false, (insight) => handleInsightReceived(insight, result.id));
+                } else if (item.file) { // Batch Image
+                    result = await analyzeImageContent(postContent, campaignName, item.file, customRules, (insight) => handleInsightReceived(insight, result.id));
+                }
+                 if (result) {
+                    const finalReport = handleAnalysisCompletion(result);
+                    setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'Complete', result: finalReport } : q));
+                } else {
+                    throw new Error("Analysis returned no result.");
+                }
+            } catch (err) {
+                const error = err instanceof Error ? err.message : "Unknown error";
+                setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'Error', error } : q));
+            }
+        }
+    }
+    isProcessingQueue.current = false;
+  }, [queue, campaignName, customRules, postContent, handleAnalysisCompletion, handleInsightReceived]);
+
+  useEffect(() => {
+    processQueue();
+  }, [queue, processQueue]);
+
+
+  const showWelcomeGuide = !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && !isLoading && queue.length === 0;
   
   const handleStartExample = () => {
     setActiveView('text');
@@ -197,6 +233,16 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
 
   const handleScan = useCallback(async (options: { contentOverride?: string; isRescan?: boolean; isQuickScan?: boolean } = {}) => {
     const { contentOverride, isRescan = false, isQuickScan = false } = options;
+    
+    if (batchMode) {
+      if (activeView === 'text') {
+        const newItems: QueueItem[] = postContent.split('\n').filter(line => line.trim() !== '').map(line => ({ id: crypto.randomUUID(), status: 'Queued', content: line.trim() }));
+        setQueue(prev => [...prev, ...newItems]);
+        setPostContent('');
+      }
+      return;
+    }
+
     setIsLoading(true);
     setLoadingText('Scanning...');
     setReport(null);
@@ -209,21 +255,22 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
 
       if (activeView === 'text') {
         if (!contentToScan.trim()) throw new Error("Please enter post content to analyze.");
-        result = await analyzePostContent(contentToScan, campaignToScan, customRules, isRescan, handleInsightReceived);
+        result = await analyzePostContent(contentToScan, campaignToScan, customRules, isRescan, (insight) => handleInsightReceived(insight, result.id));
       } else if (activeView === 'video') {
          if (fileInputRef.current) {
             fileInputRef.current.click();
          }
-         // Don't set loading to false here; it's handled in handleVideoUpload
          return;
       } else if (activeView === 'image') {
         if (!contentToScan.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
         setLoadingText('Analyzing Image...');
-        result = await analyzeImageContent(contentToScan, campaignName, selectedImageFile, customRules, handleInsightReceived);
+        result = await analyzeImageContent(contentToScan, campaignName, selectedImageFile, customRules, (insight) => handleInsightReceived(insight, result.id));
       }
       
       if(result) {
-        handleAnalysisCompletion(result);
+        const finalReport = handleAnalysisCompletion(result);
+        setReport(finalReport);
+        setNewReportId(finalReport.id);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred.");
@@ -232,7 +279,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
         setIsLoading(false);
       }
     }
-  }, [activeView, postContent, campaignName, selectedImageFile, customRules, handleAnalysisCompletion, handleInsightReceived]);
+  }, [activeView, postContent, campaignName, selectedImageFile, customRules, handleAnalysisCompletion, handleInsightReceived, batchMode]);
   
   const handleStatusChange = (reportId: string, newStatus: ReportStatus) => {
     const updatedHistory = reportHistory.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
@@ -258,6 +305,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const resetState = (clearInputs = true) => {
     setReport(null);
     setError(null);
+    setQueue([]);
+    setBatchMode(false);
     if (clearInputs) {
       setPostContent('');
       setCampaignName('');
@@ -266,6 +315,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       setSelectedImageFile(null);
     }
   };
+
   const switchTab = (type: DashboardView) => {
     setActiveView(type);
     resetState();
@@ -291,8 +341,16 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     setShareConfirmation(confirmation);
     setTimeout(() => setShareConfirmation(''), 2000);
   };
+
+  const handleCreateRevisionRequest = (reportToShare: ComplianceReport) => {
+    setActiveActionMenu(null);
+    const confirmation = onCreateRevisionRequest(reportToShare);
+    setRevisionConfirmation(confirmation);
+    setTimeout(() => setRevisionConfirmation(''), 2000);
+  };
   
   const getButtonText = () => {
+    if (batchMode) return `Add ${activeView === 'text' ? 'Captions' : 'Images'} to Queue`;
     if (activeView === 'video') return 'Select & Analyze Video';
     if (activeView === 'image') return 'Scan Image & Caption';
     return 'Scan Post';
@@ -300,8 +358,13 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   
   const isScanDisabled = () => {
       if (isLoading || isGeneratingPdf) return true;
-      if (activeView === 'text' && !postContent.trim()) return true;
-      if (activeView === 'image' && (!postContent.trim() || !selectedImageFile)) return true;
+      if (batchMode) {
+        if (activeView === 'text' && !postContent.trim()) return true;
+        if (activeView === 'image' && !postContent.trim()) return true; // Caption is required for batch image
+      } else {
+        if (activeView === 'text' && !postContent.trim()) return true;
+        if (activeView === 'image' && (!postContent.trim() || !selectedImageFile)) return true;
+      }
       return false;
   }
   
@@ -323,6 +386,16 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const selectCampaign = (name: string) => {
     setCampaignName(name);
     setCampaignSuggestions([]);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (batchMode && activeView === 'image') {
+      const files = Array.from(e.dataTransfer.files).filter((file: File) => file.type.startsWith('image/'));
+      const newItems: QueueItem[] = files.map(file => ({ id: crypto.randomUUID(), status: 'Queued', file }));
+      setQueue(prev => [...prev, ...newItems]);
+    }
   };
 
   const statusDisplayConfig: Record<ReportStatus, { tag: string, color: string, filterColor: string }> = {
@@ -356,16 +429,50 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
 
   const renderActiveView = () => {
     return (
-       <div className="bg-secondary-dark p-6 rounded-lg border border-gray-700 shadow-lg">
-          <div className="mb-4 border-b border-gray-700">
+       <div className="bg-secondary-dark p-6 rounded-lg border border-gray-700 shadow-lg" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
+          <div className="flex justify-between items-center mb-4 border-b border-gray-700">
               <nav className="-mb-px flex space-x-6">
                   <button onClick={() => switchTab('text')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeView === 'text' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Text Post</button>
                   <button onClick={() => switchTab('image')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeView === 'image' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Image Post</button>
                   <button onClick={() => switchTab('video')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeView === 'video' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Video Post</button>
               </nav>
+              {(activeView === 'text' || activeView === 'image') && (
+                <div className="flex items-center">
+                    <span className="text-sm text-gray-400 mr-2">Batch Mode</span>
+                    <button onClick={() => setBatchMode(!batchMode)} className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${batchMode ? 'bg-primary' : 'bg-gray-600'}`}>
+                        <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${batchMode ? 'translate-x-6' : 'translate-x-1'}`}/>
+                    </button>
+                </div>
+              )}
           </div>
+          {batchMode ? (
+             <div className="space-y-4">
+               {activeView === 'text' && <textarea ref={textareaRef} value={postContent} onChange={(e) => setPostContent(e.target.value)} placeholder={'Paste multiple captions, one per line...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
+               
+               {activeView === 'image' && 
+                  <div className="space-y-2">
+                    <textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} placeholder={'Enter one caption to be used for all images...'} rows={3} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" />
+                    <div className="p-4 text-center border-2 border-dashed border-gray-600 rounded-lg">
+                      <PhotoIcon className="mx-auto h-12 w-12 text-gray-500" />
+                      <p className="mt-2 text-sm text-gray-400">Drag & drop image files here</p>
+                    </div>
+                  </div>
+               }
 
-           <div className="space-y-4">
+               <div className="relative">
+                  <label htmlFor="campaign-name-batch" className="block text-sm font-medium text-gray-400 mb-1">Campaign Name (Required for Batch)</label>
+                  <input id="campaign-name-batch" type="text" value={campaignName} onChange={handleCampaignNameChange} placeholder="e.g., Q4 Influencer Push" className="w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} autoComplete="off" />
+               </div>
+               
+               <button onClick={() => handleScan()} disabled={isScanDisabled() || !campaignName} className="w-full flex-grow px-6 py-3 flex items-center justify-center gap-3 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20">
+                   {getButtonText()}
+               </button>
+
+               {queue.length > 0 && <GreenlightQueue queue={queue} setQueue={setQueue} onClear={() => setQueue([])} onViewReport={viewHistoricReport} />}
+             </div>
+          ) : (
+            // REGULAR SINGLE-SCAN VIEW
+            <div className="space-y-4">
                {activeView !== 'video' && <textarea ref={textareaRef} value={postContent} onChange={(e) => setPostContent(e.target.value)} onKeyDown={(e) => { if (activeView === 'text' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (!isScanDisabled()) { handleScan({ isQuickScan: true }); } } }} placeholder={activeView === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
                
                {activeView === 'image' && (
@@ -425,16 +532,7 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                
                <div className="relative">
                   <label htmlFor="campaign-name" className="block text-sm font-medium text-gray-400 mb-1">Campaign Name (Optional)</label>
-                  <input 
-                      id="campaign-name" 
-                      type="text" 
-                      value={campaignName}
-                      onChange={handleCampaignNameChange}
-                      placeholder="e.g., Q3 Sneaker Launch"
-                      className="w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50"
-                      disabled={isLoading}
-                      autoComplete="off"
-                  />
+                  <input id="campaign-name" type="text" value={campaignName} onChange={handleCampaignNameChange} placeholder="e.g., Q3 Sneaker Launch" className="w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} autoComplete="off" />
                    {campaignSuggestions.length > 0 && (
                       <div className="absolute z-10 w-full mt-1 bg-dark border border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
                           {campaignSuggestions.map(suggestion => (
@@ -447,37 +545,17 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                </div>
 
               <div className="flex items-stretch gap-2">
-                  <button
-                      onClick={() => handleScan()}
-                      disabled={isScanDisabled()}
-                      className="flex-grow px-6 py-3 flex items-center justify-center gap-3 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20"
-                  >
-                      {isLoading ? (
-                          <>
-                              <Loader size="sm" />
-                              <span>{loadingText}</span>
-                          </>
-                      ) : (
-                          <span>{getButtonText()}</span>
-                      )}
+                  <button onClick={() => handleScan()} disabled={isScanDisabled()} className="flex-grow px-6 py-3 flex items-center justify-center gap-3 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20">
+                      {isLoading ? (<><Loader size="sm" /><span>{loadingText}</span></>) : (<span>{getButtonText()}</span>)}
                   </button>
                   {activeView === 'text' && (
-                      <button
-                          onClick={(e) => {
-                              e.stopPropagation();
-                              if (isScanDisabled()) return;
-                              handleScan({ isQuickScan: true });
-                          }}
-                          disabled={isScanDisabled()}
-                          className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-light disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-                          title="Quick Scan (without campaign name) (Cmd/Ctrl+Enter)"
-                      >
-                          <SparklesIcon />
-                          <span>Quick Scan</span>
+                      <button onClick={(e) => { e.stopPropagation(); if (isScanDisabled()) return; handleScan({ isQuickScan: true }); }} disabled={isScanDisabled()} className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-light disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors" title="Quick Scan (without campaign name) (Cmd/Ctrl+Enter)">
+                          <SparklesIcon /><span>Quick Scan</span>
                       </button>
                   )}
               </div>
            </div>
+          )}
         </div>
     );
   }
@@ -501,14 +579,7 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
               
               {report && !isLoading ? (
                 <Suspense fallback={<div className="w-full min-h-[400px] flex items-center justify-center"><Loader /></div>}>
-                  <ReportCard
-                    report={report}
-                    onStatusChange={handleStatusChange}
-                    onAcceptRevision={handleAcceptRevision}
-                    onDownloadPdf={handleDownloadPdf}
-                    isGeneratingPdf={isGeneratingPdf}
-                    onAcceptImageRevision={handleAcceptImageRevision}
-                  />
+                  <ReportCard report={report} onStatusChange={handleStatusChange} onAcceptRevision={handleAcceptRevision} onDownloadPdf={handleDownloadPdf} isGeneratingPdf={isGeneratingPdf} onAcceptImageRevision={handleAcceptImageRevision} />
                 </Suspense>
               ) : (
                 <>
@@ -542,14 +613,8 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                   {campaignGroups.length > 0 ? (
                     campaignGroups.map(([campaign, reports]) => (
                         <div key={campaign} className="bg-dark rounded-md border border-gray-800">
-                            <button 
-                                onClick={() => setOpenCampaign(openCampaign === campaign ? null : campaign)}
-                                className="w-full flex justify-between items-center p-3 text-left hover:bg-gray-800 rounded-md transition-colors"
-                            >
-                                <span className="font-semibold text-white flex items-center gap-2 truncate">
-                                    <FolderIcon /> 
-                                    <span className="truncate">{campaign}</span>
-                                </span>
+                            <button onClick={() => setOpenCampaign(openCampaign === campaign ? null : campaign)} className="w-full flex justify-between items-center p-3 text-left hover:bg-gray-800 rounded-md transition-colors">
+                                <span className="font-semibold text-white flex items-center gap-2 truncate"><FolderIcon /> <span className="truncate">{campaign}</span></span>
                                 <span className="flex items-center gap-2 flex-shrink-0">
                                     <span className="text-xs text-gray-400 bg-secondary-dark px-2 py-0.5 rounded-full">{reports.length} {reports.length === 1 ? 'scan' : 'scans'}</span>
                                     <ChevronDownIcon className={`transform transition-transform ${openCampaign === campaign ? 'rotate-180' : ''} w-5 h-5`} />
@@ -574,10 +639,9 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                                                         {activeActionMenu === r.id && (
                                                             <div className="absolute right-0 mt-2 w-48 bg-dark border border-gray-700 rounded-md shadow-lg z-10 animate-fade-in">
                                                                 <button onClick={() => viewHistoricReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">View Report</button>
-                                                                <button onClick={() => handleDownloadPdf(r)} disabled={isGeneratingPdf} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 disabled:opacity-50">
-                                                                    {isGeneratingPdf && activeActionMenu === r.id ? 'Generating...' : 'Download Certificate'}
-                                                                </button>
+                                                                <button onClick={() => handleDownloadPdf(r)} disabled={isGeneratingPdf} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 disabled:opacity-50">{isGeneratingPdf && activeActionMenu === r.id ? 'Generating...' : 'Download Certificate'}</button>
                                                                 <button onClick={() => handleShareReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">{shareConfirmation && activeActionMenu === r.id ? shareConfirmation : 'Share Certificate'}</button>
+                                                                <button onClick={() => handleCreateRevisionRequest(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 disabled:opacity-50">{revisionConfirmation && activeActionMenu === r.id ? revisionConfirmation : 'Request Revision'}</button>
                                                                 <button onClick={() => deleteReport(r.id)} className="block w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger/20">Delete Report</button>
                                                             </div>
                                                         )}

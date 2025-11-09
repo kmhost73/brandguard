@@ -76,10 +76,6 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
   const passRate = Math.round((reportHistory.filter(r => r.overallScore >= 90).length / totalScans) * 100);
   
   const allFailedChecks = reportHistory.flatMap(r => r.checks.filter(c => c.status === 'fail' || c.status === 'warn'));
-  // FIX: The `reduce` call was not correctly typed, causing downstream errors.
-  // Casting the initial empty object `{}` to `Record<string, number>` ensures
-  // the accumulator `acc` is properly typed, allowing for correct property
-  // access and type inference for `failureCounts`.
   const failureCounts = allFailedChecks.reduce((acc, check) => {
     const checkName = check.name.split(':')[0].trim(); // Group custom rules together
     acc[checkName] = (acc[checkName] || 0) + 1;

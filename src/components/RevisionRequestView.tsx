@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import type { ComplianceReport, CheckItem } from '../types';
-// FIX: Replaced non-existent 'ClipboardDocumentCheckIcon' with the available 'ClipboardIcon'.
-import { BrandGuardLogoIcon, CheckIcon, XIcon, WarningIcon, SparklesIcon, ClipboardIcon } from './icons/Icons';
+import { BrandGuardLogoIcon, CheckIcon, XIcon, WarningIcon, SparklesIcon, ClipboardIcon, FilmIcon } from './icons/Icons';
 
 // Re-using some components from ReportCard for consistency
 const statusConfig = {
@@ -84,6 +83,23 @@ const RevisionRequestView: React.FC<{ report: ComplianceReport | 'invalid' }> = 
                  <div className="space-y-6">
                     <div>
                         <h3 className="text-lg font-semibold text-white mb-2">Original Content</h3>
+                        {report.sourceMedia?.mimeType.startsWith('image/') && (
+                            <div className="mb-4 p-4 bg-dark rounded-lg border border-gray-700 flex justify-center">
+                                <img
+                                    src={`data:${report.sourceMedia.mimeType};base64,${report.sourceMedia.data}`}
+                                    alt="Analyzed content"
+                                    className="max-h-72 rounded-lg object-contain shadow-md"
+                                />
+                            </div>
+                        )}
+                        {report.sourceMedia?.mimeType.startsWith('video/') && (
+                            <div className="mb-4 p-6 bg-dark rounded-lg border border-gray-700 flex flex-col items-center justify-center h-48">
+                                <div className="w-16 h-16 text-gray-500">
+                                    <FilmIcon />
+                                </div>
+                                <p className="text-gray-400 font-medium mt-2">Video Content</p>
+                            </div>
+                        )}
                         <div className="bg-dark p-4 rounded-lg border border-gray-700">
                             <p className="text-gray-300 whitespace-pre-wrap font-mono text-sm">{report.sourceContent}</p>
                         </div>
