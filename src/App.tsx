@@ -1,8 +1,10 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { SignedIn, SignedOut, UserButton, useUser } from '@clerk/clerk-react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import Header from './components/Header';
 import Loader from './components/Loader';
 import type { ComplianceReport, Workspace, CustomRule, MainView, Certificate, RevisionRequest } from './types';
+import * as db from './services/dbService';
 
 const Hero = lazy(() => import('./components/Hero'));
 const Features = lazy(() => import('./components/Features'));
@@ -23,231 +25,133 @@ const FullPageLoader: React.FC = () => (
   </div>
 );
 
-const getReportHistory = (workspaceId: string): ComplianceReport[] => {
-    try {
-        const historyJson = localStorage.getItem(`brandGuardReportHistory_${workspaceId}`);
-        if (!historyJson) return [];
-        const history = JSON.parse(historyJson);
-        return history.map((report: any) => ({
-            ...report,
-            status: report.status || 'pending'
-        }));
-    } catch (e) { return []; }
-};
-
-const saveReportHistory = (workspaceId: string, history: ComplianceReport[]) => {
-    localStorage.setItem(`brandGuardReportHistory_${workspaceId}`, JSON.stringify(history));
-}
-
 const App: React.FC = () => {
   const [sharedReport, setSharedReport] = useState<ComplianceReport | null | 'invalid'>(null);
   const [sharedRevisionRequest, setSharedRevisionRequest] = useState<ComplianceReport | null | 'invalid'>(null);
   const { user, isLoaded } = useUser();
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<MainView>('dashboard');
-  const [customRules, setCustomRules] = useState<CustomRule[]>([]);
-  const [reportHistory, setReportHistory] = useState<ComplianceReport[]>([]);
-
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // Initialize workspaces and perform one-time migration for existing users
   useEffect(() => {
-    const allWorkspacesJson = localStorage.getItem('brandGuardWorkspaces');
-    let allWorkspaces: Workspace[] = allWorkspacesJson ? JSON.parse(allWorkspacesJson) : [];
+    const initializeApp = async () => {
+        await db.migrateFromLocalStorage();
+        let workspaces = await db.getWorkspaces();
+        if (workspaces.length === 0) {
+            const defaultWorkspace = { id: crypto.randomUUID(), name: 'Personal Workspace' };
+            await db.addWorkspace(defaultWorkspace);
+            workspaces = [defaultWorkspace];
+        }
 
-    if (allWorkspaces.length === 0) {
-      const defaultWorkspace = { id: crypto.randomUUID(), name: 'Personal Workspace' };
-      allWorkspaces = [defaultWorkspace];
-      localStorage.setItem('brandGuardWorkspaces', JSON.stringify(allWorkspaces));
-
-      // One-time migration of old data
-      const oldHistoryJson = localStorage.getItem('brandGuardReportHistory');
-      if (oldHistoryJson) {
-        const oldHistory = JSON.parse(oldHistoryJson);
-        const migratedHistory = oldHistory.map((report: Omit<ComplianceReport, 'workspaceId'>) => ({
-          ...report,
-          workspaceId: defaultWorkspace.id,
-        }));
-        localStorage.setItem(`brandGuardReportHistory_${defaultWorkspace.id}`, JSON.stringify(migratedHistory));
-        localStorage.removeItem('brandGuardReportHistory'); // Clean up old key
-      }
-    }
-    
-    setWorkspaces(allWorkspaces);
-
-    const lastActiveId = localStorage.getItem('brandGuardActiveWorkspaceId');
-    if (lastActiveId && allWorkspaces.some(w => w.id === lastActiveId)) {
-      setActiveWorkspaceId(lastActiveId);
-    } else {
-      const firstWorkspaceId = allWorkspaces[0].id;
-      setActiveWorkspaceId(firstWorkspaceId);
-      localStorage.setItem('brandGuardActiveWorkspaceId', firstWorkspaceId);
-    }
-
+        const lastActiveId = localStorage.getItem('brandGuardActiveWorkspaceId'); // Still use LS for non-critical session state
+        if (lastActiveId && workspaces.some(w => w.id === lastActiveId)) {
+            setActiveWorkspaceId(lastActiveId);
+        } else {
+            const firstWorkspaceId = workspaces[0].id;
+            setActiveWorkspaceId(firstWorkspaceId);
+            localStorage.setItem('brandGuardActiveWorkspaceId', firstWorkspaceId);
+        }
+        setIsInitializing(false);
+    };
+    initializeApp();
   }, []);
 
-  // Effect to load custom rules and report history when active workspace changes
-  useEffect(() => {
-    if (activeWorkspaceId) {
-      try {
-        const rulesJson = localStorage.getItem(`brandGuardCustomRules_${activeWorkspaceId}`);
-        setCustomRules(rulesJson ? JSON.parse(rulesJson) : []);
-      } catch (e) { 
-        setCustomRules([]);
-      }
-      setReportHistory(getReportHistory(activeWorkspaceId));
-    }
-  }, [activeWorkspaceId]);
+  const workspaces = useLiveQuery(() => db.getWorkspaces(), []);
+  const customRules = useLiveQuery(() => activeWorkspaceId ? db.getRulesForWorkspace(activeWorkspaceId) : [], [activeWorkspaceId]);
+  const reportHistory = useLiveQuery(() => activeWorkspaceId ? db.getReportsForWorkspace(activeWorkspaceId) : [], [activeWorkspaceId]);
 
   const handleUpdateRules = (rules: CustomRule[]) => {
-    setCustomRules(rules);
     if(activeWorkspaceId) {
-        localStorage.setItem(`brandGuardCustomRules_${activeWorkspaceId}`, JSON.stringify(rules));
+        db.updateRules(rules, activeWorkspaceId);
     }
   };
 
-  const handleUpdateHistory = (history: ComplianceReport[]) => {
-      setReportHistory(history);
-      if (activeWorkspaceId) {
-          saveReportHistory(activeWorkspaceId, history);
-      }
+  const handleUpdateReportStatus = (reportId: string, status: ComplianceReport['status']) => {
+    db.updateReport(reportId, { status });
+  };
+  
+  const handleUpdateReportInsight = (reportId: string, insight: string) => {
+    db.updateReport(reportId, { strategicInsight: insight });
+  };
+
+  const handleDeleteReport = (reportId: string) => {
+    db.deleteReport(reportId);
   }
 
-  const handleCreateWorkspace = (name: string) => {
+  const handleCreateWorkspace = async (name: string) => {
     const newWorkspace = { id: crypto.randomUUID(), name };
-    const updatedWorkspaces = [...workspaces, newWorkspace];
-    setWorkspaces(updatedWorkspaces);
-    localStorage.setItem('brandGuardWorkspaces', JSON.stringify(updatedWorkspaces));
+    await db.addWorkspace(newWorkspace);
     handleChangeWorkspace(newWorkspace.id);
   };
 
   const handleChangeWorkspace = (id: string) => {
     setActiveWorkspaceId(id);
     localStorage.setItem('brandGuardActiveWorkspaceId', id);
-    setMainView('dashboard'); // Always return to dashboard on workspace switch
+    setMainView('dashboard');
   };
 
   const handleRenameWorkspace = (id: string, newName: string) => {
-    const updatedWorkspaces = workspaces.map(w => w.id === id ? { ...w, name: newName } : w);
-    setWorkspaces(updatedWorkspaces);
-    localStorage.setItem('brandGuardWorkspaces', JSON.stringify(updatedWorkspaces));
+    db.updateWorkspace(id, { name: newName });
   };
   
-  const handleDeleteWorkspace = (id: string) => {
-    const remainingWorkspaces = workspaces.filter(w => w.id !== id);
-    
-    // Clean up associated data
-    localStorage.removeItem(`brandGuardReportHistory_${id}`);
-    localStorage.removeItem(`brandGuardCustomRules_${id}`);
-    localStorage.removeItem(`brandGuardCertificates_${id}`);
-    localStorage.removeItem(`brandGuardRevisionRequests_${id}`);
-
-    if (remainingWorkspaces.length > 0) {
-        setWorkspaces(remainingWorkspaces);
-        localStorage.setItem('brandGuardWorkspaces', JSON.stringify(remainingWorkspaces));
-        // If the deleted workspace was active, switch to the first remaining one
+  const handleDeleteWorkspace = async (id: string) => {
+    await db.deleteWorkspaceAndData(id);
+    const remaining = await db.getWorkspaces();
+    if (remaining.length > 0) {
         if (activeWorkspaceId === id) {
-            handleChangeWorkspace(remainingWorkspaces[0].id);
+            handleChangeWorkspace(remaining[0].id);
         }
     } else {
-        // If no workspaces are left, create a new default one
         const newDefaultWorkspace = { id: crypto.randomUUID(), name: 'Personal Workspace' };
-        setWorkspaces([newDefaultWorkspace]);
-        localStorage.setItem('brandGuardWorkspaces', JSON.stringify([newDefaultWorkspace]));
+        await db.addWorkspace(newDefaultWorkspace);
         handleChangeWorkspace(newDefaultWorkspace.id);
     }
   };
 
-  const handleCreateCertificate = (report: ComplianceReport) => {
+  const handleCreateCertificate = async (report: ComplianceReport) => {
     const newCertificate: Certificate = {
       id: `cert_${crypto.randomUUID()}`,
+      workspaceId: report.workspaceId,
       report: report,
       createdAt: new Date().toISOString()
     };
-    
-    const certsJson = localStorage.getItem(`brandGuardCertificates_${report.workspaceId}`);
-    const certificates: Certificate[] = certsJson ? JSON.parse(certsJson) : [];
-    certificates.unshift(newCertificate);
-    localStorage.setItem(`brandGuardCertificates_${report.workspaceId}`, JSON.stringify(certificates));
-
+    await db.addCertificate(newCertificate);
     const url = `${window.location.origin}${window.location.pathname}?certId=${newCertificate.id}`;
     navigator.clipboard.writeText(url);
-    
     return "Certificate Link Copied!";
   };
 
-  const handleRevokeCertificate = (workspaceId: string, certId: string) => {
-      const certsJson = localStorage.getItem(`brandGuardCertificates_${workspaceId}`);
-      if (!certsJson) return;
-      let certificates: Certificate[] = JSON.parse(certsJson);
-      certificates = certificates.filter(c => c.id !== certId);
-      localStorage.setItem(`brandGuardCertificates_${workspaceId}`, JSON.stringify(certificates));
-  };
-
-  const handleCreateRevisionRequest = (report: ComplianceReport) => {
+  const handleCreateRevisionRequest = async (report: ComplianceReport) => {
     const newRequest: RevisionRequest = {
       id: `rev_${crypto.randomUUID()}`,
+      workspaceId: report.workspaceId,
       report: report,
       createdAt: new Date().toISOString()
     };
-    
-    const requestsJson = localStorage.getItem(`brandGuardRevisionRequests_${report.workspaceId}`);
-    const requests: RevisionRequest[] = requestsJson ? JSON.parse(requestsJson) : [];
-    requests.unshift(newRequest);
-    localStorage.setItem(`brandGuardRevisionRequests_${report.workspaceId}`, JSON.stringify(requests));
-
+    await db.addRevisionRequest(newRequest);
     const url = `${window.location.origin}${window.location.pathname}?revId=${newRequest.id}`;
     navigator.clipboard.writeText(url);
-    
     return "Revision Request Link Copied!";
   };
   
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const certId = params.get('certId');
-    const revId = params.get('revId');
+    const checkSharedLinks = async () => {
+        const params = new URLSearchParams(window.location.search);
+        const certId = params.get('certId');
+        const revId = params.get('revId');
 
-    if (certId) {
-      let found = false;
-      const allWorkspacesJson = localStorage.getItem('brandGuardWorkspaces');
-      if (allWorkspacesJson) {
-        const allWorkspaces: Workspace[] = JSON.parse(allWorkspacesJson);
-        for (const workspace of allWorkspaces) {
-          const certsJson = localStorage.getItem(`brandGuardCertificates_${workspace.id}`);
-          if (certsJson) {
-            const certificates: Certificate[] = JSON.parse(certsJson);
-            const foundCert = certificates.find(c => c.id === certId);
-            if (foundCert) {
-              setSharedReport(foundCert.report);
-              found = true;
-              break;
-            }
-          }
+        if (certId) {
+            const foundCert = await db.getCertificateById(certId);
+            setSharedReport(foundCert ? foundCert.report : 'invalid');
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else if (revId) {
+            const foundReq = await db.getRevisionRequestById(revId);
+            setSharedRevisionRequest(foundReq ? foundReq.report : 'invalid');
+            window.history.replaceState({}, document.title, window.location.pathname);
         }
-      }
-      if (!found) setSharedReport('invalid');
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (revId) {
-      let found = false;
-      const allWorkspacesJson = localStorage.getItem('brandGuardWorkspaces');
-      if (allWorkspacesJson) {
-        const allWorkspaces: Workspace[] = JSON.parse(allWorkspacesJson);
-        for (const workspace of allWorkspaces) {
-          const requestsJson = localStorage.getItem(`brandGuardRevisionRequests_${workspace.id}`);
-          if (requestsJson) {
-            const requests: RevisionRequest[] = JSON.parse(requestsJson);
-            const foundReq = requests.find(r => r.id === revId);
-            if (foundReq) {
-              setSharedRevisionRequest(foundReq.report);
-              found = true;
-              break;
-            }
-          }
-        }
-      }
-      if (!found) setSharedRevisionRequest('invalid');
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
+    };
+    checkSharedLinks();
   }, []);
 
   useEffect(() => {
@@ -264,30 +168,16 @@ const App: React.FC = () => {
   }, [user, isLoaded]);
 
   if (sharedReport) {
-    return (
-      <Suspense fallback={<FullPageLoader />}>
-        <PublicReportView report={sharedReport} />
-      </Suspense>
-    );
+    return <Suspense fallback={<FullPageLoader />}><PublicReportView report={sharedReport} /></Suspense>;
   }
 
   if (sharedRevisionRequest) {
-    return (
-      <Suspense fallback={<FullPageLoader />}>
-        <RevisionRequestView report={sharedRevisionRequest} />
-      </Suspense>
-    );
+    return <Suspense fallback={<FullPageLoader />}><RevisionRequestView report={sharedRevisionRequest} /></Suspense>;
   }
 
-  if (!activeWorkspaceId) {
-    // Render a loading state while workspaces are being initialized
+  if (isInitializing || !activeWorkspaceId || !workspaces) {
     return (
-      <div className={`min-h-screen font-sans bg-dark text-gray-300`}>
-        <Header />
-        <main>
-          <FullPageLoader />
-        </main>
-      </div>
+      <div className="min-h-screen font-sans bg-dark text-gray-300"><Header /><main><FullPageLoader /></main></div>
     );
   }
   
@@ -307,13 +197,13 @@ const App: React.FC = () => {
           <SignedIn>
              {
               {
-                'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} reportHistory={reportHistory} onUpdateHistory={handleUpdateHistory} onCreateCertificate={handleCreateCertificate} onNavigate={setMainView} revisionRequests={[]} onCreateRevisionRequest={handleCreateRevisionRequest} />,
-                'video-studio': activeWorkspaceId ? <VideoStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} onNavigate={setMainView} reportHistory={reportHistory} onUpdateHistory={handleUpdateHistory} /> : <FullPageLoader />,
-                'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={setMainView} /> : <FullPageLoader />,
-                'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onRevokeCertificate={handleRevokeCertificate} onNavigate={setMainView} /> : <FullPageLoader />,
+                'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} reportHistory={reportHistory || []} onUpdateReportStatus={handleUpdateReportStatus} onUpdateReportInsight={handleUpdateReportInsight} onDeleteReport={handleDeleteReport} onCreateCertificate={handleCreateCertificate} onNavigate={setMainView} onCreateRevisionRequest={handleCreateRevisionRequest} />,
+                'video-studio': activeWorkspaceId ? <VideoStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} onNavigate={setMainView} onUpdateReportInsight={handleUpdateReportInsight} /> : <FullPageLoader />,
+                'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules || []} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={setMainView} /> : <FullPageLoader />,
+                'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onNavigate={setMainView} /> : <FullPageLoader />,
                 'sandbox': <TestingSandbox onNavigate={setMainView} />,
-                'brief-studio': activeWorkspaceId ? <BriefStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules} onNavigate={setMainView} /> : <FullPageLoader />,
-                'analytics': activeWorkspaceId ? <Analytics reportHistory={reportHistory} /> : <FullPageLoader />,
+                'brief-studio': activeWorkspaceId ? <BriefStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} onNavigate={setMainView} /> : <FullPageLoader />,
+                'analytics': activeWorkspaceId ? <Analytics reportHistory={reportHistory || []} /> : <FullPageLoader />,
               }[mainView]
             }
           </SignedIn>

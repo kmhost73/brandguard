@@ -1,25 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import type { Certificate, MainView } from '../types';
+import React, { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import * as db from '../services/dbService';
+import type { MainView } from '../types';
 import { CertificateIcon, LinkIcon, TrashIcon } from './icons/Icons';
 
 interface CertificatesHubProps {
   activeWorkspaceId: string;
-  onRevokeCertificate: (workspaceId: string, certId: string) => void;
   onNavigate: (view: MainView) => void;
 }
 
-const CertificatesHub: React.FC<CertificatesHubProps> = ({ activeWorkspaceId, onRevokeCertificate, onNavigate }) => {
-    const [certificates, setCertificates] = useState<Certificate[]>([]);
+const CertificatesHub: React.FC<CertificatesHubProps> = ({ activeWorkspaceId, onNavigate }) => {
     const [copiedId, setCopiedId] = useState<string | null>(null);
-
-    useEffect(() => {
-        const certsJson = localStorage.getItem(`brandGuardCertificates_${activeWorkspaceId}`);
-        setCertificates(certsJson ? JSON.parse(certsJson) : []);
-    }, [activeWorkspaceId]);
+    const certificates = useLiveQuery(() => db.getCertificatesForWorkspace(activeWorkspaceId), [activeWorkspaceId], []);
 
     const handleRevoke = (certId: string) => {
-        onRevokeCertificate(activeWorkspaceId, certId);
-        setCertificates(prev => prev.filter(c => c.id !== certId));
+        db.deleteCertificate(certId);
     };
 
     const handleCopy = (certId: string) => {

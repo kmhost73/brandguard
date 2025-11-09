@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { transcribeVideo, analyzeVideoContent } from '../services/geminiService';
 import type { ComplianceReport, CustomRule, MainView, ReportStatus } from '../types';
+import * as db from '../services/dbService';
 import Loader from './Loader';
 import { VideoCameraIcon, SparklesIcon } from './icons/Icons';
 
@@ -9,12 +10,11 @@ const ReportCard = lazy(() => import('./ReportCard'));
 interface VideoStudioProps {
   activeWorkspaceId: string;
   customRules: CustomRule[];
-  reportHistory: ComplianceReport[];
-  onUpdateHistory: (history: ComplianceReport[]) => void;
   onNavigate: (view: MainView) => void;
+  onUpdateReportInsight: (reportId: string, insight: string) => void;
 }
 
-const VideoStudio: React.FC<VideoStudioProps> = ({ activeWorkspaceId, customRules, reportHistory, onUpdateHistory, onNavigate }) => {
+const VideoStudio: React.FC<VideoStudioProps> = ({ activeWorkspaceId, customRules, onNavigate, onUpdateReportInsight }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -51,24 +51,17 @@ const VideoStudio: React.FC<VideoStudioProps> = ({ activeWorkspaceId, customRule
     }
   };
 
-  const handleAnalysisCompletion = useCallback((newReport: Omit<ComplianceReport, 'workspaceId'>) => {
-    const reportWithWorkspace = { ...newReport, workspaceId: activeWorkspaceId };
-    const reportWithInitialStatus = { ...reportWithWorkspace, status: newReport.recommendedStatus || 'pending' };
-    
-    const newHistory = [reportWithInitialStatus, ...reportHistory];
-    onUpdateHistory(newHistory);
-    return reportWithInitialStatus;
-    
-  }, [activeWorkspaceId, onUpdateHistory, reportHistory]);
+  const handleAnalysisCompletion = useCallback(async (newReport: Omit<ComplianceReport, 'workspaceId' | 'sourceMedia'>) => {
+    // We don't save the large video data to the database, only the analysis results.
+    const reportToSave: ComplianceReport = {
+        ...newReport,
+        workspaceId: activeWorkspaceId,
+        status: newReport.recommendedStatus || 'pending',
+    };
+    await db.addReport(reportToSave);
+    return reportToSave;
+  }, [activeWorkspaceId]);
 
-  const handleInsightReceived = useCallback((insight: string, reportId: string) => {
-      const newHistory = reportHistory.map(r => r.id === reportId ? {...r, strategicInsight: insight} : r);
-      onUpdateHistory(newHistory);
-      setReport(currentReport => {
-        if (!currentReport || currentReport.id !== reportId) return currentReport;
-        return { ...currentReport, strategicInsight: insight };
-      });
-  }, [onUpdateHistory, reportHistory]);
 
   const handleAnalyze = async () => {
     if (!selectedFile) return;
@@ -84,10 +77,15 @@ const VideoStudio: React.FC<VideoStudioProps> = ({ activeWorkspaceId, customRule
       setTranscript(transcriptResult);
       
       setLoadingText('Analyzing Video & Audio...');
-      const analysisResult = await analyzeVideoContent(transcriptResult, '', selectedFile, customRules, (insight) => handleInsightReceived(insight, analysisResult.id));
+      const analysisResult = await analyzeVideoContent(transcriptResult, '', selectedFile, customRules, (insight) => onUpdateReportInsight(analysisResult.id, insight));
       
-      const finalReport = handleAnalysisCompletion(analysisResult);
-      setReport(finalReport);
+      const { sourceMedia, ...reportWithoutMedia } = analysisResult; // Exclude media before saving
+      const finalReportInDb = await handleAnalysisCompletion(reportWithoutMedia);
+      
+      // The report displayed in the UI can still have the media for immediate viewing
+      const displayReport = { ...finalReportInDb, sourceMedia };
+      setReport(displayReport);
+
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred during video processing.");
     } finally {
@@ -97,9 +95,7 @@ const VideoStudio: React.FC<VideoStudioProps> = ({ activeWorkspaceId, customRule
   };
   
   const handleStatusChange = (reportId: string, newStatus: ReportStatus) => {
-    const updatedHistory = reportHistory.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
-    onUpdateHistory(updatedHistory);
-
+    db.updateReport(reportId, { status: newStatus });
     if (report?.id === reportId) {
         setReport(prev => prev ? { ...prev, status: newStatus } : null);
     }

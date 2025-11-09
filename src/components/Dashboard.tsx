@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
-import type { ComplianceReport, CustomRule, ReportStatus, MainView, DashboardView, QueueItem, RevisionRequest } from '../types';
+import type { ComplianceReport, CustomRule, ReportStatus, MainView, DashboardView, QueueItem } from '../types';
+import * as db from '../services/dbService';
 import Loader from './Loader';
 import WelcomeGuide from './WelcomeGuide';
-import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon, XIcon, PhotoIcon, VideoCameraIcon, ShareIcon } from './icons/Icons';
+import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon, XIcon, PhotoIcon, VideoCameraIcon } from './icons/Icons';
 import CertificatePDF from './CertificatePDF';
 import GreenlightQueue from './GreenlightQueue';
 import OnboardingTour from './OnboardingTour';
@@ -15,11 +16,12 @@ const ImageStudio = lazy(() => import('./ImageStudio'));
 interface DashboardProps {
   activeWorkspaceId: string;
   customRules: CustomRule[];
+  reportHistory: ComplianceReport[];
   onNavigate: (view: MainView) => void;
   onCreateCertificate: (report: ComplianceReport) => string;
-  reportHistory: ComplianceReport[];
-  onUpdateHistory: (history: ComplianceReport[]) => void;
-  revisionRequests: RevisionRequest[];
+  onUpdateReportStatus: (reportId: string, newStatus: ReportStatus) => void;
+  onUpdateReportInsight: (reportId: string, insight: string) => void;
+  onDeleteReport: (reportId: string) => void;
   onCreateRevisionRequest: (report: ComplianceReport) => string;
 }
 
@@ -36,7 +38,7 @@ const base64StringToFile = (base64String: string, filename: string, mimeType: st
 };
 
 
-const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, onNavigate, onCreateCertificate, reportHistory, onUpdateHistory, revisionRequests, onCreateRevisionRequest }) => {
+const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, reportHistory, onNavigate, onCreateCertificate, onUpdateReportStatus, onUpdateReportInsight, onDeleteReport, onCreateRevisionRequest }) => {
   const [activeView, setActiveView] = useState<DashboardView>('text');
   const [batchMode, setBatchMode] = useState(false);
   const [imageSourceMode, setImageSourceMode] = useState<'upload' | 'generate'>('upload');
@@ -74,13 +76,12 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     let root: ReactDOM.Root | null = null;
 
     try {
-        // Dynamically import heavy PDF libraries only when needed
         const { default: jsPDF } = await import('jspdf');
         const { default: html2canvas } = await import('html2canvas');
 
         container.style.position = 'fixed';
         container.style.left = '-9999px';
-        container.style.width = '827px'; // A4 width at 96 DPI
+        container.style.width = '827px'; 
         document.body.appendChild(container);
 
         root = ReactDOM.createRoot(container);
@@ -89,46 +90,28 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             root!.render(<CertificatePDF report={reportToDownload} onRendered={resolve} />);
         });
         
-        const canvas = await html2canvas(container, {
-            scale: 2,
-            useCORS: true,
-            backgroundColor: '#1A202C',
-        });
-
+        const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#1A202C' });
         const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({
-            orientation: 'p',
-            unit: 'px',
-            format: [canvas.width, canvas.height]
-        });
+        const pdf = new jsPDF({ orientation: 'p', unit: 'px', format: [canvas.width, canvas.height] });
         pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-        
-        const fileName = `BrandGuard-Certificate-${reportToDownload.id.slice(0, 8)}.pdf`;
-        pdf.save(fileName);
+        pdf.save(`BrandGuard-Certificate-${reportToDownload.id.slice(0, 8)}.pdf`);
 
     } catch (err) {
         console.error("Error generating PDF:", err);
-        setError("Could not generate PDF certificate. There might be an issue with rendering the content.");
+        setError("Could not generate PDF certificate.");
     } finally {
-        if (root) {
-            root.unmount();
-        }
-        if (container.parentNode) {
-            container.parentNode.removeChild(container);
-        }
+        if (root) root.unmount();
+        if (container.parentNode) container.parentNode.removeChild(container);
         setIsGeneratingPdf(false);
     }
   };
   
   useEffect(() => {
-    setReport(null); // Clear active report when switching workspace
+    setReport(null);
     setQueue([]);
     setBatchMode(false);
-    
     const onboardingComplete = localStorage.getItem('brandGuardOnboardingComplete');
-    if (!onboardingComplete) {
-        setShowOnboarding(true);
-    }
+    if (!onboardingComplete) setShowOnboarding(true);
   }, [activeWorkspaceId]);
   
   const handleOnboardingComplete = () => {
@@ -146,30 +129,17 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     if (report && report.id === newReportId) {
       reportCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       setOpenCampaign(report.campaignName || 'General Scans');
-      const timer = setTimeout(() => {
-        setNewReportId(null);
-      }, 2000); 
+      const timer = setTimeout(() => setNewReportId(null), 2000); 
       return () => clearTimeout(timer);
     }
   }, [report, newReportId]);
   
-  const handleAnalysisCompletion = useCallback((newReport: Omit<ComplianceReport, 'workspaceId'>) => {
+  const handleAnalysisCompletion = useCallback(async (newReport: Omit<ComplianceReport, 'workspaceId'>) => {
     const reportWithWorkspace = { ...newReport, workspaceId: activeWorkspaceId };
     const reportWithInitialStatus = { ...reportWithWorkspace, status: newReport.recommendedStatus || 'pending' };
-    
-    onUpdateHistory([reportWithInitialStatus, ...reportHistory]);
-
+    await db.addReport(reportWithInitialStatus);
     return reportWithInitialStatus;
-    
-  }, [activeWorkspaceId, onUpdateHistory, reportHistory]);
-
-  const handleInsightReceived = useCallback((insight: string, reportId: string) => {
-      onUpdateHistory(reportHistory.map(r => r.id === reportId ? {...r, strategicInsight: insight} : r));
-      setReport(currentReport => {
-        if (!currentReport || currentReport.id !== reportId) return currentReport;
-        return { ...currentReport, strategicInsight: insight };
-      });
-  }, [onUpdateHistory, reportHistory]);
+  }, [activeWorkspaceId]);
 
   const handleImageGenerated = (base64Data: string, mimeType: string) => {
     const filename = `generated-image-${Date.now()}.png`;
@@ -190,8 +160,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             setVideoTranscript(transcript);
 
             setLoadingText('Analyzing Video...');
-            const result = await analyzeVideoContent(transcript, campaignName, file, customRules, (insight) => handleInsightReceived(insight, result.id));
-            const finalReport = handleAnalysisCompletion(result);
+            const result = await analyzeVideoContent(transcript, campaignName, file, customRules, (insight) => onUpdateReportInsight(result.id, insight));
+            const finalReport = await handleAnalysisCompletion(result);
             setReport(finalReport);
             setNewReportId(finalReport.id);
         } catch (err) {
@@ -200,7 +170,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             setIsLoading(false);
         }
     }
-  }, [customRules, handleAnalysisCompletion, handleInsightReceived, campaignName]);
+  }, [customRules, handleAnalysisCompletion, onUpdateReportInsight, campaignName]);
   
   const processQueue = useCallback(async () => {
     if (isProcessingQueue.current || queue.every(item => item.status !== 'Queued')) {
@@ -213,13 +183,13 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
             setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'Running' } : q));
             try {
                 let result;
-                if (item.content) { // Batch Text
-                    result = await analyzePostContent(item.content, campaignName, customRules, false, (insight) => handleInsightReceived(insight, result.id));
-                } else if (item.file) { // Batch Image
-                    result = await analyzeImageContent(postContent, campaignName, item.file, customRules, (insight) => handleInsightReceived(insight, result.id));
+                if (item.content) { 
+                    result = await analyzePostContent(item.content, campaignName, customRules, false, (insight) => onUpdateReportInsight(result.id, insight));
+                } else if (item.file) { 
+                    result = await analyzeImageContent(postContent, campaignName, item.file, customRules, (insight) => onUpdateReportInsight(result.id, insight));
                 }
                  if (result) {
-                    const finalReport = handleAnalysisCompletion(result);
+                    const finalReport = await handleAnalysisCompletion(result);
                     setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'Complete', result: finalReport } : q));
                 } else {
                     throw new Error("Analysis returned no result.");
@@ -231,7 +201,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
         }
     }
     isProcessingQueue.current = false;
-  }, [queue, campaignName, customRules, postContent, handleAnalysisCompletion, handleInsightReceived]);
+  }, [queue, campaignName, customRules, postContent, handleAnalysisCompletion, onUpdateReportInsight]);
 
   useEffect(() => {
     processQueue();
@@ -269,40 +239,27 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
 
       if (activeView === 'text') {
         if (!contentToScan.trim()) throw new Error("Please enter post content to analyze.");
-        result = await analyzePostContent(contentToScan, campaignToScan, customRules, isRescan, (insight) => handleInsightReceived(insight, result.id));
+        result = await analyzePostContent(contentToScan, campaignToScan, customRules, isRescan, (insight) => onUpdateReportInsight(result.id, insight));
       } else if (activeView === 'video') {
-         if (fileInputRef.current) {
-            fileInputRef.current.click();
-         }
+         if (fileInputRef.current) fileInputRef.current.click();
          return;
       } else if (activeView === 'image') {
         if (!contentToScan.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
         setLoadingText('Analyzing Image...');
-        result = await analyzeImageContent(contentToScan, campaignName, selectedImageFile, customRules, (insight) => handleInsightReceived(insight, result.id));
+        result = await analyzeImageContent(contentToScan, campaignName, selectedImageFile, customRules, (insight) => onUpdateReportInsight(result.id, insight));
       }
       
       if(result) {
-        const finalReport = handleAnalysisCompletion(result);
+        const finalReport = await handleAnalysisCompletion(result);
         setReport(finalReport);
         setNewReportId(finalReport.id);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred.");
     } finally {
-       if (activeView !== 'video') {
-        setIsLoading(false);
-      }
+       if (activeView !== 'video') setIsLoading(false);
     }
-  }, [activeView, postContent, campaignName, selectedImageFile, customRules, handleAnalysisCompletion, handleInsightReceived, batchMode]);
-  
-  const handleStatusChange = (reportId: string, newStatus: ReportStatus) => {
-    const updatedHistory = reportHistory.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
-    onUpdateHistory(updatedHistory);
-
-    if (report?.id === reportId) {
-        setReport(prev => prev ? { ...prev, status: newStatus } : null);
-    }
-  };
+  }, [activeView, postContent, campaignName, selectedImageFile, customRules, handleAnalysisCompletion, onUpdateReportInsight, batchMode]);
   
   const handleAcceptRevision = (revisedContent: string) => {
       setPostContent(revisedContent);
@@ -340,14 +297,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     setReport(historicReport);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-  const deleteReport = (reportId: string) => {
-    setActiveActionMenu(null);
-    const newHistory = reportHistory.filter(r => r.id !== reportId);
-    onUpdateHistory(newHistory);
-    if (report?.id === reportId) {
-      setReport(null);
-    }
-  };
   
   const handleShareReport = (reportToShare: ComplianceReport) => {
     setActiveActionMenu(null);
@@ -356,7 +305,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     setTimeout(() => setShareConfirmation(''), 2000);
   };
 
-  const handleCreateRevisionRequest = (reportToShare: ComplianceReport) => {
+  const handleCreateRevisionRequestLocal = (reportToShare: ComplianceReport) => {
     setActiveActionMenu(null);
     const confirmation = onCreateRevisionRequest(reportToShare);
     setRevisionConfirmation(confirmation);
@@ -374,7 +323,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
       if (isLoading || isGeneratingPdf) return true;
       if (batchMode) {
         if (activeView === 'text' && !postContent.trim()) return true;
-        if (activeView === 'image' && !postContent.trim()) return true; // Caption is required for batch image
+        if (activeView === 'image' && !postContent.trim()) return true; 
       } else {
         if (activeView === 'text' && !postContent.trim()) return true;
         if (activeView === 'image' && (!postContent.trim() || !selectedImageFile)) return true;
@@ -424,9 +373,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     const groups: Record<string, ComplianceReport[]> = {};
     filteredHistory.forEach(report => {
         const key = report.campaignName || 'General Scans';
-        if (!groups[key]) {
-            groups[key] = [];
-        }
+        if (!groups[key]) groups[key] = [];
         groups[key].push(report);
     });
     return Object.entries(groups).sort(([, reportsA], [, reportsB]) => {
@@ -485,7 +432,6 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                {queue.length > 0 && <GreenlightQueue queue={queue} setQueue={setQueue} onClear={() => setQueue([])} onViewReport={viewHistoricReport} />}
              </div>
           ) : (
-            // REGULAR SINGLE-SCAN VIEW
             <div className="space-y-4">
                {activeView !== 'video' && <textarea ref={textareaRef} value={postContent} onChange={(e) => setPostContent(e.target.value)} onKeyDown={(e) => { if (activeView === 'text' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (!isScanDisabled()) { handleScan({ isQuickScan: true }); } } }} placeholder={activeView === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
                
@@ -516,9 +462,7 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                               <input id="image-upload" type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLoading}/>
                            </div>
                         ) : (
-                          <Suspense fallback={<Loader />}>
-                            <ImageStudio onImageGenerated={handleImageGenerated} />
-                          </Suspense>
+                          <Suspense fallback={<Loader />}><ImageStudio onImageGenerated={handleImageGenerated} /></Suspense>
                         )}
                       </div>
                     )}
@@ -537,9 +481,7 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
 
                       <div className="bg-dark p-3 rounded-md border border-gray-600 min-h-[100px]">
                           <p className="text-sm font-medium text-gray-400">Generated Transcript:</p>
-                          {loadingText === 'Transcribing...'
-                              ? <Loader text="Transcribing video..." />
-                              : <p className="text-gray-300 whitespace-pre-wrap text-sm mt-2">{videoTranscript || "Transcript will appear here after video processing."}</p>}
+                          {loadingText === 'Transcribing...' ? <Loader text="Transcribing video..." /> : <p className="text-gray-300 whitespace-pre-wrap text-sm mt-2">{videoTranscript || "Transcript will appear here after video processing."}</p>}
                       </div>
                    </div>
                )}
@@ -550,9 +492,7 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                    {campaignSuggestions.length > 0 && (
                       <div className="absolute z-10 w-full mt-1 bg-dark border border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
                           {campaignSuggestions.map(suggestion => (
-                              <button key={suggestion} onClick={() => selectCampaign(suggestion)} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700">
-                                  {suggestion}
-                              </button>
+                              <button key={suggestion} onClick={() => selectCampaign(suggestion)} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700">{suggestion}</button>
                           ))}
                       </div>
                   )}
@@ -578,29 +518,16 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-gray-300">
       {showOnboarding && <OnboardingTour onComplete={handleOnboardingComplete} />}
       <div className="flex justify-between items-center mb-4">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Compliance Dashboard
-          </h1>
-          <p className="text-gray-400">
-            Analyze content against FTC guidelines, brand safety, and your own custom rules.
-          </p>
-        </div>
+        <div><h1 className="text-3xl font-bold text-white mb-2">Compliance Dashboard</h1><p className="text-gray-400">Analyze content against FTC guidelines, brand safety, and your own custom rules.</p></div>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div ref={reportCardRef} className="lg:col-span-2 space-y-6">
-              
               {report && !isLoading ? (
                 <Suspense fallback={<div className="w-full min-h-[400px] flex items-center justify-center"><Loader /></div>}>
-                  <ReportCard report={report} onStatusChange={handleStatusChange} onAcceptRevision={handleAcceptRevision} onDownloadPdf={handleDownloadPdf} isGeneratingPdf={isGeneratingPdf} onAcceptImageRevision={handleAcceptImageRevision} />
+                  <ReportCard report={report} onStatusChange={onUpdateReportStatus} onAcceptRevision={handleAcceptRevision} onDownloadPdf={handleDownloadPdf} isGeneratingPdf={isGeneratingPdf} onAcceptImageRevision={handleAcceptImageRevision} />
                 </Suspense>
-              ) : (
-                <>
-                  {showWelcomeGuide && <WelcomeGuide onStartExample={handleStartExample} />}
-                  {renderActiveView()}
-                </>
-              )}
+              ) : (<>{showWelcomeGuide && <WelcomeGuide onStartExample={handleStartExample} />}{renderActiveView()}</>)}
                {error && <div className="mt-4 bg-red-900/50 border border-danger text-red-300 px-4 py-3 rounded-lg" role="alert"><p className="font-bold">Error</p><p>{error}</p></div>}
           </div>
           
@@ -609,17 +536,11 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
               <div className="flex justify-between items-center mb-4">
                   <span className="text-sm text-gray-400">Filter by status:</span>
                   <div className="flex space-x-1 p-1 bg-dark rounded-md">
-                       <button onClick={() => setHistoryFilter('all')} className={`px-2 py-1 text-xs rounded ${historyFilter === 'all' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-gray-700'}`}>
-                           All ({getStatusCount('all')})
-                      </button>
+                       <button onClick={() => setHistoryFilter('all')} className={`px-2 py-1 text-xs rounded ${historyFilter === 'all' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-gray-700'}`}>All ({getStatusCount('all')})</button>
                       {(Object.keys(statusDisplayConfig) as ReportStatus[]).map(status => {
                           const count = getStatusCount(status);
                           if (count === 0) return null;
-                          return (
-                              <button key={status} onClick={() => setHistoryFilter(status)} className={`px-2 py-1 text-xs rounded ${historyFilter === status ? `${statusDisplayConfig[status].color} !text-white` : statusDisplayConfig[status].filterColor}`}>
-                                  {statusDisplayConfig[status].tag} ({count})
-                              </button>
-                          )
+                          return (<button key={status} onClick={() => setHistoryFilter(status)} className={`px-2 py-1 text-xs rounded ${historyFilter === status ? `${statusDisplayConfig[status].color} !text-white` : statusDisplayConfig[status].filterColor}`}>{statusDisplayConfig[status].tag} ({count})</button>)
                       })}
                   </div>
               </div>
@@ -647,16 +568,14 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                                                 <div className="flex items-center gap-2 flex-shrink-0">
                                                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusDisplayConfig[r.status || 'pending'].color}`}>{statusDisplayConfig[r.status || 'pending'].tag}</span>
                                                     <div className="relative">
-                                                        <button onClick={() => setActiveActionMenu(activeActionMenu === r.id ? null : r.id)} className="text-gray-500 hover:text-white transition-colors">
-                                                            <EllipsisHorizontalIcon />
-                                                        </button>
+                                                        <button onClick={() => setActiveActionMenu(activeActionMenu === r.id ? null : r.id)} className="text-gray-500 hover:text-white transition-colors"><EllipsisHorizontalIcon /></button>
                                                         {activeActionMenu === r.id && (
                                                             <div className="absolute right-0 mt-2 w-48 bg-dark border border-gray-700 rounded-md shadow-lg z-10 animate-fade-in">
                                                                 <button onClick={() => viewHistoricReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">View Report</button>
                                                                 <button onClick={() => handleDownloadPdf(r)} disabled={isGeneratingPdf} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 disabled:opacity-50">{isGeneratingPdf && activeActionMenu === r.id ? 'Generating...' : 'Download Certificate'}</button>
                                                                 <button onClick={() => handleShareReport(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">{shareConfirmation && activeActionMenu === r.id ? shareConfirmation : 'Share Certificate'}</button>
-                                                                <button onClick={() => handleCreateRevisionRequest(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 disabled:opacity-50">{revisionConfirmation && activeActionMenu === r.id ? revisionConfirmation : 'Request Revision'}</button>
-                                                                <button onClick={() => deleteReport(r.id)} className="block w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger/20">Delete Report</button>
+                                                                <button onClick={() => handleCreateRevisionRequestLocal(r)} className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 disabled:opacity-50">{revisionConfirmation && activeActionMenu === r.id ? revisionConfirmation : 'Request Revision'}</button>
+                                                                <button onClick={() => onDeleteReport(r.id)} className="block w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger/20">Delete Report</button>
                                                             </div>
                                                         )}
                                                     </div>
