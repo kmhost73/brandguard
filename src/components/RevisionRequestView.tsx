@@ -93,11 +93,14 @@ const RevisionRequestView: React.FC<{ report: ComplianceReport | 'invalid' }> = 
                             </div>
                         )}
                         {report.sourceMedia?.mimeType.startsWith('video/') && (
-                            <div className="mb-4 p-6 bg-dark rounded-lg border border-gray-700 flex flex-col items-center justify-center h-48">
-                                <div className="w-16 h-16 text-gray-500">
-                                    <FilmIcon />
-                                </div>
-                                <p className="text-gray-400 font-medium mt-2">Video Content</p>
+                            <div className="mb-4 p-4 bg-dark rounded-lg border border-gray-700 flex justify-center">
+                                <video
+                                    src={`data:${report.sourceMedia.mimeType};base64,${report.sourceMedia.data}`}
+                                    controls
+                                    className="max-h-72 rounded-lg shadow-md w-full"
+                                >
+                                    Your browser does not support the video tag.
+                                </video>
                             </div>
                         )}
                         <div className="bg-dark p-4 rounded-lg border border-gray-700">

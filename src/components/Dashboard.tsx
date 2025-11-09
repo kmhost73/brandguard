@@ -5,10 +5,9 @@ import type { ComplianceReport, CustomRule, ReportStatus, MainView, DashboardVie
 import Loader from './Loader';
 import WelcomeGuide from './WelcomeGuide';
 import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon, XIcon, PhotoIcon, VideoCameraIcon, ShareIcon } from './icons/Icons';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import CertificatePDF from './CertificatePDF';
 import GreenlightQueue from './GreenlightQueue';
+import OnboardingTour from './OnboardingTour';
 
 const ReportCard = lazy(() => import('./ReportCard'));
 const ImageStudio = lazy(() => import('./ImageStudio'));
@@ -59,6 +58,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   const [openCampaign, setOpenCampaign] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   
   const reportCardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -74,6 +74,10 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     let root: ReactDOM.Root | null = null;
 
     try {
+        // Dynamically import heavy PDF libraries only when needed
+        const { default: jsPDF } = await import('jspdf');
+        const { default: html2canvas } = await import('html2canvas');
+
         container.style.position = 'fixed';
         container.style.left = '-9999px';
         container.style.width = '827px'; // A4 width at 96 DPI
@@ -120,7 +124,17 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
     setReport(null); // Clear active report when switching workspace
     setQueue([]);
     setBatchMode(false);
+    
+    const onboardingComplete = localStorage.getItem('brandGuardOnboardingComplete');
+    if (!onboardingComplete) {
+        setShowOnboarding(true);
+    }
   }, [activeWorkspaceId]);
+  
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('brandGuardOnboardingComplete', 'true');
+    setShowOnboarding(false);
+  };
 
   useEffect(() => {
     if (!report && activeView === 'text' && textareaRef.current && !batchMode) {
@@ -224,7 +238,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, o
   }, [queue, processQueue]);
 
 
-  const showWelcomeGuide = !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && !isLoading && queue.length === 0;
+  const showWelcomeGuide = !report && !postContent.trim() && !selectedImageFile && !selectedVideoFile && !isLoading && queue.length === 0 && !showOnboarding;
   
   const handleStartExample = () => {
     setActiveView('text');
@@ -562,7 +576,7 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-gray-300">
-      
+      {showOnboarding && <OnboardingTour onComplete={handleOnboardingComplete} />}
       <div className="flex justify-between items-center mb-4">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">
