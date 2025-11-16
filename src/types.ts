@@ -128,3 +128,13 @@ export interface QueueItem {
     result?: ComplianceReport;
     error?: string;
 }
+
+export type FeedbackType = 'bug' | 'suggestion' | 'comment';
+
+export interface Feedback {
+  id: string;
+  workspaceId: string;
+  type: FeedbackType;
+  message: string;
+  timestamp: string;
+}

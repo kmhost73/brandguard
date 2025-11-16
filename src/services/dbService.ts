@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Workspace, CustomRule, ComplianceReport, Certificate, RevisionRequest } from '../types';
+import type { Workspace, CustomRule, ComplianceReport, Certificate, RevisionRequest, Feedback } from '../types';
 
 export class BrandGuardDB extends Dexie {
   workspaces!: Table<Workspace>;
@@ -7,9 +7,18 @@ export class BrandGuardDB extends Dexie {
   reports!: Table<ComplianceReport>;
   certificates!: Table<Certificate>;
   revisionRequests!: Table<RevisionRequest>;
+  feedback!: Table<Feedback>;
 
   constructor() {
     super('brandGuardDB');
+    this.version(2).stores({
+      workspaces: 'id, name',
+      customRules: '++id, workspaceId',
+      reports: '++id, workspaceId, timestamp, campaignName',
+      certificates: 'id, workspaceId, createdAt',
+      revisionRequests: 'id, workspaceId, createdAt',
+      feedback: '++id, workspaceId, type, timestamp',
+    });
     this.version(1).stores({
       workspaces: 'id, name',
       customRules: '++id, workspaceId',
@@ -27,12 +36,13 @@ export const getWorkspaces = () => db.workspaces.toArray();
 export const addWorkspace = (workspace: Workspace) => db.workspaces.add(workspace);
 export const updateWorkspace = (id: string, updates: Partial<Workspace>) => db.workspaces.update(id, updates);
 export const deleteWorkspaceAndData = (id: string) => {
-    return db.transaction('rw', [db.workspaces, db.customRules, db.reports, db.certificates, db.revisionRequests], async () => {
+    return db.transaction('rw', [db.workspaces, db.customRules, db.reports, db.certificates, db.revisionRequests, db.feedback], async () => {
         await db.workspaces.delete(id);
         await db.customRules.where({ workspaceId: id }).delete();
         await db.reports.where({ workspaceId: id }).delete();
         await db.certificates.where({ workspaceId: id }).delete();
         await db.revisionRequests.where({ workspaceId: id }).delete();
+        await db.feedback.where({ workspaceId: id }).delete();
     });
 };
 
@@ -59,6 +69,9 @@ export const deleteCertificate = (id: string) => db.certificates.delete(id);
 
 export const getRevisionRequestById = (id: string) => db.revisionRequests.get(id);
 export const addRevisionRequest = (request: RevisionRequest) => db.revisionRequests.add(request);
+
+export const addFeedback = (feedback: Omit<Feedback, 'id'>) => db.feedback.add({ ...feedback, id: crypto.randomUUID() });
+
 
 // One-time data migration from localStorage to IndexedDB
 export const migrateFromLocalStorage = async () => {

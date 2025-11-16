@@ -17,6 +17,7 @@ const TestingSandbox = lazy(() => import('./components/TestingSandbox'));
 const BriefStudio = lazy(() => import('./components/BriefStudio'));
 const Analytics = lazy(() => import('./components/Analytics'));
 const VideoStudio = lazy(() => import('./components/VideoStudio'));
+const FeedbackWidget = lazy(() => import('./components/FeedbackWidget'));
 
 
 const FullPageLoader: React.FC = () => (
@@ -204,6 +205,7 @@ const App: React.FC = () => {
                 'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onNavigate={setMainView} /> : <FullPageLoader />,
               }[mainView]
             }
+             <FeedbackWidget activeWorkspaceId={activeWorkspaceId} />
           </SignedIn>
           <SignedOut>
             <Hero />
