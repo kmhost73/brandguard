@@ -11,6 +11,14 @@ export class BrandGuardDB extends Dexie {
 
   constructor() {
     super('brandGuardDB');
+    this.version(3).stores({
+      workspaces: 'id, name',
+      customRules: '++id, workspaceId',
+      reports: '++id, workspaceId, timestamp, campaignName',
+      certificates: 'id, workspaceId, createdAt',
+      revisionRequests: 'id, workspaceId, createdAt, status',
+      feedback: '++id, workspaceId, type, timestamp',
+    });
     this.version(2).stores({
       workspaces: 'id, name',
       customRules: '++id, workspaceId',
@@ -69,6 +77,13 @@ export const deleteCertificate = (id: string) => db.certificates.delete(id);
 
 export const getRevisionRequestById = (id: string) => db.revisionRequests.get(id);
 export const addRevisionRequest = (request: RevisionRequest) => db.revisionRequests.add(request);
+export const submitRevision = (id: string, revisedContent: string) => {
+    return db.revisionRequests.update(id, {
+        revisedContent,
+        status: 'submitted'
+    });
+};
+
 
 export const addFeedback = (feedback: Omit<Feedback, 'id'>) => db.feedback.add({ ...feedback, id: crypto.randomUUID() });
 

@@ -29,7 +29,7 @@ const FullPageLoader: React.FC = () => (
 
 const App: React.FC = () => {
   const [sharedReport, setSharedReport] = useState<ComplianceReport | null | 'invalid'>(null);
-  const [sharedRevisionRequest, setSharedRevisionRequest] = useState<ComplianceReport | null | 'invalid'>(null);
+  const [sharedRevisionRequest, setSharedRevisionRequest] = useState<RevisionRequest | null | 'invalid'>(null);
   const { user, isLoaded } = useUser();
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<MainView>('dashboard');
@@ -129,7 +129,9 @@ const App: React.FC = () => {
       id: `rev_${crypto.randomUUID()}`,
       workspaceId: report.workspaceId,
       report: report,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      status: 'pending',
+      revisedContent: ''
     };
     await db.addRevisionRequest(newRequest);
     const url = `${window.location.origin}${window.location.pathname}?revId=${newRequest.id}`;
@@ -149,7 +151,7 @@ const App: React.FC = () => {
             window.history.replaceState({}, document.title, window.location.pathname);
         } else if (revId) {
             const foundReq = await db.getRevisionRequestById(revId);
-            setSharedRevisionRequest(foundReq ? foundReq.report : 'invalid');
+            setSharedRevisionRequest(foundReq ? foundReq : 'invalid');
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     };
@@ -174,7 +176,7 @@ const App: React.FC = () => {
   }
 
   if (sharedRevisionRequest) {
-    return <Suspense fallback={<FullPageLoader />}><RevisionRequestView report={sharedRevisionRequest} /></Suspense>;
+    return <Suspense fallback={<FullPageLoader />}><RevisionRequestView revisionRequest={sharedRevisionRequest} /></Suspense>;
   }
 
   if (isInitializing || !activeWorkspaceId || !workspaces) {

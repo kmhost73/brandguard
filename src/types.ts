@@ -116,6 +116,8 @@ export interface RevisionRequest {
   workspaceId: string;
   report: ComplianceReport;
   createdAt: string;
+  status: 'pending' | 'submitted' | 'approved';
+  revisedContent?: string;
 }
 
 export type QueueItemStatus = 'Queued' | 'Running' | 'Complete' | 'Error';
