@@ -5,26 +5,23 @@ import type { ComplianceReport, CustomRule, ReportStatus, MainView, DashboardVie
 import * as db from '../services/dbService';
 import Loader from './Loader';
 import WelcomeGuide from './WelcomeGuide';
-import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon, XIcon, PhotoIcon, VideoCameraIcon } from './icons/Icons';
+import { HistoryIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon, XIcon, PhotoIcon, VideoCameraIcon } from './icons/Icons';
 import CertificatePDF from './CertificatePDF';
 import GreenlightQueue from './GreenlightQueue';
 import OnboardingTour from './OnboardingTour';
 import Analytics from './Analytics';
 
 const ReportCard = lazy(() => import('./ReportCard'));
-const ImageStudio = lazy(() => import('./ImageStudio'));
 
 interface DashboardProps {
   activeWorkspaceId: string;
   customRules: CustomRule[];
   reportHistory: ComplianceReport[];
   onNavigate: (view: MainView) => void;
-  // FIX: Update prop type to accept async functions that return a Promise.
   onCreateCertificate: (report: ComplianceReport) => Promise<string>;
   onUpdateReportStatus: (reportId: string, newStatus: ReportStatus) => void;
   onUpdateReportInsight: (reportId: string, insight: string) => void;
   onDeleteReport: (reportId: string) => void;
-  // FIX: Update prop type to accept async functions that return a Promise.
   onCreateRevisionRequest: (report: ComplianceReport) => Promise<string>;
 }
 
@@ -44,7 +41,6 @@ const base64StringToFile = (base64String: string, filename: string, mimeType: st
 const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, reportHistory, onNavigate, onCreateCertificate, onUpdateReportStatus, onUpdateReportInsight, onDeleteReport, onCreateRevisionRequest }) => {
   const [activeView, setActiveView] = useState<DashboardView>('text');
   const [batchMode, setBatchMode] = useState(false);
-  const [imageSourceMode, setImageSourceMode] = useState<'upload' | 'generate'>('upload');
   const [postContent, setPostContent] = useState<string>('');
   const [campaignName, setCampaignName] = useState<string>('');
   const [campaignSuggestions, setCampaignSuggestions] = useState<string[]>([]);
@@ -115,6 +111,21 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
     setBatchMode(false);
     const onboardingComplete = localStorage.getItem('brandGuardOnboardingComplete');
     if (!onboardingComplete) setShowOnboarding(true);
+
+    const pendingImageJson = localStorage.getItem('brandguard_pending_image');
+    if (pendingImageJson) {
+        localStorage.removeItem('brandguard_pending_image');
+        try {
+            const { data, name } = JSON.parse(pendingImageJson);
+            const file = base64StringToFile(data, name, 'image/png');
+            setActiveView('image');
+            setSelectedImageFile(file);
+            setPostContent("Caption for the generated image:");
+            textareaRef.current?.focus();
+        } catch (e) {
+            console.error("Failed to parse pending image from Image Studio", e);
+        }
+    }
   }, [activeWorkspaceId]);
   
   const handleOnboardingComplete = () => {
@@ -143,12 +154,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
     await db.addReport(reportWithInitialStatus);
     return reportWithInitialStatus;
   }, [activeWorkspaceId]);
-
-  const handleImageGenerated = (base64Data: string, mimeType: string) => {
-    const filename = `generated-image-${Date.now()}.png`;
-    const file = base64StringToFile(base64Data, filename, mimeType);
-    setSelectedImageFile(file);
-  };
 
   const handleVideoUpload = useCallback(async (file: File | null) => {
     if (file) {
@@ -301,7 +306,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
-  // FIX: Make the function async to await the promise from onCreateCertificate.
   const handleShareReport = async (reportToShare: ComplianceReport) => {
     setActiveActionMenu(null);
     const confirmation = await onCreateCertificate(reportToShare);
@@ -309,7 +313,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
     setTimeout(() => setShareConfirmation(''), 2000);
   };
 
-  // FIX: Make the function async to await the promise from onCreateRevisionRequest.
   const handleCreateRevisionRequestLocal = async (reportToShare: ComplianceReport) => {
     setActiveActionMenu(null);
     const confirmation = await onCreateRevisionRequest(reportToShare);
@@ -457,18 +460,9 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                       </div>
                     ) : (
                       <div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-                            <button onClick={() => setImageSourceMode('upload')} className={`p-3 rounded-md border-2 ${imageSourceMode === 'upload' ? 'border-primary bg-primary/10' : 'border-gray-600 bg-dark hover:bg-gray-800'}`}>Upload an Image</button>
-                            <button onClick={() => setImageSourceMode('generate')} className={`p-3 rounded-md border-2 ${imageSourceMode === 'generate' ? 'border-primary bg-primary/10' : 'border-gray-600 bg-dark hover:bg-gray-800'}`}>Generate an Image</button>
-                        </div>
-                        {imageSourceMode === 'upload' ? (
-                           <div>
-                              <label htmlFor="image-upload" className="block text-sm font-medium text-gray-400 mb-2">Upload Image</label>
-                              <input id="image-upload" type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLoading}/>
-                           </div>
-                        ) : (
-                          <Suspense fallback={<Loader />}><ImageStudio onImageGenerated={handleImageGenerated} /></Suspense>
-                        )}
+                        <label htmlFor="image-upload" className="block text-sm font-medium text-gray-400 mb-2">Upload Image</label>
+                        <input id="image-upload" type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLoading}/>
+                        <p className="text-xs text-center text-gray-500 mt-2">or generate an image in the <button onClick={() => onNavigate('image-studio')} className="font-semibold text-primary-light hover:underline">Image Studio</button>.</p>
                       </div>
                     )}
                   </div>

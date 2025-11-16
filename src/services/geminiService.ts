@@ -1,5 +1,4 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-// FIX: Add GreenlightBrief to type imports for the new feature.
 import type { ComplianceReport, CustomRule, CheckItem, GreenlightBrief } from '../types';
 
 // FIX: Workaround for TypeScript errors when accessing Vite environment variables.
@@ -139,7 +138,6 @@ const ruleArchitectSchema = {
     required: ["description", "positiveExample", "negativeExample"]
 };
 
-// FIX: Add a schema for the Greenlight Brief feature.
 const greenlightBriefSchema = {
     type: Type.OBJECT,
     properties: {
@@ -214,6 +212,33 @@ const generateStrategicInsight = async (report: Omit<ComplianceReport, 'workspac
     }
 };
 
+export const generateImage = async (prompt: string): Promise<string[]> => {
+    if (!ai) throw new Error("VITE_GEMINI_API_KEY is not configured.");
+
+    try {
+        const response = await ai.models.generateImages({
+            model: 'imagen-4.0-generate-001',
+            prompt: prompt,
+            config: {
+              numberOfImages: 1,
+              outputMimeType: 'image/png',
+              aspectRatio: '1:1',
+            },
+        });
+    
+        return response.generatedImages.map(img => img.image.imageBytes);
+    } catch(e: any) {
+        console.error("Error generating image:", e);
+        if (e.message && e.message.toLowerCase().includes('safety')) {
+            throw new Error("The request was blocked due to the content safety policy. Please modify your prompt and try again.");
+       }
+       if (e.message && e.message.includes('API key not valid')) {
+            throw new Error("The configured API Key is invalid. Please check your configuration.");
+        }
+       throw new Error("An unexpected error occurred while generating the image. Check the console for details.");
+    }
+};
+
 export const editImage = async (base64ImageData: string, mimeType: string, prompt: string): Promise<string | null> => {
     if (!ai) throw new Error("VITE_GEMINI_API_KEY is not configured.");
 
@@ -281,7 +306,6 @@ export const architectRule = async (intent: string): Promise<Omit<CustomRule, 'i
     }
 };
 
-// FIX: Add generateGreenlightBrief function to support the Brief Studio feature.
 export const generateGreenlightBrief = async (
     inputs: { product: string; message: string; audience: string },
     customRules?: CustomRule[]
@@ -316,35 +340,6 @@ export const generateGreenlightBrief = async (
     } catch (e) {
         console.error("Failed to parse JSON for Greenlight Brief:", response.text);
         throw new Error("The engine could not generate a brief from the provided inputs. Please try rephrasing them.");
-    }
-};
-
-// FIX: Added the generateImage function to enable image generation capabilities in the Image Studio.
-// This function calls the Gemini API to generate an image from a text prompt.
-export const generateImage = async (prompt: string): Promise<string[]> => {
-    if (!ai) throw new Error("VITE_GEMINI_API_KEY is not configured.");
-
-    try {
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
-            prompt: prompt,
-            config: {
-              numberOfImages: 1,
-              outputMimeType: 'image/png',
-              aspectRatio: '1:1',
-            },
-        });
-    
-        return response.generatedImages.map(img => img.image.imageBytes);
-    } catch(e: any) {
-        console.error("Error generating image:", e);
-        if (e.message && e.message.toLowerCase().includes('safety')) {
-            throw new Error("The request was blocked due to the content safety policy. Please modify your prompt and try again.");
-       }
-       if (e.message && e.message.includes('API key not valid')) {
-            throw new Error("The configured API Key is invalid. Please check your configuration.");
-        }
-       throw new Error("An unexpected error occurred while generating the image. Check the console for details.");
     }
 };
 

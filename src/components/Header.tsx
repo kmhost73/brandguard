@@ -48,6 +48,9 @@ const Header: React.FC<Partial<HeaderProps>> = ({
               <button onClick={() => onNavigate && onNavigate('brief-studio')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
                 Brief Studio
               </button>
+              <button onClick={() => onNavigate && onNavigate('image-studio')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
+                Image Studio
+              </button>
               <button onClick={() => onNavigate && onNavigate('video-studio')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
                 Video Studio
               </button>
