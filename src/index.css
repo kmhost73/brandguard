@@ -17,3 +17,75 @@
 .highlight-new {
   animation: highlight-fade 2s ease-out forwards;
 }
+
+/* Onboarding Tour Styles */
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(26, 32, 44, 0.8); /* dark with opacity */
+  z-index: 9990;
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.tour-highlight {
+  position: relative;
+  z-index: 9991;
+  box-shadow: 0 0 0 4px rgba(56, 178, 172, 0.7), 0 0 15px rgba(56, 178, 172, 0.5);
+  border-radius: 0.5rem; /* 8px */
+  transition: box-shadow 0.3s ease-in-out;
+}
+
+.tour-tooltip {
+  position: fixed;
+  background-color: #2D3748; /* secondary.dark */
+  color: #F7FAFC; /* light */
+  padding: 1rem 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid #4A5568; /* secondary */
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+  z-index: 9992;
+  max-width: 340px;
+  min-width: 280px;
+  transition: all 0.3s ease-in-out;
+  transform-origin: center;
+}
+
+.tour-tooltip-arrow {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-color: transparent;
+}
+
+.tour-tooltip-arrow.top {
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 0 8px 8px 8px;
+    border-bottom-color: #4A5568; /* secondary */
+}
+
+.tour-tooltip-arrow.bottom {
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 8px 8px 0 8px;
+    border-top-color: #4A5568; /* secondary */
+}
+
+.tour-tooltip-arrow.left {
+    right: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    border-width: 8px 8px 8px 0;
+    border-right-color: #4A5568; /* secondary */
+}
+
+.tour-tooltip-arrow.right {
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    border-width: 8px 0 8px 8px;
+    border-left-color: #4A5568; /* secondary */
+}

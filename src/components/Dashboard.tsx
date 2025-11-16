@@ -9,6 +9,7 @@ import { HistoryIcon, FilmIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownI
 import CertificatePDF from './CertificatePDF';
 import GreenlightQueue from './GreenlightQueue';
 import OnboardingTour from './OnboardingTour';
+import Analytics from './Analytics';
 
 const ReportCard = lazy(() => import('./ReportCard'));
 const ImageStudio = lazy(() => import('./ImageStudio'));
@@ -18,11 +19,13 @@ interface DashboardProps {
   customRules: CustomRule[];
   reportHistory: ComplianceReport[];
   onNavigate: (view: MainView) => void;
-  onCreateCertificate: (report: ComplianceReport) => string;
+  // FIX: Update prop type to accept async functions that return a Promise.
+  onCreateCertificate: (report: ComplianceReport) => Promise<string>;
   onUpdateReportStatus: (reportId: string, newStatus: ReportStatus) => void;
   onUpdateReportInsight: (reportId: string, insight: string) => void;
   onDeleteReport: (reportId: string) => void;
-  onCreateRevisionRequest: (report: ComplianceReport) => string;
+  // FIX: Update prop type to accept async functions that return a Promise.
+  onCreateRevisionRequest: (report: ComplianceReport) => Promise<string>;
 }
 
 // Helper to convert a base64 string to a File object
@@ -298,16 +301,18 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
-  const handleShareReport = (reportToShare: ComplianceReport) => {
+  // FIX: Make the function async to await the promise from onCreateCertificate.
+  const handleShareReport = async (reportToShare: ComplianceReport) => {
     setActiveActionMenu(null);
-    const confirmation = onCreateCertificate(reportToShare);
+    const confirmation = await onCreateCertificate(reportToShare);
     setShareConfirmation(confirmation);
     setTimeout(() => setShareConfirmation(''), 2000);
   };
 
-  const handleCreateRevisionRequestLocal = (reportToShare: ComplianceReport) => {
+  // FIX: Make the function async to await the promise from onCreateRevisionRequest.
+  const handleCreateRevisionRequestLocal = async (reportToShare: ComplianceReport) => {
     setActiveActionMenu(null);
-    const confirmation = onCreateRevisionRequest(reportToShare);
+    const confirmation = await onCreateRevisionRequest(reportToShare);
     setRevisionConfirmation(confirmation);
     setTimeout(() => setRevisionConfirmation(''), 2000);
   };
@@ -433,7 +438,7 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
              </div>
           ) : (
             <div className="space-y-4">
-               {activeView !== 'video' && <textarea ref={textareaRef} value={postContent} onChange={(e) => setPostContent(e.target.value)} onKeyDown={(e) => { if (activeView === 'text' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (!isScanDisabled()) { handleScan({ isQuickScan: true }); } } }} placeholder={activeView === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
+               {activeView !== 'video' && <textarea data-tour="content-input" ref={textareaRef} value={postContent} onChange={(e) => setPostContent(e.target.value)} onKeyDown={(e) => { if (activeView === 'text' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (!isScanDisabled()) { handleScan({ isQuickScan: true }); } } }} placeholder={activeView === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
                
                {activeView === 'image' && (
                   <div>
@@ -499,7 +504,7 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                </div>
 
               <div className="flex items-stretch gap-2">
-                  <button onClick={() => handleScan()} disabled={isScanDisabled()} className="flex-grow px-6 py-3 flex items-center justify-center gap-3 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20">
+                  <button data-tour="scan-button" onClick={() => handleScan()} disabled={isScanDisabled()} className="flex-grow px-6 py-3 flex items-center justify-center gap-3 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20">
                       {isLoading ? (<><Loader size="sm" /><span>{loadingText}</span></>) : (<span>{getButtonText()}</span>)}
                   </button>
                   {activeView === 'text' && (
@@ -517,12 +522,19 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-gray-300">
       {showOnboarding && <OnboardingTour onComplete={handleOnboardingComplete} />}
-      <div className="flex justify-between items-center mb-4">
-        <div><h1 className="text-3xl font-bold text-white mb-2">Compliance Dashboard</h1><p className="text-gray-400">Analyze content against FTC guidelines, brand safety, and your own custom rules.</p></div>
+      <div className="flex flex-col gap-6">
+        <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Compliance Dashboard</h1>
+            <p className="text-gray-400">Analyze content against FTC guidelines, brand safety, and your own custom rules.</p>
+        </div>
+        
+        <Suspense fallback={<div className="w-full h-48 bg-secondary-dark rounded-lg flex items-center justify-center"><Loader /></div>}>
+            <Analytics reportHistory={reportHistory} />
+        </Suspense>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div ref={reportCardRef} className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-6">
+          <div ref={reportCardRef} className="lg:col-span-2 space-y-6" data-tour="report-card-area">
               {report && !isLoading ? (
                 <Suspense fallback={<div className="w-full min-h-[400px] flex items-center justify-center"><Loader /></div>}>
                   <ReportCard report={report} onStatusChange={onUpdateReportStatus} onAcceptRevision={handleAcceptRevision} onDownloadPdf={handleDownloadPdf} isGeneratingPdf={isGeneratingPdf} onAcceptImageRevision={handleAcceptImageRevision} />
@@ -531,7 +543,7 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                {error && <div className="mt-4 bg-red-900/50 border border-danger text-red-300 px-4 py-3 rounded-lg" role="alert"><p className="font-bold">Error</p><p>{error}</p></div>}
           </div>
           
-          <div className="bg-secondary-dark p-6 rounded-lg border border-gray-700 shadow-lg">
+          <div className="bg-secondary-dark p-6 rounded-lg border border-gray-700 shadow-lg" data-tour="greenlight-log">
               <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><HistoryIcon /> Greenlight Log</h2>
               <div className="flex justify-between items-center mb-4">
                   <span className="text-sm text-gray-400">Filter by status:</span>

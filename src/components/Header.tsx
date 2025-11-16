@@ -45,14 +45,11 @@ const Header: React.FC<Partial<HeaderProps>> = ({
               <button onClick={() => onNavigate && onNavigate('dashboard')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
                 Dashboard
               </button>
-              <button onClick={() => onNavigate && onNavigate('video-studio')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
-                Video Studio
-              </button>
               <button onClick={() => onNavigate && onNavigate('brief-studio')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
                 Brief Studio
               </button>
-              <button onClick={() => onNavigate && onNavigate('analytics')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
-                Analytics
+              <button onClick={() => onNavigate && onNavigate('video-studio')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
+                Video Studio
               </button>
                <button onClick={() => onNavigate && onNavigate('certificates')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
                 Certificates

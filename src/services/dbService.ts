@@ -27,7 +27,7 @@ export const getWorkspaces = () => db.workspaces.toArray();
 export const addWorkspace = (workspace: Workspace) => db.workspaces.add(workspace);
 export const updateWorkspace = (id: string, updates: Partial<Workspace>) => db.workspaces.update(id, updates);
 export const deleteWorkspaceAndData = (id: string) => {
-    return db.transaction('rw', db.workspaces, db.customRules, db.reports, db.certificates, db.revisionRequests, async () => {
+    return db.transaction('rw', [db.workspaces, db.customRules, db.reports, db.certificates, db.revisionRequests], async () => {
         await db.workspaces.delete(id);
         await db.customRules.where({ workspaceId: id }).delete();
         await db.reports.where({ workspaceId: id }).delete();
@@ -77,7 +77,7 @@ export const migrateFromLocalStorage = async () => {
             return;
         }
 
-        await db.transaction('rw', db.workspaces, db.customRules, db.reports, db.certificates, async () => {
+        await db.transaction('rw', [db.workspaces, db.customRules, db.reports, db.certificates], async () => {
             for (const workspace of allWorkspaces) {
                 await db.workspaces.add(workspace);
 

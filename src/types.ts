@@ -4,7 +4,7 @@ export type AnalysisType = 'text' | 'video' | 'image';
 
 export type ReportStatus = 'pending' | 'approved' | 'revision';
 
-export type MainView = 'dashboard' | 'settings' | 'certificates' | 'sandbox' | 'brief-studio' | 'analytics' | 'video-studio';
+export type MainView = 'dashboard' | 'settings' | 'certificates' | 'video-studio' | 'brief-studio';
 
 export type DashboardView = 'text' | 'video' | 'image';
 
@@ -21,6 +21,7 @@ export interface CustomRule {
   description: string; // AI-generated detailed description for the model
   positiveExample: string; // AI-generated example of conforming content
   negativeExample: string; // AI-generated example of violating content
+  workspaceId?: string;
 }
 
 export interface Workspace {
@@ -52,6 +53,7 @@ export interface ComplianceReport {
 
 export interface Certificate {
   id: string;
+  workspaceId: string;
   report: ComplianceReport;
   createdAt: string;
 }
@@ -111,6 +113,7 @@ export interface StaticTestRunResult {
 
 export interface RevisionRequest {
   id: string;
+  workspaceId: string;
   report: ComplianceReport;
   createdAt: string;
 }

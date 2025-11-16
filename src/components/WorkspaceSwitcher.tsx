@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Workspace, MainView } from '../types';
-import { ChevronUpDownIcon, CheckIcon, PlusCircleIcon, CogIcon, TestTubeIcon, DocumentTextIcon, TrendingUpIcon, VideoCameraIcon } from './icons/Icons';
+import { ChevronUpDownIcon, CheckIcon, PlusCircleIcon, CogIcon, TestTubeIcon, DocumentTextIcon, VideoCameraIcon } from './icons/Icons';
 
 interface WorkspaceSwitcherProps {
   workspaces: Workspace[];
@@ -80,6 +80,13 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
               </button>
             ))}
              <div className="border-t border-gray-700 my-1"></div>
+              <button
+                onClick={() => handleNavigate('brief-studio')}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"
+              >
+                <DocumentTextIcon />
+                Brief Studio
+              </button>
              <button
                 onClick={() => handleNavigate('video-studio')}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"
@@ -88,32 +95,11 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
                 Video Studio
               </button>
              <button
-                onClick={() => handleNavigate('brief-studio')}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"
-              >
-                <DocumentTextIcon />
-                Brief Studio
-              </button>
-              <button
-                onClick={() => handleNavigate('analytics')}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"
-              >
-                <TrendingUpIcon />
-                Analytics
-              </button>
-             <button
                 onClick={() => handleNavigate('settings')}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"
               >
                 <CogIcon />
                 Workspace Settings
-              </button>
-              <button
-                onClick={() => handleNavigate('sandbox')}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-yellow-400 hover:text-white hover:bg-gray-700 rounded-md"
-              >
-                <TestTubeIcon />
-                QA Sandbox (Internal)
               </button>
           </div>
           <div className="border-t border-gray-700 p-2">

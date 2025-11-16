@@ -198,12 +198,10 @@ const App: React.FC = () => {
              {
               {
                 'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} reportHistory={reportHistory || []} onUpdateReportStatus={handleUpdateReportStatus} onUpdateReportInsight={handleUpdateReportInsight} onDeleteReport={handleDeleteReport} onCreateCertificate={handleCreateCertificate} onNavigate={setMainView} onCreateRevisionRequest={handleCreateRevisionRequest} />,
+                'brief-studio': activeWorkspaceId ? <BriefStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} onNavigate={setMainView} /> : <FullPageLoader />,
                 'video-studio': activeWorkspaceId ? <VideoStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} onNavigate={setMainView} onUpdateReportInsight={handleUpdateReportInsight} /> : <FullPageLoader />,
                 'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules || []} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={setMainView} /> : <FullPageLoader />,
                 'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onNavigate={setMainView} /> : <FullPageLoader />,
-                'sandbox': <TestingSandbox onNavigate={setMainView} />,
-                'brief-studio': activeWorkspaceId ? <BriefStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} onNavigate={setMainView} /> : <FullPageLoader />,
-                'analytics': activeWorkspaceId ? <Analytics reportHistory={reportHistory || []} /> : <FullPageLoader />,
               }[mainView]
             }
           </SignedIn>
