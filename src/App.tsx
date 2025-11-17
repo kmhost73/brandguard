@@ -38,28 +38,64 @@ const App: React.FC = () => {
   const [mainView, setMainView] = useState<MainView>('dashboard');
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // Initialize workspaces and perform one-time migration for existing users
+  // Consolidated initialization logic
   useEffect(() => {
-    const initializeApp = async () => {
-        await db.migrateFromLocalStorage();
-        let workspaces = await db.getWorkspaces();
-        if (workspaces.length === 0) {
-            const defaultWorkspace = { id: crypto.randomUUID(), name: 'Personal Workspace' };
-            await db.addWorkspace(defaultWorkspace);
-            workspaces = [defaultWorkspace];
-        }
+    const initializeAppAndRouting = async () => {
+      setIsInitializing(true);
 
-        const lastActiveId = localStorage.getItem('brandGuardActiveWorkspaceId'); // Still use LS for non-critical session state
-        if (lastActiveId && workspaces.some(w => w.id === lastActiveId)) {
-            setActiveWorkspaceId(lastActiveId);
-        } else {
-            const firstWorkspaceId = workspaces[0].id;
-            setActiveWorkspaceId(firstWorkspaceId);
-            localStorage.setItem('brandGuardActiveWorkspaceId', firstWorkspaceId);
-        }
+      // 1. Check for shared content links first, as they are standalone views
+      const params = new URLSearchParams(window.location.search);
+      const certId = params.get('certId');
+      if (certId) {
+        const foundCert = await db.getCertificateById(certId);
+        setSharedReport(foundCert ? foundCert.report : 'invalid');
+        window.history.replaceState({}, document.title, '/');
         setIsInitializing(false);
+        return;
+      }
+      const revId = params.get('revId');
+      if (revId) {
+        const foundReq = await db.getRevisionRequestById(revId);
+        setSharedRevisionRequest(foundReq ? foundReq : 'invalid');
+        window.history.replaceState({}, document.title, '/');
+        setIsInitializing(false);
+        return;
+      }
+
+      // 2. Initialize database and workspaces
+      await db.migrateFromLocalStorage();
+      let workspaces = await db.getWorkspaces();
+      if (workspaces.length === 0) {
+        const defaultWorkspace = { id: crypto.randomUUID(), name: 'Personal Workspace' };
+        await db.addWorkspace(defaultWorkspace);
+        workspaces = [defaultWorkspace];
+      }
+
+      const lastActiveId = localStorage.getItem('brandGuardActiveWorkspaceId');
+      if (lastActiveId && workspaces.some(w => w.id === lastActiveId)) {
+        setActiveWorkspaceId(lastActiveId);
+      } else {
+        const firstWorkspaceId = workspaces[0].id;
+        setActiveWorkspaceId(firstWorkspaceId);
+        localStorage.setItem('brandGuardActiveWorkspaceId', firstWorkspaceId);
+      }
+      
+      // 3. Set view based on path, now that app state is ready
+      const path = window.location.pathname;
+      if (path === '/pricing') {
+        setMainView('pricing');
+      } else if (path === '/blog/ftc-disclosure-rules-2024') {
+        setMainView('blog-post');
+      } else if (path === '/blog/ai-ftc-compliance-influencer-marketing-2025') {
+        setMainView('blog-post-2');
+      } else {
+        setMainView('dashboard'); // Default view for signed-in users
+      }
+
+      setIsInitializing(false);
     };
-    initializeApp();
+
+    initializeAppAndRouting();
   }, []);
 
   const workspaces = useLiveQuery(() => db.getWorkspaces(), []);
@@ -142,38 +178,6 @@ const App: React.FC = () => {
     return "Revision Request Link Copied!";
   };
   
-  useEffect(() => {
-    const checkSharedLinksAndPaths = async () => {
-        const params = new URLSearchParams(window.location.search);
-        const certId = params.get('certId');
-        const revId = params.get('revId');
-        const path = window.location.pathname;
-
-        if (certId) {
-            const foundCert = await db.getCertificateById(certId);
-            setSharedReport(foundCert ? foundCert.report : 'invalid');
-            window.history.replaceState({}, document.title, '/');
-            return;
-        } 
-        if (revId) {
-            const foundReq = await db.getRevisionRequestById(revId);
-            setSharedRevisionRequest(foundReq ? foundReq : 'invalid');
-            window.history.replaceState({}, document.title, '/');
-            return;
-        }
-
-        // Handle path-based routing for public pages
-        if (path === '/pricing') {
-            setMainView('pricing');
-        } else if (path === '/blog/ftc-disclosure-rules-2024') {
-            setMainView('blog-post');
-        } else if (path === '/blog/ai-ftc-compliance-influencer-marketing-2025') {
-            setMainView('blog-post-2');
-        }
-    };
-    checkSharedLinksAndPaths();
-  }, []);
-
   useEffect(() => {
     document.body.classList.add('bg-dark');
   }, []);

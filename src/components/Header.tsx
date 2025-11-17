@@ -57,6 +57,9 @@ const Header: React.FC<Partial<HeaderProps>> = ({
                <button onClick={() => onNavigate && onNavigate('certificates')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
                 Certificates
               </button>
+              <button onClick={() => onNavigate && onNavigate('pricing')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
+                Pricing
+              </button>
             </SignedIn>
             <SignedOut>
               <a href="/pricing" className="font-medium transition-colors text-gray-300 hover:text-white">
