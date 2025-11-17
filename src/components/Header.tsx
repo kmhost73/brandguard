@@ -59,6 +59,9 @@ const Header: React.FC<Partial<HeaderProps>> = ({
               </button>
             </SignedIn>
             <SignedOut>
+              <a href="/pricing" className="font-medium transition-colors text-gray-300 hover:text-white">
+                Pricing
+              </a>
               <SignInButton mode="modal">
                 <button className="font-medium transition-colors text-gray-300 hover:text-white">
                   Sign In

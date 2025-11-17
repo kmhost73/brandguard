@@ -78,7 +78,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
   const allFailedChecks = reportHistory.flatMap(r => r.checks.filter(c => c.status === 'fail' || c.status === 'warn'));
   // FIX: Explicitly typing the accumulator for `reduce` ensures `failureCounts` is
   // correctly typed, resolving all subsequent arithmetic operation errors.
-  const failureCounts = allFailedChecks.reduce<Record<string, number>>((acc, check) => {
+  const failureCounts = allFailedChecks.reduce((acc: Record<string, number>, check) => {
     const checkName = check.name.split(':')[0].trim(); // Group custom rules together
     acc[checkName] = (acc[checkName] || 0) + 1;
     return acc;

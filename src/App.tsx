@@ -20,6 +20,8 @@ const VideoStudio = lazy(() => import('./components/VideoStudio'));
 const ImageStudio = lazy(() => import('./components/ImageStudio'));
 const FeedbackWidget = lazy(() => import('./components/FeedbackWidget'));
 const BlogPost = lazy(() => import('./components/BlogPost'));
+const PricingPage = lazy(() => import('./components/PricingPage'));
+const BlogPost2 = lazy(() => import('./components/BlogPost2'));
 
 
 const FullPageLoader: React.FC = () => (
@@ -141,28 +143,35 @@ const App: React.FC = () => {
   };
   
   useEffect(() => {
-    const checkSharedLinks = async () => {
+    const checkSharedLinksAndPaths = async () => {
         const params = new URLSearchParams(window.location.search);
         const certId = params.get('certId');
         const revId = params.get('revId');
-        const view = params.get('view');
+        const path = window.location.pathname;
 
-
-        if (view === 'blog') {
-            setMainView('blog-post');
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
-        else if (certId) {
+        if (certId) {
             const foundCert = await db.getCertificateById(certId);
             setSharedReport(foundCert ? foundCert.report : 'invalid');
-            window.history.replaceState({}, document.title, window.location.pathname);
-        } else if (revId) {
+            window.history.replaceState({}, document.title, '/');
+            return;
+        } 
+        if (revId) {
             const foundReq = await db.getRevisionRequestById(revId);
             setSharedRevisionRequest(foundReq ? foundReq : 'invalid');
-            window.history.replaceState({}, document.title, window.location.pathname);
+            window.history.replaceState({}, document.title, '/');
+            return;
+        }
+
+        // Handle path-based routing for public pages
+        if (path === '/pricing') {
+            setMainView('pricing');
+        } else if (path === '/blog/ftc-disclosure-rules-2024') {
+            setMainView('blog-post');
+        } else if (path === '/blog/ai-ftc-compliance-influencer-marketing-2025') {
+            setMainView('blog-post-2');
         }
     };
-    checkSharedLinks();
+    checkSharedLinksAndPaths();
   }, []);
 
   useEffect(() => {
@@ -187,25 +196,10 @@ const App: React.FC = () => {
   }
   
   const activeWorkspace = workspaces ? workspaces.find(w => w.id === activeWorkspaceId) : null;
-  const isSignedOutAndOnBlog = !user && mainView === 'blog-post';
-
-  // For SignedOut users, we need a header on the blog page.
-  if (isSignedOutAndOnBlog) {
+  
+  if (!isLoaded || (user && (isInitializing || !activeWorkspaceId || !workspaces))) {
     return (
-      <div className={`min-h-screen font-sans bg-dark text-gray-300`}>
-        <Header />
-        <main>
-          <Suspense fallback={<FullPageLoader />}>
-            <BlogPost onNavigate={setMainView} />
-          </Suspense>
-        </main>
-      </div>
-    );
-  }
-
-  if (isInitializing || !activeWorkspaceId || !workspaces) {
-    return (
-      <div className="min-h-screen font-sans bg-dark text-gray-300"><Header /><main><FullPageLoader /></main></div>
+      <div className="min-h-screen font-sans bg-dark text-gray-300"><Header onNavigate={setMainView} /><main><FullPageLoader /></main></div>
     );
   }
 
@@ -230,13 +224,25 @@ const App: React.FC = () => {
                 'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules || []} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={setMainView} /> : <FullPageLoader />,
                 'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onNavigate={setMainView} /> : <FullPageLoader />,
                 'blog-post': <BlogPost onNavigate={setMainView} />,
+                'blog-post-2': <BlogPost2 onNavigate={setMainView} />,
+                'pricing': <PricingPage onNavigate={setMainView} />,
               }[mainView]
             }
              <FeedbackWidget activeWorkspaceId={activeWorkspaceId} />
           </SignedIn>
           <SignedOut>
-            <Hero />
-            <Features />
+            {
+              {
+                'pricing': <PricingPage onNavigate={setMainView} />,
+                'blog-post': <BlogPost onNavigate={setMainView} />,
+                'blog-post-2': <BlogPost2 onNavigate={setMainView} />,
+              }[mainView] || (
+                <>
+                  <Hero />
+                  <Features />
+                </>
+              )
+            }
           </SignedOut>
         </Suspense>
       </main>
@@ -244,9 +250,9 @@ const App: React.FC = () => {
         <p className={`text-sm text-gray-400`}>
           &copy; {new Date().getFullYear()} BrandGuard. All rights reserved.
           <span className="mx-2">|</span>
-          <button onClick={() => setMainView('blog-post')} className="hover:text-white transition-colors">
+          <a href="/blog/ftc-disclosure-rules-2024" className="hover:text-white transition-colors">
             Blog
-          </button>
+          </a>
           <SignedIn>
             <div className="inline-block align-middle ml-4">
               <UserButton afterSignOutUrl="/" />
