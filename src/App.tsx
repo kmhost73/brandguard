@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { SignedIn, SignedOut, UserButton, useUser } from '@clerk/clerk-react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -37,6 +38,35 @@ const App: React.FC = () => {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<MainView>('dashboard');
   const [isInitializing, setIsInitializing] = useState(true);
+
+  const setViewFromPath = (path: string) => {
+    const cleanPath = path.endsWith('/') && path.length > 1 ? path.slice(0, -1) : path;
+    const pathMap: Record<string, MainView> = {
+      '/pricing': 'pricing',
+      '/blog/ftc-disclosure-rules-2024': 'blog-post',
+      '/blog/ai-ftc-compliance-influencer-marketing-2025': 'blog-post-2',
+      '/settings': 'settings',
+      '/certificates': 'certificates',
+      '/brief-studio': 'brief-studio',
+      '/image-studio': 'image-studio',
+      '/video-studio': 'video-studio',
+    };
+    const view = pathMap[cleanPath] || 'dashboard';
+    setMainView(view);
+  };
+
+  const handleNavigate = (view: MainView, path: string) => {
+    if (window.location.pathname !== path) {
+      window.history.pushState({ view }, '', path);
+    }
+    setMainView(view);
+  };
+
+  useEffect(() => {
+    const onPopState = () => setViewFromPath(window.location.pathname);
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   // Consolidated initialization logic
   useEffect(() => {
@@ -81,17 +111,8 @@ const App: React.FC = () => {
       }
       
       // 3. Set view based on path, now that app state is ready
-      const path = window.location.pathname;
-      if (path === '/pricing') {
-        setMainView('pricing');
-      } else if (path === '/blog/ftc-disclosure-rules-2024') {
-        setMainView('blog-post');
-      } else if (path === '/blog/ai-ftc-compliance-influencer-marketing-2025') {
-        setMainView('blog-post-2');
-      } else {
-        setMainView('dashboard'); // Default view for signed-in users
-      }
-
+      setViewFromPath(window.location.pathname);
+      
       setIsInitializing(false);
     };
 
@@ -129,7 +150,7 @@ const App: React.FC = () => {
   const handleChangeWorkspace = (id: string) => {
     setActiveWorkspaceId(id);
     localStorage.setItem('brandGuardActiveWorkspaceId', id);
-    setMainView('dashboard');
+    handleNavigate('dashboard', '/');
   };
 
   const handleRenameWorkspace = (id: string, newName: string) => {
@@ -203,7 +224,7 @@ const App: React.FC = () => {
   
   if (!isLoaded || (user && (isInitializing || !activeWorkspaceId || !workspaces))) {
     return (
-      <div className="min-h-screen font-sans bg-dark text-gray-300"><Header onNavigate={setMainView} /><main><FullPageLoader /></main></div>
+      <div className="min-h-screen font-sans bg-dark text-gray-300"><Header onNavigate={(v, p) => handleNavigate(v,p)} /><main><FullPageLoader /></main></div>
     );
   }
 
@@ -214,22 +235,22 @@ const App: React.FC = () => {
         activeWorkspaceId={activeWorkspaceId}
         onCreateWorkspace={handleCreateWorkspace}
         onChangeWorkspace={handleChangeWorkspace}
-        onNavigate={setMainView}
+        onNavigate={(v, p) => handleNavigate(v, p)}
       />
       <main>
         <Suspense fallback={<FullPageLoader />}>
           <SignedIn>
              {
               {
-                'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} reportHistory={reportHistory || []} onUpdateReportStatus={handleUpdateReportStatus} onUpdateReportInsight={handleUpdateReportInsight} onDeleteReport={handleDeleteReport} onCreateCertificate={handleCreateCertificate} onNavigate={setMainView} onCreateRevisionRequest={handleCreateRevisionRequest} />,
-                'brief-studio': activeWorkspaceId ? <BriefStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} onNavigate={setMainView} /> : <FullPageLoader />,
-                'video-studio': activeWorkspaceId ? <VideoStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} onNavigate={setMainView} onUpdateReportInsight={handleUpdateReportInsight} /> : <FullPageLoader />,
-                'image-studio': activeWorkspaceId ? <ImageStudio key={activeWorkspaceId} onNavigate={setMainView} /> : <FullPageLoader />,
-                'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules || []} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={setMainView} /> : <FullPageLoader />,
-                'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onNavigate={setMainView} /> : <FullPageLoader />,
-                'blog-post': <BlogPost onNavigate={setMainView} />,
-                'blog-post-2': <BlogPost2 onNavigate={setMainView} />,
-                'pricing': <PricingPage onNavigate={setMainView} />,
+                'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} reportHistory={reportHistory || []} onUpdateReportStatus={handleUpdateReportStatus} onUpdateReportInsight={handleUpdateReportInsight} onDeleteReport={handleDeleteReport} onCreateCertificate={handleCreateCertificate} onNavigate={(v, p) => handleNavigate(v,p)} onCreateRevisionRequest={handleCreateRevisionRequest} />,
+                'brief-studio': activeWorkspaceId ? <BriefStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} onNavigate={(v,p) => handleNavigate(v,p)} /> : <FullPageLoader />,
+                'video-studio': activeWorkspaceId ? <VideoStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} onNavigate={(v,p) => handleNavigate(v,p)} onUpdateReportInsight={handleUpdateReportInsight} /> : <FullPageLoader />,
+                'image-studio': activeWorkspaceId ? <ImageStudio key={activeWorkspaceId} onNavigate={(v,p) => handleNavigate(v,p)} /> : <FullPageLoader />,
+                'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules || []} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={(v,p) => handleNavigate(v,p)} /> : <FullPageLoader />,
+                'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onNavigate={(v,p) => handleNavigate(v,p)} /> : <FullPageLoader />,
+                'blog-post': <BlogPost onNavigate={(v,p) => handleNavigate(v,p)} />,
+                'blog-post-2': <BlogPost2 onNavigate={(v,p) => handleNavigate(v,p)} />,
+                'pricing': <PricingPage onNavigate={(v,p) => handleNavigate(v,p)} />,
               }[mainView]
             }
              <FeedbackWidget activeWorkspaceId={activeWorkspaceId} />
@@ -237,9 +258,9 @@ const App: React.FC = () => {
           <SignedOut>
             {
               {
-                'pricing': <PricingPage onNavigate={setMainView} />,
-                'blog-post': <BlogPost onNavigate={setMainView} />,
-                'blog-post-2': <BlogPost2 onNavigate={setMainView} />,
+                'pricing': <PricingPage onNavigate={(v,p) => handleNavigate(v,p)} />,
+                'blog-post': <BlogPost onNavigate={(v,p) => handleNavigate(v,p)} />,
+                'blog-post-2': <BlogPost2 onNavigate={(v,p) => handleNavigate(v,p)} />,
               }[mainView] || (
                 <>
                   <Hero />
