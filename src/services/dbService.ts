@@ -11,7 +11,10 @@ export class BrandGuardDB extends Dexie {
 
   constructor() {
     super('brandGuardDB');
-    this.version(3).stores({
+    // FIX: Cast `this` to `Dexie` to make TypeScript recognize the `version` method,
+    // which is inherited from the base Dexie class but may not be correctly inferred
+    // on the subclass type in this environment.
+    (this as Dexie).version(3).stores({
       workspaces: 'id, name',
       customRules: '++id, workspaceId',
       reports: '++id, workspaceId, timestamp, campaignName',
@@ -19,7 +22,7 @@ export class BrandGuardDB extends Dexie {
       revisionRequests: 'id, workspaceId, createdAt, status',
       feedback: '++id, workspaceId, type, timestamp',
     });
-    this.version(2).stores({
+    (this as Dexie).version(2).stores({
       workspaces: 'id, name',
       customRules: '++id, workspaceId',
       reports: '++id, workspaceId, timestamp, campaignName',
@@ -27,7 +30,7 @@ export class BrandGuardDB extends Dexie {
       revisionRequests: 'id, workspaceId, createdAt',
       feedback: '++id, workspaceId, type, timestamp',
     });
-    this.version(1).stores({
+    (this as Dexie).version(1).stores({
       workspaces: 'id, name',
       customRules: '++id, workspaceId',
       reports: '++id, workspaceId, timestamp, campaignName',
@@ -44,7 +47,8 @@ export const getWorkspaces = () => db.workspaces.toArray();
 export const addWorkspace = (workspace: Workspace) => db.workspaces.add(workspace);
 export const updateWorkspace = (id: string, updates: Partial<Workspace>) => db.workspaces.update(id, updates);
 export const deleteWorkspaceAndData = (id: string) => {
-    return db.transaction('rw', [db.workspaces, db.customRules, db.reports, db.certificates, db.revisionRequests, db.feedback], async () => {
+    // FIX: Cast `db` to `Dexie` to resolve type error for the `transaction` method.
+    return (db as Dexie).transaction('rw', [db.workspaces, db.customRules, db.reports, db.certificates, db.revisionRequests, db.feedback], async () => {
         await db.workspaces.delete(id);
         await db.customRules.where({ workspaceId: id }).delete();
         await db.reports.where({ workspaceId: id }).delete();
@@ -105,7 +109,8 @@ export const migrateFromLocalStorage = async () => {
             return;
         }
 
-        await db.transaction('rw', [db.workspaces, db.customRules, db.reports, db.certificates], async () => {
+        // FIX: Cast `db` to `Dexie` to resolve type error for the `transaction` method.
+        await (db as Dexie).transaction('rw', [db.workspaces, db.customRules, db.reports, db.certificates], async () => {
             for (const workspace of allWorkspaces) {
                 await db.workspaces.add(workspace);
 

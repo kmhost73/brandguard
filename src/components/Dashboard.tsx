@@ -364,7 +364,10 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
     e.stopPropagation();
     if (batchMode && activeView === 'image') {
       const files = Array.from(e.dataTransfer.files).filter((file: File) => file.type.startsWith('image/'));
-      const newItems: QueueItem[] = files.map(file => ({ id: crypto.randomUUID(), status: 'Queued', file }));
+      // FIX: Explicitly type the 'file' parameter in the map function.
+      // TypeScript was failing to infer the type of 'file' from the filtered array,
+      // leading to a type mismatch with the QueueItem interface.
+      const newItems: QueueItem[] = files.map((file: File) => ({ id: crypto.randomUUID(), status: 'Queued', file }));
       setQueue(prev => [...prev, ...newItems]);
     }
   };

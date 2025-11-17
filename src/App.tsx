@@ -19,6 +19,7 @@ const Analytics = lazy(() => import('./components/Analytics'));
 const VideoStudio = lazy(() => import('./components/VideoStudio'));
 const ImageStudio = lazy(() => import('./components/ImageStudio'));
 const FeedbackWidget = lazy(() => import('./components/FeedbackWidget'));
+const BlogPost = lazy(() => import('./components/BlogPost'));
 
 
 const FullPageLoader: React.FC = () => (
@@ -144,8 +145,14 @@ const App: React.FC = () => {
         const params = new URLSearchParams(window.location.search);
         const certId = params.get('certId');
         const revId = params.get('revId');
+        const view = params.get('view');
 
-        if (certId) {
+
+        if (view === 'blog') {
+            setMainView('blog-post');
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        else if (certId) {
             const foundCert = await db.getCertificateById(certId);
             setSharedReport(foundCert ? foundCert.report : 'invalid');
             window.history.replaceState({}, document.title, window.location.pathname);
@@ -178,14 +185,29 @@ const App: React.FC = () => {
   if (sharedRevisionRequest) {
     return <Suspense fallback={<FullPageLoader />}><RevisionRequestView revisionRequest={sharedRevisionRequest} /></Suspense>;
   }
+  
+  const activeWorkspace = workspaces ? workspaces.find(w => w.id === activeWorkspaceId) : null;
+  const isSignedOutAndOnBlog = !user && mainView === 'blog-post';
+
+  // For SignedOut users, we need a header on the blog page.
+  if (isSignedOutAndOnBlog) {
+    return (
+      <div className={`min-h-screen font-sans bg-dark text-gray-300`}>
+        <Header />
+        <main>
+          <Suspense fallback={<FullPageLoader />}>
+            <BlogPost onNavigate={setMainView} />
+          </Suspense>
+        </main>
+      </div>
+    );
+  }
 
   if (isInitializing || !activeWorkspaceId || !workspaces) {
     return (
       <div className="min-h-screen font-sans bg-dark text-gray-300"><Header /><main><FullPageLoader /></main></div>
     );
   }
-  
-  const activeWorkspace = workspaces.find(w => w.id === activeWorkspaceId);
 
   return (
     <div className={`min-h-screen font-sans bg-dark text-gray-300`}>
@@ -207,6 +229,7 @@ const App: React.FC = () => {
                 'image-studio': activeWorkspaceId ? <ImageStudio key={activeWorkspaceId} onNavigate={setMainView} /> : <FullPageLoader />,
                 'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules || []} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={setMainView} /> : <FullPageLoader />,
                 'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onNavigate={setMainView} /> : <FullPageLoader />,
+                'blog-post': <BlogPost onNavigate={setMainView} />,
               }[mainView]
             }
              <FeedbackWidget activeWorkspaceId={activeWorkspaceId} />
@@ -219,7 +242,11 @@ const App: React.FC = () => {
       </main>
       <footer className="text-center p-8 mt-12 border-t border-white/10">
         <p className={`text-sm text-gray-400`}>
-          &copy; 2024 BrandGuard. All rights reserved.
+          &copy; {new Date().getFullYear()} BrandGuard. All rights reserved.
+          <span className="mx-2">|</span>
+          <button onClick={() => setMainView('blog-post')} className="hover:text-white transition-colors">
+            Blog
+          </button>
           <SignedIn>
             <div className="inline-block align-middle ml-4">
               <UserButton afterSignOutUrl="/" />

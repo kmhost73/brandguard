@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [1.3.1] - GTM Sprint: Strategic Partnerships - 2024-07-28
+
+### Added
+- **Partnership Prospectus:** Created a comprehensive prospectus targeting professional liability insurance providers (e.g., Hiscox, Next Insurance). This document outlines a strategic partnership based on risk mitigation, co-marketing, and mutual client referrals, establishing a new potential revenue and distribution channel.
+
+---
+## [1.3.0] - GTM Sprint: Content & SEO - 2024-07-28
+
+### Added
+- **SEO Content Engine:** Implemented a new blog view within the application to host long-form SEO content.
+- **First Blog Post:** Published "FTC Disclosure Rules 2024: The Complete Compliance Guide for Brand Partnerships," a comprehensive, 1,500+ word article designed to attract organic traffic for key industry terms and establish thought leadership. The post includes a strong call-to-action to the Public Audit Tool to drive conversions.
+
+---
+## [1.2.0] - Go-To-Market Acceleration - 2024-07-27
+
+### Changed
+- **Optimized Landing Page Conversion:** Re-wrote the hero section copy based on the Hormozi framework to focus on the core user pain point (fear of fines), directly implementing strategic feedback from market analysis. The new copy strengthens the value proposition for first-time visitors.
+
+### Added
+- **Public Audit Tool:** Launched a free, limited-use version of the Greenlight Engine on the landing page. This serves as a powerful, value-first lead magnet, allowing potential users to experience the product's core value instantly, as recommended by market analysis.
+
+---
+
 ## [1.1.0] - Project Transparency & Planning - 2024-07-26
 
 ### Added

@@ -76,7 +76,10 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
   const passRate = Math.round((reportHistory.filter(r => r.overallScore >= 90).length / totalScans) * 100);
   
   const allFailedChecks = reportHistory.flatMap(r => r.checks.filter(c => c.status === 'fail' || c.status === 'warn'));
-  const failureCounts = allFailedChecks.reduce((acc, check) => {
+  // FIX: Explicitly typing the accumulator and the initial value for `reduce`
+  // ensures `failureCounts` is correctly typed, resolving all subsequent
+  // arithmetic operation errors.
+  const failureCounts = allFailedChecks.reduce((acc: Record<string, number>, check: CheckItem) => {
     const checkName = check.name.split(':')[0].trim(); // Group custom rules together
     acc[checkName] = (acc[checkName] || 0) + 1;
     return acc;

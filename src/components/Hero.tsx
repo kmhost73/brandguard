@@ -1,33 +1,25 @@
 
+
 import React from 'react';
-import { SignUpButton } from '@clerk/clerk-react';
+import PublicAuditTool from './PublicAuditTool';
 
 const Hero: React.FC = () => {
   return (
     <div className="bg-dark relative overflow-hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32 text-center">
         <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 leading-tight tracking-tighter">
-          <span className="block">From Review to Greenlight.</span>
-          <span className="block">In Seconds.</span>
+          <span className="block">Every Influencer Post is a</span>
+          <span className="block">Potential $53,000 Liability.</span>
         </h1>
-        <p className="mt-6 max-w-2xl mx-auto text-lg sm:text-xl text-gray-400">
-          BrandGuard is The Greenlight Engine for marketing velocity. Stop waiting, kill the delays, and ship campaigns with unshakable confidence.
+        <p className="mt-6 max-w-3xl mx-auto text-lg sm:text-xl text-gray-400">
+          Stop guessing. Get an instant, AI-powered compliance audit and ship your campaigns with bulletproof legal protection. Go from risk to revenue in 60 seconds.
         </p>
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <SignUpButton mode="modal">
-            <button
-              className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-md text-white bg-primary hover:bg-primary-dark transition-transform transform hover:scale-105 shadow-lg shadow-primary/30"
-            >
-              Get Your First Greenlight
-              <svg className="ml-2 -mr-1 h-5 w-5" xmlns="http://www.w.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </SignUpButton>
+        <div className="mt-10 max-w-2xl mx-auto">
+           <PublicAuditTool 
+              ctaButtonText="Audit My Content For Free"
+              riskReversal="No credit card required. 3 free scans per session."
+           />
         </div>
-        <p className="mt-8 text-sm text-gray-500 tracking-wide">
-          Join the rebellion against the Time Thief.
-        </p>
       </div>
     </div>
   );
