@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import type { Workspace, MainView } from '../types';
 import { ChevronUpDownIcon, CheckIcon, PlusCircleIcon, CogIcon, TestTubeIcon, DocumentTextIcon, VideoCameraIcon, PhotoIcon } from './icons/Icons';
@@ -7,7 +8,7 @@ interface WorkspaceSwitcherProps {
   activeWorkspaceId: string;
   onCreateWorkspace: (name: string) => void;
   onChangeWorkspace: (id: string) => void;
-  onNavigate: (view: MainView) => void;
+  onNavigate: (view: MainView, path: string) => void;
 }
 
 const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
@@ -50,8 +51,8 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
     setIsOpen(false);
   };
   
-  const handleNavigate = (view: MainView) => {
-    onNavigate(view);
+  const handleNavigate = (view: MainView, path: string) => {
+    onNavigate(view, path);
     setIsOpen(false);
   }
 
@@ -81,28 +82,28 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
             ))}
              <div className="border-t border-gray-700 my-1"></div>
               <button
-                onClick={() => handleNavigate('brief-studio')}
+                onClick={() => handleNavigate('brief-studio', '/brief-studio')}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"
               >
                 <DocumentTextIcon />
                 Brief Studio
               </button>
              <button
-                onClick={() => handleNavigate('image-studio')}
+                onClick={() => handleNavigate('image-studio', '/image-studio')}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"
               >
                 <PhotoIcon />
                 Image Studio
               </button>
              <button
-                onClick={() => handleNavigate('video-studio')}
+                onClick={() => handleNavigate('video-studio', '/video-studio')}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"
               >
                 <VideoCameraIcon />
                 Video Studio
               </button>
              <button
-                onClick={() => handleNavigate('settings')}
+                onClick={() => handleNavigate('settings', '/settings')}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"
               >
                 <CogIcon />

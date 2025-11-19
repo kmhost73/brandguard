@@ -41,7 +41,7 @@ const Header: React.FC<HeaderProps> = ({
                   activeWorkspaceId={activeWorkspaceId}
                   onCreateWorkspace={onCreateWorkspace}
                   onChangeWorkspace={onChangeWorkspace}
-                  onNavigate={onNavigate}
+                  onNavigate={(view) => onNavigate(view, `/${view}`.replace('/dashboard', ''))}
                 />
               )}
             </SignedIn>
@@ -68,7 +68,7 @@ const Header: React.FC<HeaderProps> = ({
               </a>
             </SignedIn>
             <SignedOut>
-              <a href="/pricing" className="font-medium transition-colors text-gray-300 hover:text-white">
+              <a href="/pricing" onClick={(e) => handleNavClick(e, 'pricing', '/pricing')} className="font-medium transition-colors text-gray-300 hover:text-white">
                 Pricing
               </a>
               <SignInButton mode="modal">

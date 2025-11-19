@@ -275,7 +275,7 @@ const App: React.FC = () => {
         <p className={`text-sm text-gray-400`}>
           &copy; {new Date().getFullYear()} BrandGuard. All rights reserved.
           <span className="mx-2">|</span>
-          <a href="/blog/ftc-disclosure-rules-2024" className="hover:text-white transition-colors">
+          <a href="/blog/ftc-disclosure-rules-2024" onClick={(e) => { e.preventDefault(); handleNavigate('blog-post', '/blog/ftc-disclosure-rules-2024'); }} className="hover:text-white transition-colors">
             Blog
           </a>
           <SignedIn>
