@@ -55,7 +55,7 @@ const Header: React.FC<HeaderProps> = ({
                 Brief Studio
               </a>
               <a href="/image-studio" onClick={(e) => handleNavClick(e, 'image-studio', '/image-studio')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
-                Image Studio
+                Image Analysis
               </a>
               <a href="/video-studio" onClick={(e) => handleNavClick(e, 'video-studio', '/video-studio')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
                 Video Studio

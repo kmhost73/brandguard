@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { MainView } from '../types';
 import { CheckIcon, SparklesIcon } from './icons/Icons';
@@ -20,8 +21,8 @@ const faqs = [
         answer: 'Absolutely. You can change your plan or cancel at any time from your account settings. Upgrades are applied instantly, while downgrades and cancellations take effect at the end of your current billing period.'
     },
     {
-        question: 'What is your refund policy?',
-        answer: 'We offer a 7-day money-back guarantee on our Starter and Pro plans. If you\'re not satisfied for any reason within the first week, contact support for a full refund. There are no refunds for the Enterprise plan.'
+        question: 'Do you offer custom agency pricing?',
+        answer: 'Yes. For agencies managing high volumes of content across many client accounts, our Enterprise plan offers volume discounts, dedicated support, and custom MSA terms.'
     }
 ];
 
@@ -30,9 +31,9 @@ const PricingPage: React.FC<PricingPageProps> = ({ onNavigate }) => {
 
     const pricingTiers = [
         {
-            name: 'Starter',
+            name: 'Agency Starter',
             price: { monthly: 97, annual: 97 * 12 * 0.8 },
-            description: 'For freelance creators & small agencies getting started with compliance.',
+            description: 'For boutique agencies or freelancers managing <5 active creators.',
             features: [
                 '50 scans per month',
                 'All content types (image/video/brief)',
@@ -43,14 +44,15 @@ const PricingPage: React.FC<PricingPageProps> = ({ onNavigate }) => {
             isPopular: false,
         },
         {
-            name: 'Pro',
+            name: 'Agency Pro',
             price: { monthly: 297, annual: 297 * 12 * 0.8 },
             description: 'For growth agencies managing multiple brand partnerships and campaigns.',
             features: [
                 '200 scans per month',
                 'Everything in Starter, plus:',
                 'Magic Fix (AI-powered revisions)',
-                'FTC Compliance Certificates',
+                'Audit Trail Certificates',
+                'Influencer & Brand Tracking',
                 'Priority email + Slack support'
             ],
             cta: 'Start Free Trial',
@@ -59,12 +61,12 @@ const PricingPage: React.FC<PricingPageProps> = ({ onNavigate }) => {
         {
             name: 'Enterprise',
             price: { monthly: 'Custom', annual: 'Custom' },
-            description: 'For large agencies or brands with in-house creator programs needing advanced control.',
+            description: 'For large agencies with dedicated account management teams.',
             features: [
                 'Unlimited scans',
                 'Everything in Pro, plus:',
                 'Dedicated account manager',
-                'Custom compliance rule sets',
+                'Custom compliance rule sets per client',
                 'API access & integrations',
                 'White-label certificates'
             ],
@@ -77,9 +79,9 @@ const PricingPage: React.FC<PricingPageProps> = ({ onNavigate }) => {
         <div className="bg-dark text-gray-300 animate-fade-in">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
                 <div className="max-w-4xl mx-auto text-center">
-                    <h1 className="text-4xl sm:text-5xl font-extrabold text-white">The Right Plan for Your Velocity</h1>
+                    <h1 className="text-4xl sm:text-5xl font-extrabold text-white">Pricing for High-Velocity Agencies</h1>
                     <p className="mt-4 text-lg sm:text-xl text-gray-400">
-                        Choose the plan that matches your team's speed. Go from risk to revenue with predictable, transparent pricing.
+                        Eliminate the compliance bottleneck. Ship campaigns faster with predictable, transparent pricing.
                     </p>
                 </div>
 

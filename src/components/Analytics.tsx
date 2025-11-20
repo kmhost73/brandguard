@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { ComplianceReport, CheckItem } from '../types';
 import { TrendingUpIcon, CalculatorIcon, ScaleIcon, AlertTriangleIcon } from './icons/Icons';
@@ -76,16 +77,16 @@ const Analytics: React.FC<AnalyticsProps> = ({ reportHistory }) => {
   const passRate = Math.round((reportHistory.filter(r => r.overallScore >= 90).length / totalScans) * 100);
   
   const allFailedChecks = reportHistory.flatMap(r => r.checks.filter(c => c.status === 'fail' || c.status === 'warn'));
-  // FIX: The `reduce` method's return type is inferred from its initial value. By casting the initial empty object to `Record<string, number>`, we ensure `failureCounts` is correctly typed, which resolves the subsequent arithmetic errors.
+  
   const failureCounts = allFailedChecks.reduce((acc, check) => {
     const checkName = check.name.split(':')[0].trim(); // Group custom rules together
     acc[checkName] = (acc[checkName] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  const mostCommonIssue = Object.entries(failureCounts).sort(([, a], [, b]) => b - a)[0];
+  const mostCommonIssue = Object.entries(failureCounts).sort(([, a], [, b]) => (b as number) - (a as number))[0];
   const failureAnalysis = Object.entries(failureCounts)
-        .map(([name, count]) => ({ name, count, percentage: allFailedChecks.length > 0 ? Math.round((count / allFailedChecks.length) * 100) : 0 }))
+        .map(([name, count]) => ({ name, count: count as number, percentage: allFailedChecks.length > 0 ? Math.round(((count as number) / allFailedChecks.length) * 100) : 0 }))
         .sort((a, b) => b.count - a.count);
 
 

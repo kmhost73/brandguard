@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { ComplianceReport, CheckItem, ReportStatus } from '../types';
 import { CheckIcon, WarningIcon, XIcon, CogIcon, SparklesIcon, FilmIcon, TagIcon, ChevronDownIcon, UserIcon, LightbulbIcon, DownloadIcon, ClipboardIcon } from './icons/Icons';
@@ -154,12 +155,10 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onStatusChange, onAccep
         <div className="flex justify-between items-start mb-4">
             <div>
                 <h2 className="text-2xl font-bold text-white">Greenlight Report</h2>
-                {report.userName && (
-                    <p className="text-sm text-gray-400 flex items-center gap-2 mt-1">
-                        <UserIcon />
-                        Report run by: <span className="font-semibold text-gray-300">{report.userName}</span>
-                    </p>
-                )}
+                <div className="flex gap-4 text-sm mt-1">
+                    {report.influencerHandle && <p className="text-gray-300 font-medium flex items-center gap-1"><UserIcon /> {report.influencerHandle}</p>}
+                    {report.clientBrand && <p className="text-gray-400 bg-gray-800 px-2 rounded">Client: {report.clientBrand}</p>}
+                </div>
             </div>
             <div className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold ${statusDisplayConfig[report.status || 'pending'].className}`}>
                 <TagIcon/>

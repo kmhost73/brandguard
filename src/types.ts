@@ -1,3 +1,4 @@
+
 export type ComplianceStatus = 'pass' | 'fail' | 'warn';
 
 export type AnalysisType = 'text' | 'video' | 'image';
@@ -33,6 +34,8 @@ export interface ComplianceReport {
   id: string;
   workspaceId: string; // Link report to a workspace
   campaignName?: string; // Optional campaign tag
+  clientBrand?: string; // The brand the agency is working for
+  influencerHandle?: string; // The creator being reviewed
   timestamp: string;
   overallScore: number;
   summary: string;
@@ -45,7 +48,7 @@ export interface ComplianceReport {
     mimeType: string;
   };
   status?: ReportStatus;
-  userName?: string;
+  userName?: string; // The Agency Account Manager
   recommendedStatus?: ReportStatus;
   suggestedRevision?: string; // Holds AI-generated revision from initial analysis.
   strategicInsight?: string; // AI-generated advice on the "why" behind the result.
@@ -127,6 +130,7 @@ export interface QueueItem {
     status: QueueItemStatus;
     content?: string;
     file?: File; // Added to support batch image uploads
+    influencerHandle?: string; // Added for agency workflow
     result?: ComplianceReport;
     error?: string;
 }

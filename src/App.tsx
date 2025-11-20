@@ -40,7 +40,10 @@ const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
 
   const setViewFromPath = (path: string) => {
+    // Basic normalization
     const cleanPath = path.endsWith('/') && path.length > 1 ? path.slice(0, -1) : path;
+
+    // Direct map for simple routes
     const pathMap: Record<string, MainView> = {
       '/pricing': 'pricing',
       '/blog/ftc-disclosure-rules-2024': 'blog-post',
@@ -51,6 +54,7 @@ const App: React.FC = () => {
       '/image-studio': 'image-studio',
       '/video-studio': 'video-studio',
     };
+    
     const view = pathMap[cleanPath] || 'dashboard';
     setMainView(view);
   };
@@ -276,7 +280,11 @@ const App: React.FC = () => {
           &copy; {new Date().getFullYear()} BrandGuard. All rights reserved.
           <span className="mx-2">|</span>
           <a href="/blog/ftc-disclosure-rules-2024" onClick={(e) => { e.preventDefault(); handleNavigate('blog-post', '/blog/ftc-disclosure-rules-2024'); }} className="hover:text-white transition-colors">
-            Blog
+            FTC Guide 2024
+          </a>
+          <span className="mx-2">|</span>
+          <a href="/blog/ai-ftc-compliance-influencer-marketing-2025" onClick={(e) => { e.preventDefault(); handleNavigate('blog-post-2', '/blog/ai-ftc-compliance-influencer-marketing-2025'); }} className="hover:text-white transition-colors">
+             AI Compliance 2025
           </a>
           <SignedIn>
             <div className="inline-block align-middle ml-4">

@@ -1,9 +1,10 @@
+
 import React, { useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { transcribeVideo, analyzeVideoContent } from '../services/geminiService';
 import type { ComplianceReport, CustomRule, MainView, ReportStatus } from '../types';
 import * as db from '../services/dbService';
 import Loader from './Loader';
-import { VideoCameraIcon, SparklesIcon } from './icons/Icons';
+import { VideoCameraIcon, SparklesIcon, AlertTriangleIcon } from './icons/Icons';
 
 const ReportCard = lazy(() => import('./ReportCard'));
 
@@ -22,6 +23,11 @@ const VideoStudio: React.FC<VideoStudioProps> = ({ activeWorkspaceId, customRule
   const [transcript, setTranscript] = useState<string | null>(null);
   const [report, setReport] = useState<ComplianceReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Agency Fields
+  const [influencerHandle, setInfluencerHandle] = useState('');
+  const [clientBrand, setClientBrand] = useState('');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const resetState = () => {
@@ -34,6 +40,11 @@ const VideoStudio: React.FC<VideoStudioProps> = ({ activeWorkspaceId, customRule
 
   const handleFileSelect = (file: File | null) => {
     if (file) {
+      if (file.size > 50 * 1024 * 1024) { // 50MB Limit for browser demo
+          setError("File too large. For this browser-based demo, please upload videos under 50MB. In production, our server-side architecture handles up to 2GB.");
+          return;
+      }
+
       if (videoSrc) {
         URL.revokeObjectURL(videoSrc);
       }
@@ -77,7 +88,7 @@ const VideoStudio: React.FC<VideoStudioProps> = ({ activeWorkspaceId, customRule
       setTranscript(transcriptResult);
       
       setLoadingText('Analyzing Video & Audio...');
-      const analysisResult = await analyzeVideoContent(transcriptResult, '', selectedFile, customRules, (insight) => onUpdateReportInsight(analysisResult.id, insight));
+      const analysisResult = await analyzeVideoContent(transcriptResult, '', selectedFile, customRules, (insight) => onUpdateReportInsight(analysisResult.id, insight), { influencerHandle, clientBrand });
       
       const { sourceMedia, ...reportWithoutMedia } = analysisResult; // Exclude media before saving
       const finalReportInDb = await handleAnalysisCompletion(reportWithoutMedia);
@@ -106,7 +117,7 @@ const VideoStudio: React.FC<VideoStudioProps> = ({ activeWorkspaceId, customRule
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Video Studio</h1>
-          <p className="text-gray-400">Perform end-to-end compliance analysis on video content.</p>
+          <p className="text-gray-400">End-to-end compliance analysis for Reels, TikToks, and Shorts.</p>
         </div>
         <button 
           onClick={() => onNavigate('dashboard')}
@@ -126,8 +137,8 @@ const VideoStudio: React.FC<VideoStudioProps> = ({ activeWorkspaceId, customRule
           >
             <VideoCameraIcon className="mx-auto h-16 w-16 text-gray-500" />
             <h2 className="mt-4 text-xl font-bold text-white">Select a video file</h2>
-            <p className="mt-2 text-gray-400">Drag & drop or click to upload a video for analysis.</p>
-            <p className="mt-1 text-xs text-gray-500">(Supported formats: MP4, WebM, QuickTime)</p>
+            <p className="mt-2 text-gray-400">Drag & drop or click to upload (MP4, WebM, MOV)</p>
+            <p className="mt-2 text-xs text-yellow-500 flex items-center justify-center gap-1"><AlertTriangleIcon /> Browser Demo Limit: 50MB max</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -139,6 +150,21 @@ const VideoStudio: React.FC<VideoStudioProps> = ({ activeWorkspaceId, customRule
                     <button onClick={() => fileInputRef.current?.click()} className="text-sm text-primary-light hover:underline">Change video</button>
                 </div>
               </div>
+              
+              <div className="bg-secondary-dark p-4 rounded-lg border border-gray-700 space-y-4">
+                  <h3 className="font-semibold text-white">Agency Metadata</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">Influencer Handle</label>
+                          <input type="text" value={influencerHandle} onChange={(e) => setInfluencerHandle(e.target.value)} placeholder="@creator" className="w-full p-2 bg-dark border border-gray-600 rounded-md text-sm" />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">Client Brand</label>
+                          <input type="text" value={clientBrand} onChange={(e) => setClientBrand(e.target.value)} placeholder="Brand Name" className="w-full p-2 bg-dark border border-gray-600 rounded-md text-sm" />
+                      </div>
+                  </div>
+              </div>
+
               <button 
                 onClick={handleAnalyze} 
                 disabled={isLoading}

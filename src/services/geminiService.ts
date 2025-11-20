@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { ComplianceReport, CustomRule, CheckItem, GreenlightBrief } from '../types';
 
@@ -212,6 +213,7 @@ const generateStrategicInsight = async (report: Omit<ComplianceReport, 'workspac
     }
 };
 
+// Deprecated generator - kept for specialized testing but not core workflow
 export const generateImage = async (prompt: string): Promise<string[]> => {
     if (!ai) throw new Error("VITE_GEMINI_API_KEY is not configured.");
 
@@ -404,7 +406,14 @@ async function processAnalysis<T extends Omit<ComplianceReport, 'workspaceId'>>(
     return report;
 }
 
-export const analyzePostContent = (postContent: string, campaignName: string, customRules?: CustomRule[], isRescan = false, onInsight: (insight: string) => void = () => {}): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
+export const analyzePostContent = (
+    postContent: string, 
+    campaignName: string, 
+    customRules?: CustomRule[], 
+    isRescan = false, 
+    onInsight: (insight: string) => void = () => {},
+    metadata: { influencerHandle?: string, clientBrand?: string } = {}
+): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
     if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
 
     const analysisFn = async () => {
@@ -440,13 +449,31 @@ export const analyzePostContent = (postContent: string, campaignName: string, cu
                 suggestedRevision: "We couldn't generate a revision due to an engine response error."
             };
         }
-        return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: postContent, analysisType: 'text', customRulesApplied: customRules, userName, campaignName: campaignName || undefined };
+        return { 
+            ...partialReport, 
+            id: crypto.randomUUID(), 
+            timestamp: new Date().toISOString(), 
+            sourceContent: postContent, 
+            analysisType: 'text', 
+            customRulesApplied: customRules, 
+            userName, 
+            campaignName: campaignName || undefined,
+            influencerHandle: metadata.influencerHandle,
+            clientBrand: metadata.clientBrand
+        };
     };
 
     return processAnalysis(analysisFn, onInsight);
 };
 
-export const analyzeImageContent = (caption: string, campaignName: string, imageFile: File, customRules?: CustomRule[], onInsight: (insight: string) => void = () => {}): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
+export const analyzeImageContent = (
+    caption: string, 
+    campaignName: string, 
+    imageFile: File, 
+    customRules?: CustomRule[], 
+    onInsight: (insight: string) => void = () => {},
+    metadata: { influencerHandle?: string, clientBrand?: string } = {}
+): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
     if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
     
     const analysisFn = async () => {
@@ -475,13 +502,32 @@ export const analyzeImageContent = (caption: string, campaignName: string, image
                 recommendedStatus: 'revision'
             };
         }
-        return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: caption, analysisType: 'image', customRulesApplied: customRules, sourceMedia: { data: imageData64, mimeType: imageFile.type }, userName, campaignName: campaignName || undefined };
+        return { 
+            ...partialReport, 
+            id: crypto.randomUUID(), 
+            timestamp: new Date().toISOString(), 
+            sourceContent: caption, 
+            analysisType: 'image', 
+            customRulesApplied: customRules, 
+            sourceMedia: { data: imageData64, mimeType: imageFile.type }, 
+            userName, 
+            campaignName: campaignName || undefined,
+            influencerHandle: metadata.influencerHandle,
+            clientBrand: metadata.clientBrand
+        };
     };
 
     return processAnalysis(analysisFn, onInsight);
 };
 
-export const analyzeVideoContent = (videoTranscript: string, campaignName: string, videoFile: File, customRules?: CustomRule[], onInsight: (insight: string) => void = () => {}): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
+export const analyzeVideoContent = (
+    videoTranscript: string, 
+    campaignName: string, 
+    videoFile: File, 
+    customRules?: CustomRule[], 
+    onInsight: (insight: string) => void = () => {},
+    metadata: { influencerHandle?: string, clientBrand?: string } = {}
+): Promise<Omit<ComplianceReport, 'workspaceId'>> => {
     if (!ai) return Promise.resolve(createErrorResponse("API Key Missing", "The VITE_GEMINI_API_KEY is not configured. Please add it to your environment variables."));
     
     const analysisFn = async () => {
@@ -506,7 +552,19 @@ export const analyzeVideoContent = (videoTranscript: string, campaignName: strin
                 recommendedStatus: 'revision'
             };
         }
-        return { ...partialReport, id: crypto.randomUUID(), timestamp: new Date().toISOString(), sourceContent: videoTranscript, analysisType: 'video', customRulesApplied: customRules, sourceMedia: { data: videoData64, mimeType: videoFile.type }, userName, campaignName: campaignName || undefined };
+        return { 
+            ...partialReport, 
+            id: crypto.randomUUID(), 
+            timestamp: new Date().toISOString(), 
+            sourceContent: videoTranscript, 
+            analysisType: 'video', 
+            customRulesApplied: customRules, 
+            sourceMedia: { data: videoData64, mimeType: videoFile.type }, 
+            userName, 
+            campaignName: campaignName || undefined,
+            influencerHandle: metadata.influencerHandle,
+            clientBrand: metadata.clientBrand
+        };
     };
     
     return processAnalysis(analysisFn, onInsight);

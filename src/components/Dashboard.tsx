@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { analyzePostContent, analyzeVideoContent, analyzeImageContent, transcribeVideo } from '../services/geminiService';
@@ -5,7 +6,7 @@ import type { ComplianceReport, CustomRule, ReportStatus, MainView, DashboardVie
 import * as db from '../services/dbService';
 import Loader from './Loader';
 import WelcomeGuide from './WelcomeGuide';
-import { HistoryIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon, XIcon, PhotoIcon, VideoCameraIcon } from './icons/Icons';
+import { HistoryIcon, EllipsisHorizontalIcon, FolderIcon, ChevronDownIcon, SparklesIcon, XIcon, PhotoIcon, VideoCameraIcon, UserIcon, TagIcon, DownloadIcon } from './icons/Icons';
 import CertificatePDF from './CertificatePDF';
 import GreenlightQueue from './GreenlightQueue';
 import OnboardingTour from './OnboardingTour';
@@ -43,6 +44,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
   const [batchMode, setBatchMode] = useState(false);
   const [postContent, setPostContent] = useState<string>('');
   const [campaignName, setCampaignName] = useState<string>('');
+  const [influencerHandle, setInfluencerHandle] = useState<string>('');
+  const [clientBrand, setClientBrand] = useState<string>('');
   const [campaignSuggestions, setCampaignSuggestions] = useState<string[]>([]);
   const [videoTranscript, setVideoTranscript] = useState<string>('');
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
@@ -63,6 +66,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
   
   const reportCardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const batchFileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isProcessingQueue = useRef(false);
 
@@ -112,6 +116,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
     const onboardingComplete = localStorage.getItem('brandGuardOnboardingComplete');
     if (!onboardingComplete) setShowOnboarding(true);
 
+    // Handle image passed from Image Studio (now a scanner)
     const pendingImageJson = localStorage.getItem('brandguard_pending_image');
     if (pendingImageJson) {
         localStorage.removeItem('brandguard_pending_image');
@@ -120,8 +125,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
             const file = base64StringToFile(data, name, 'image/png');
             setActiveView('image');
             setSelectedImageFile(file);
-            setPostContent("Caption for the generated image:");
-            textareaRef.current?.focus();
+            setPostContent("Analyzing submitted image content...");
+            // We could auto-scan here, but let's let the user add metadata first
         } catch (e) {
             console.error("Failed to parse pending image from Image Studio", e);
         }
@@ -168,7 +173,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
             setVideoTranscript(transcript);
 
             setLoadingText('Analyzing Video...');
-            const result = await analyzeVideoContent(transcript, campaignName, file, customRules, (insight) => onUpdateReportInsight(result.id, insight));
+            const result = await analyzeVideoContent(transcript, campaignName, file, customRules, (insight) => onUpdateReportInsight(result.id, insight), { influencerHandle, clientBrand });
             const finalReport = await handleAnalysisCompletion(result);
             setReport(finalReport);
             setNewReportId(finalReport.id);
@@ -178,7 +183,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
             setIsLoading(false);
         }
     }
-  }, [customRules, handleAnalysisCompletion, onUpdateReportInsight, campaignName]);
+  }, [customRules, handleAnalysisCompletion, onUpdateReportInsight, campaignName, influencerHandle, clientBrand]);
   
   const processQueue = useCallback(async () => {
     if (isProcessingQueue.current || queue.every(item => item.status !== 'Queued')) {
@@ -191,10 +196,13 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
             setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'Running' } : q));
             try {
                 let result;
+                // Queue items don't support individual influencer handles in UI yet, so use the main input or blank
+                const meta = { influencerHandle: item.influencerHandle || influencerHandle, clientBrand };
+
                 if (item.content) { 
-                    result = await analyzePostContent(item.content, campaignName, customRules, false, (insight) => onUpdateReportInsight(result.id, insight));
+                    result = await analyzePostContent(item.content, campaignName, customRules, false, (insight) => onUpdateReportInsight(result.id, insight), meta);
                 } else if (item.file) { 
-                    result = await analyzeImageContent(postContent, campaignName, item.file, customRules, (insight) => onUpdateReportInsight(result.id, insight));
+                    result = await analyzeImageContent(postContent || "Batch Image Scan", campaignName, item.file, customRules, (insight) => onUpdateReportInsight(result.id, insight), meta);
                 }
                  if (result) {
                     const finalReport = await handleAnalysisCompletion(result);
@@ -209,7 +217,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
         }
     }
     isProcessingQueue.current = false;
-  }, [queue, campaignName, customRules, postContent, handleAnalysisCompletion, onUpdateReportInsight]);
+  }, [queue, campaignName, customRules, postContent, handleAnalysisCompletion, onUpdateReportInsight, influencerHandle, clientBrand]);
 
   useEffect(() => {
     processQueue();
@@ -221,6 +229,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
   const handleStartExample = () => {
     setActiveView('text');
     setPostContent(examplePost);
+    setInfluencerHandle('@lifestyle_guru');
+    setClientBrand('Neon Energy');
   };
 
   const handleScan = useCallback(async (options: { contentOverride?: string; isRescan?: boolean; isQuickScan?: boolean } = {}) => {
@@ -228,7 +238,12 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
     
     if (batchMode) {
       if (activeView === 'text') {
-        const newItems: QueueItem[] = postContent.split('\n').filter(line => line.trim() !== '').map(line => ({ id: crypto.randomUUID(), status: 'Queued', content: line.trim() }));
+        const newItems: QueueItem[] = postContent.split('\n').filter(line => line.trim() !== '').map(line => ({ 
+            id: crypto.randomUUID(), 
+            status: 'Queued', 
+            content: line.trim(),
+            influencerHandle 
+        }));
         setQueue(prev => [...prev, ...newItems]);
         setPostContent('');
       }
@@ -240,6 +255,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
     setReport(null);
     setError(null);
 
+    const meta = { influencerHandle, clientBrand };
+
     try {
       let result;
       const contentToScan = contentOverride !== undefined ? contentOverride : postContent;
@@ -247,14 +264,14 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
 
       if (activeView === 'text') {
         if (!contentToScan.trim()) throw new Error("Please enter post content to analyze.");
-        result = await analyzePostContent(contentToScan, campaignToScan, customRules, isRescan, (insight) => onUpdateReportInsight(result.id, insight));
+        result = await analyzePostContent(contentToScan, campaignToScan, customRules, isRescan, (insight) => onUpdateReportInsight(result.id, insight), meta);
       } else if (activeView === 'video') {
          if (fileInputRef.current) fileInputRef.current.click();
          return;
       } else if (activeView === 'image') {
         if (!contentToScan.trim() || !selectedImageFile) throw new Error("Please provide an image and a caption.");
         setLoadingText('Analyzing Image...');
-        result = await analyzeImageContent(contentToScan, campaignName, selectedImageFile, customRules, (insight) => onUpdateReportInsight(result.id, insight));
+        result = await analyzeImageContent(contentToScan, campaignName, selectedImageFile, customRules, (insight) => onUpdateReportInsight(result.id, insight), meta);
       }
       
       if(result) {
@@ -267,8 +284,31 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
     } finally {
        if (activeView !== 'video') setIsLoading(false);
     }
-  }, [activeView, postContent, campaignName, selectedImageFile, customRules, handleAnalysisCompletion, onUpdateReportInsight, batchMode]);
+  }, [activeView, postContent, campaignName, selectedImageFile, customRules, handleAnalysisCompletion, onUpdateReportInsight, batchMode, influencerHandle, clientBrand]);
   
+  const handleExportQueue = () => {
+      if (queue.length === 0) return;
+      
+      const csvHeader = "Influencer,Status,Score,Issues,Content\n";
+      const csvRows = queue.map(item => {
+          const handle = item.influencerHandle || influencerHandle || "Unknown";
+          const status = item.result?.overallScore && item.result.overallScore >= 90 ? "Pass" : "Fail/Warn";
+          const score = item.result?.overallScore || 0;
+          const issues = item.result?.checks.filter(c => c.status !== 'pass').map(c => c.name).join("; ") || "None";
+          const content = item.content ? item.content.replace(/,/g, " ").replace(/\n/g, " ") : (item.file?.name || "");
+          return `${handle},${status},${score},"${issues}","${content}"`;
+      }).join("\n");
+
+      const blob = new Blob([csvHeader + csvRows], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Batch_Scan_Report_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+  };
+
   const handleAcceptRevision = (revisedContent: string) => {
       setPostContent(revisedContent);
       setReport(null);
@@ -288,7 +328,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
     setBatchMode(false);
     if (clearInputs) {
       setPostContent('');
-      setCampaignName('');
       setVideoTranscript('');
       setSelectedVideoFile(null);
       setSelectedImageFile(null);
@@ -297,11 +336,11 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
 
   const switchTab = (type: DashboardView) => {
     setActiveView(type);
-    resetState();
+    resetState(type !== activeView); // Only clear inputs if switching views
   };
   const viewHistoricReport = (historicReport: ComplianceReport) => {
     setActiveActionMenu(null);
-    resetState(false);
+    // We don't clear inputs so user context remains
     setReport(historicReport);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -324,7 +363,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
     if (batchMode) return `Add ${activeView === 'text' ? 'Captions' : 'Images'} to Queue`;
     if (activeView === 'video') return 'Select & Analyze Video';
     if (activeView === 'image') return 'Scan Image & Caption';
-    return 'Scan Post';
+    return 'Scan Submission';
   };
   
   const isScanDisabled = () => {
@@ -364,11 +403,16 @@ const Dashboard: React.FC<DashboardProps> = ({ activeWorkspaceId, customRules, r
     e.stopPropagation();
     if (batchMode && activeView === 'image') {
       const files = Array.from(e.dataTransfer.files).filter((file: File) => file.type.startsWith('image/'));
-      // FIX: Explicitly type the 'file' parameter in the map function.
-      // TypeScript was failing to infer the type of 'file' from the filtered array,
-      // leading to a type mismatch with the QueueItem interface.
-      const newItems: QueueItem[] = files.map((file: File) => ({ id: crypto.randomUUID(), status: 'Queued', file }));
+      const newItems: QueueItem[] = files.map((file: File) => ({ id: crypto.randomUUID(), status: 'Queued', file, influencerHandle }));
       setQueue(prev => [...prev, ...newItems]);
+    }
+  };
+
+  const handleBatchFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+        const files = Array.from(e.target.files).filter((file: File) => file.type.startsWith('image/'));
+        const newItems: QueueItem[] = files.map((file: File) => ({ id: crypto.randomUUID(), status: 'Queued', file, influencerHandle }));
+        setQueue(prev => [...prev, ...newItems]);
     }
   };
 
@@ -404,9 +448,9 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
        <div className="bg-secondary-dark p-6 rounded-lg border border-gray-700 shadow-lg" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
           <div className="flex justify-between items-center mb-4 border-b border-gray-700">
               <nav className="-mb-px flex space-x-6">
-                  <button onClick={() => switchTab('text')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeView === 'text' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Text Post</button>
-                  <button onClick={() => switchTab('image')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeView === 'image' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Image Post</button>
-                  <button onClick={() => switchTab('video')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeView === 'video' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Video Post</button>
+                  <button onClick={() => switchTab('text')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeView === 'text' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Text Submission</button>
+                  <button onClick={() => switchTab('image')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeView === 'image' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Image Submission</button>
+                  <button onClick={() => switchTab('video')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeView === 'video' ? 'border-primary text-primary-light' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>Video Submission</button>
               </nav>
               {(activeView === 'text' || activeView === 'image') && (
                 <div className="flex items-center">
@@ -419,32 +463,62 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
           </div>
           {batchMode ? (
              <div className="space-y-4">
-               {activeView === 'text' && <textarea ref={textareaRef} value={postContent} onChange={(e) => setPostContent(e.target.value)} placeholder={'Paste multiple captions, one per line...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
+               {activeView === 'text' && <textarea ref={textareaRef} value={postContent} onChange={(e) => setPostContent(e.target.value)} placeholder={'Paste multiple captions from different influencers, one per line...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
                
                {activeView === 'image' && 
                   <div className="space-y-2">
-                    <textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} placeholder={'Enter one caption to be used for all images...'} rows={3} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" />
-                    <div className="p-4 text-center border-2 border-dashed border-gray-600 rounded-lg">
+                    <textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} placeholder={'Enter the default caption/hashtag logic to check against (e.g., must contain #ad)...'} rows={3} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" />
+                    <div 
+                        className="p-4 text-center border-2 border-dashed border-gray-600 rounded-lg hover:border-gray-400 transition-colors cursor-pointer"
+                        onClick={() => batchFileInputRef.current?.click()}
+                    >
                       <PhotoIcon className="mx-auto h-12 w-12 text-gray-500" />
-                      <p className="mt-2 text-sm text-gray-400">Drag & drop image files here</p>
+                      <p className="mt-2 text-sm text-gray-400">Drag & drop influencer images here, or click to select</p>
+                      <input 
+                        type="file" 
+                        ref={batchFileInputRef} 
+                        className="hidden" 
+                        multiple 
+                        accept="image/png, image/jpeg, image/webp"
+                        onChange={handleBatchFileSelect}
+                      />
                     </div>
                   </div>
                }
 
-               <div className="relative">
-                  <label htmlFor="campaign-name-batch" className="block text-sm font-medium text-gray-400 mb-1">Campaign Name (Required for Batch)</label>
-                  <input id="campaign-name-batch" type="text" value={campaignName} onChange={handleCampaignNameChange} placeholder="e.g., Q4 Influencer Push" className="w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} autoComplete="off" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="relative">
+                      <label htmlFor="campaign-name-batch" className="block text-sm font-medium text-gray-400 mb-1">Campaign Name (Required)</label>
+                      <input id="campaign-name-batch" type="text" value={campaignName} onChange={handleCampaignNameChange} placeholder="e.g., Q4 Influencer Push" className="w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} autoComplete="off" />
+                   </div>
+                   <div className="relative">
+                       <label htmlFor="client-brand-batch" className="block text-sm font-medium text-gray-400 mb-1">Client Brand</label>
+                       <input id="client-brand-batch" type="text" value={clientBrand} onChange={(e) => setClientBrand(e.target.value)} placeholder="e.g., Nike, Sephora" className="w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />
+                   </div>
+                   <div className="relative">
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Batch Influencer Handle</label>
+                       <input type="text" value={influencerHandle} onChange={(e) => setInfluencerHandle(e.target.value)} placeholder="Optional default handle" className="w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />
+                   </div>
                </div>
                
-               <button onClick={() => handleScan()} disabled={isScanDisabled() || !campaignName} className="w-full flex-grow px-6 py-3 flex items-center justify-center gap-3 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20">
-                   {getButtonText()}
-               </button>
-
-               {queue.length > 0 && <GreenlightQueue queue={queue} setQueue={setQueue} onClear={() => setQueue([])} onViewReport={viewHistoricReport} />}
+               {activeView === 'text' && (
+                 <button onClick={() => handleScan()} disabled={isScanDisabled() || !campaignName} className="w-full flex-grow px-6 py-3 flex items-center justify-center gap-3 bg-primary text-white font-bold rounded-md hover:bg-primary-dark disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-lg shadow-lg shadow-primary/20">
+                     {getButtonText()}
+                 </button>
+               )}
+               
+               {queue.length > 0 && (
+                   <>
+                    <GreenlightQueue queue={queue} setQueue={setQueue} onClear={() => setQueue([])} onViewReport={viewHistoricReport} />
+                    <button onClick={handleExportQueue} className="mt-2 text-sm text-primary-light hover:underline flex items-center gap-1">
+                        <DownloadIcon /> Export Batch Results (CSV)
+                    </button>
+                   </>
+               )}
              </div>
           ) : (
             <div className="space-y-4">
-               {activeView !== 'video' && <textarea data-tour="content-input" ref={textareaRef} value={postContent} onChange={(e) => setPostContent(e.target.value)} onKeyDown={(e) => { if (activeView === 'text' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (!isScanDisabled()) { handleScan({ isQuickScan: true }); } } }} placeholder={activeView === 'image' ? 'Paste caption for image post here...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
+               {activeView !== 'video' && <textarea data-tour="content-input" ref={textareaRef} value={postContent} onChange={(e) => setPostContent(e.target.value)} onKeyDown={(e) => { if (activeView === 'text' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (!isScanDisabled()) { handleScan({ isQuickScan: true }); } } }} placeholder={activeView === 'image' ? 'Paste caption accompanying the image...' : 'Paste influencer post caption here...'} rows={8} className="w-full p-3 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />}
                
                {activeView === 'image' && (
                   <div>
@@ -463,9 +537,9 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                       </div>
                     ) : (
                       <div>
-                        <label htmlFor="image-upload" className="block text-sm font-medium text-gray-400 mb-2">Upload Image</label>
+                        <label htmlFor="image-upload" className="block text-sm font-medium text-gray-400 mb-2">Upload Influencer Image</label>
                         <input id="image-upload" type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => setSelectedImageFile(e.target.files ? e.target.files[0] : null)} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLoading}/>
-                        <p className="text-xs text-center text-gray-500 mt-2">or generate an image in the <button onClick={() => onNavigate('image-studio')} className="font-semibold text-primary-light hover:underline">Image Studio</button>.</p>
+                        <p className="text-xs text-center text-gray-500 mt-2">Need to analyze detail? Use the <button onClick={() => onNavigate('image-studio')} className="font-semibold text-primary-light hover:underline">Image Analysis Workspace</button>.</p>
                       </div>
                     )}
                   </div>
@@ -488,16 +562,26 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                    </div>
                )}
                
-               <div className="relative">
-                  <label htmlFor="campaign-name" className="block text-sm font-medium text-gray-400 mb-1">Campaign Name (Optional)</label>
-                  <input id="campaign-name" type="text" value={campaignName} onChange={handleCampaignNameChange} placeholder="e.g., Q3 Sneaker Launch" className="w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} autoComplete="off" />
-                   {campaignSuggestions.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-dark border border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
-                          {campaignSuggestions.map(suggestion => (
-                              <button key={suggestion} onClick={() => selectCampaign(suggestion)} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700">{suggestion}</button>
-                          ))}
-                      </div>
-                  )}
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                   <div className="relative">
+                      <label htmlFor="campaign-name" className="block text-sm font-medium text-gray-400 mb-1">Campaign Name</label>
+                      <input id="campaign-name" type="text" value={campaignName} onChange={handleCampaignNameChange} placeholder="e.g., Q3 Sneaker Launch" className="w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} autoComplete="off" />
+                       {campaignSuggestions.length > 0 && (
+                          <div className="absolute z-10 w-full mt-1 bg-dark border border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                              {campaignSuggestions.map(suggestion => (
+                                  <button key={suggestion} onClick={() => selectCampaign(suggestion)} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700">{suggestion}</button>
+                              ))}
+                          </div>
+                      )}
+                   </div>
+                   <div className="relative">
+                        <label htmlFor="client-brand" className="block text-sm font-medium text-gray-400 mb-1">Client Brand</label>
+                        <input id="client-brand" type="text" value={clientBrand} onChange={(e) => setClientBrand(e.target.value)} placeholder="e.g., Nike, Sephora" className="w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />
+                   </div>
+                   <div className="relative">
+                        <label htmlFor="influencer-handle" className="block text-sm font-medium text-gray-400 mb-1">Influencer Name/Handle</label>
+                        <input id="influencer-handle" type="text" value={influencerHandle} onChange={(e) => setInfluencerHandle(e.target.value)} placeholder="@username" className="w-full p-2 border border-gray-600 rounded-md bg-dark text-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50" disabled={isLoading} />
+                   </div>
                </div>
 
               <div className="flex items-stretch gap-2">
@@ -522,7 +606,7 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
       <div className="flex flex-col gap-6">
         <div>
             <h1 className="text-3xl font-bold text-white mb-2">Compliance Dashboard</h1>
-            <p className="text-gray-400">Analyze content against FTC guidelines, brand safety, and your own custom rules.</p>
+            <p className="text-gray-400">Analyze influencer submissions against FTC guidelines, brand safety, and custom rules.</p>
         </div>
         
         <Suspense fallback={<div className="w-full h-48 bg-secondary-dark rounded-lg flex items-center justify-center"><Loader /></div>}>
@@ -570,9 +654,11 @@ const examplePost = `These new sneakers are a game-changer! So comfy and they lo
                                         <div key={r.id} className={`p-3 bg-secondary-dark rounded-md hover:bg-gray-800 transition-colors group ${r.id === newReportId ? 'highlight-new' : ''}`}>
                                             <div className="flex justify-between items-start">
                                                 <button onClick={() => viewHistoricReport(r)} className="text-left flex-grow truncate pr-2">
-                                                    <p className="text-sm font-medium text-white truncate">{r.analysisType.charAt(0).toUpperCase() + r.analysisType.slice(1)} Post - {new Date(r.timestamp).toLocaleTimeString()}</p>
-                                                    <p className="text-xs text-gray-400 truncate">{new Date(r.timestamp).toLocaleDateString()}</p>
-                                                    {r.userName && <p className="text-xs text-gray-500 truncate mt-1">Run by: {r.userName}</p>}
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <p className="text-sm font-medium text-white truncate">{r.analysisType.charAt(0).toUpperCase() + r.analysisType.slice(1)} Submission</p>
+                                                        {r.influencerHandle && <span className="text-xs text-primary-light bg-primary/10 px-1.5 py-0.5 rounded">{r.influencerHandle}</span>}
+                                                    </div>
+                                                    <p className="text-xs text-gray-400 truncate">{new Date(r.timestamp).toLocaleDateString()} {new Date(r.timestamp).toLocaleTimeString()}</p>
                                                 </button>
                                                 <div className="flex items-center gap-2 flex-shrink-0">
                                                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusDisplayConfig[r.status || 'pending'].color}`}>{statusDisplayConfig[r.status || 'pending'].tag}</span>

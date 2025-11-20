@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import type { ComplianceReport, CheckItem } from '../types';
 import { BrandGuardLogoIcon, CheckIcon, WarningIcon, XIcon, CogIcon, FilmIcon, UserIcon, ShieldCheckIcon } from './icons/Icons';
@@ -99,8 +100,18 @@ const CertificatePDF: React.FC<CertificatePDFProps> = ({ report, onRendered }) =
                         <div className="text-gray-200">{report.campaignName}</div>
                     </>}
 
+                    {report.influencerHandle && <>
+                         <div className="font-semibold text-gray-400">Influencer:</div>
+                         <div className="text-gray-200 font-medium">{report.influencerHandle}</div>
+                    </>}
+
+                     {report.clientBrand && <>
+                         <div className="font-semibold text-gray-400">Client Brand:</div>
+                         <div className="text-gray-200">{report.clientBrand}</div>
+                    </>}
+
                     {report.userName && <>
-                        <div className="font-semibold text-gray-400">Run by:</div>
+                        <div className="font-semibold text-gray-400">Reviewer:</div>
                         <div className="text-gray-200">{report.userName}</div>
                     </>}
                 </div>
