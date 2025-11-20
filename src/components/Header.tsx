@@ -51,18 +51,6 @@ const Header: React.FC<HeaderProps> = ({
                <a href="/" onClick={(e) => handleNavClick(e, 'dashboard', '/')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
                 Dashboard
               </a>
-              <a href="/brief-studio" onClick={(e) => handleNavClick(e, 'brief-studio', '/brief-studio')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
-                Brief Studio
-              </a>
-              <a href="/image-studio" onClick={(e) => handleNavClick(e, 'image-studio', '/image-studio')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
-                Image Analysis
-              </a>
-              <a href="/video-studio" onClick={(e) => handleNavClick(e, 'video-studio', '/video-studio')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
-                Video Studio
-              </a>
-               <a href="/certificates" onClick={(e) => handleNavClick(e, 'certificates', '/certificates')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
-                Certificates
-              </a>
               <a href="/pricing" onClick={(e) => handleNavClick(e, 'pricing', '/pricing')} className="font-medium transition-colors text-gray-300 hover:text-white hidden sm:inline">
                 Pricing
               </a>

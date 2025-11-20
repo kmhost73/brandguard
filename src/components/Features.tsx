@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { CheckIcon, SparklesIcon, ShieldCheckIcon, XIcon } from './icons/Icons';
 
@@ -22,50 +21,46 @@ const Features: React.FC = () => {
   const features = [
     {
       icon: <CheckIcon className="w-7 h-7"/>,
-      title: 'Instant Greenlight Analysis',
-      description: 'Stop waiting on legal. Our engine scans content for FTC disclosures, brand safety, and custom rules, giving you a definitive GO/STOP answer in seconds. Kill the delays.',
+      title: '10-Second Greenlight Scans',
+      description: 'Stop waiting on manual review. Scan text, images, and video for FTC disclosures and brand safety rules instantly. Get a definitive GO/STOP answer before you blink.',
       visual: (
         <div className="w-full p-4 font-mono text-sm text-left bg-dark rounded-md">
-          <p className="text-gray-400">&gt; Requesting Greenlight...</p>
-          <div className="flex items-center gap-2 mt-2">
-            <CheckIcon className="w-5 h-5 text-success" />
-            <span className="text-gray-300">Result: GO</span>
-          </div>
+          <p className="text-gray-400">&gt; Scanning post...</p>
           <div className="flex items-center gap-2 mt-2">
             <XIcon className="w-5 h-5 text-danger" />
-            <span className="text-gray-300">Result: STOP</span>
+            <span className="text-gray-300">Status: STOP (Missing Disclosure)</span>
           </div>
-           <p className="text-success ml-7 text-xs">Reason: All clear. Ship it.</p>
+           <p className="text-danger ml-7 text-xs">Risk: $51,744 Fine</p>
         </div>
       )
     },
     {
       icon: <SparklesIcon/>,
-      title: 'One-Click "Magic Fix"',
-      description: 'Don\'t just find problems—solve them. Instantly generate compliant revisions of problematic captions and eliminate the soul-crushing back-and-forth that kills creativity and momentum.',
+      title: 'Instant "Magic Fix" Revisions',
+      description: 'Finding the problem is only half the battle. BrandGuard instantly generates the compliant version of your caption, ready to copy-paste and send to your influencer.',
        visual: (
         <div className="w-full p-2 font-mono text-xs text-left">
-          <div className="p-2 bg-red-900/40 rounded border border-danger/50">
-            <p className="text-red-300 font-bold">Before:</p>
-            <p className="text-gray-400">My new shoes are made with 100% organic materials!</p>
+          <div className="p-2 bg-red-900/40 rounded border border-danger/50 opacity-50">
+            <p className="text-red-300 font-bold">Original:</p>
+            <p className="text-gray-400">Love these new shoes!</p>
           </div>
-          <div className="p-2 bg-green-900/40 rounded border border-success/50 mt-2">
-            <p className="text-green-300 font-bold">After (Magic Fix):</p>
-            <p className="text-gray-300">#ad My new shoes are made with 100% organic materials!</p>
+          <div className="p-2 bg-green-900/40 rounded border border-success/50 mt-2 scale-105 shadow-lg">
+            <p className="text-green-300 font-bold">Magic Fix:</p>
+            <p className="text-gray-300">#ad Love these new shoes!</p>
           </div>
         </div>
       )
     },
     {
       icon: <ShieldCheckIcon />,
-      title: 'Issue Certificates of Confidence',
-      description: 'Replace ambiguous email chains and verbal approvals. Generate and share authoritative, professional certificates of compliance to provide undeniable proof that due diligence is complete.',
+      title: 'Audit Trail Certificates',
+      description: 'Protect your agency and your clients. Every scan generates a timestamped Certificate of Compliance, proving you did your due diligence.',
       visual: (
         <div className="w-full p-4 flex flex-col items-center justify-center text-center bg-dark rounded-lg border border-primary/50">
             <ShieldCheckIcon />
-            <p className="text-lg font-semibold text-white mt-2">Certificate of Compliance</p>
-            <p className="text-sm text-gray-400">Status: <span className="text-success font-bold">GREENLIT</span></p>
-            <p className="text-xs text-gray-500 mt-2">Certified by BrandGuard</p>
+            <p className="text-lg font-semibold text-white mt-2">Compliance Certificate</p>
+            <p className="text-xs text-gray-500 mt-1">ID: 8X29-A1B2</p>
+            <div className="mt-2 px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-xs font-bold">VERIFIED</div>
         </div>
       )
     }
@@ -75,9 +70,9 @@ const Features: React.FC = () => {
     <div className="py-24 bg-dark">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-extrabold text-white">Your Velocity is Your Weapon.</h2>
+          <h2 className="text-4xl font-extrabold text-white">Speed is Your Competitive Advantage.</h2>
           <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-400">
-            BrandGuard is the safety net that lets you move at the speed of the market.
+            Stop letting compliance bottlenecks kill your campaign momentum.
           </p>
         </div>
         <div className="space-y-20">

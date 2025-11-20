@@ -49,10 +49,6 @@ const App: React.FC = () => {
       '/blog/ftc-disclosure-rules-2024': 'blog-post',
       '/blog/ai-ftc-compliance-influencer-marketing-2025': 'blog-post-2',
       '/settings': 'settings',
-      '/certificates': 'certificates',
-      '/brief-studio': 'brief-studio',
-      '/image-studio': 'image-studio',
-      '/video-studio': 'video-studio',
     };
     
     const view = pathMap[cleanPath] || 'dashboard';
@@ -247,14 +243,15 @@ const App: React.FC = () => {
              {
               {
                 'dashboard': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} reportHistory={reportHistory || []} onUpdateReportStatus={handleUpdateReportStatus} onUpdateReportInsight={handleUpdateReportInsight} onDeleteReport={handleDeleteReport} onCreateCertificate={handleCreateCertificate} onNavigate={(v, p) => handleNavigate(v,p)} onCreateRevisionRequest={handleCreateRevisionRequest} />,
-                'brief-studio': activeWorkspaceId ? <BriefStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} onNavigate={(v,p) => handleNavigate(v,p)} /> : <FullPageLoader />,
-                'video-studio': activeWorkspaceId ? <VideoStudio key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} onNavigate={(v,p) => handleNavigate(v,p)} onUpdateReportInsight={handleUpdateReportInsight} /> : <FullPageLoader />,
-                'image-studio': activeWorkspaceId ? <ImageStudio key={activeWorkspaceId} onNavigate={(v,p) => handleNavigate(v,p)} /> : <FullPageLoader />,
                 'settings': activeWorkspace ? <WorkspaceSettings key={activeWorkspaceId} activeWorkspace={activeWorkspace} customRules={customRules || []} onUpdateRules={handleUpdateRules} onRenameWorkspace={handleRenameWorkspace} onDeleteWorkspace={handleDeleteWorkspace} onNavigate={(v,p) => handleNavigate(v,p)} /> : <FullPageLoader />,
-                'certificates': activeWorkspaceId ? <CertificatesHub key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} onNavigate={(v,p) => handleNavigate(v,p)} /> : <FullPageLoader />,
                 'blog-post': <BlogPost onNavigate={(v,p) => handleNavigate(v,p)} />,
                 'blog-post-2': <BlogPost2 onNavigate={(v,p) => handleNavigate(v,p)} />,
                 'pricing': <PricingPage onNavigate={(v,p) => handleNavigate(v,p)} />,
+                // Fallback for deprecated routes if they are somehow reached via history
+                'brief-studio': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} reportHistory={reportHistory || []} onUpdateReportStatus={handleUpdateReportStatus} onUpdateReportInsight={handleUpdateReportInsight} onDeleteReport={handleDeleteReport} onCreateCertificate={handleCreateCertificate} onNavigate={(v, p) => handleNavigate(v,p)} onCreateRevisionRequest={handleCreateRevisionRequest} />,
+                'image-studio': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} reportHistory={reportHistory || []} onUpdateReportStatus={handleUpdateReportStatus} onUpdateReportInsight={handleUpdateReportInsight} onDeleteReport={handleDeleteReport} onCreateCertificate={handleCreateCertificate} onNavigate={(v, p) => handleNavigate(v,p)} onCreateRevisionRequest={handleCreateRevisionRequest} />,
+                'video-studio': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} reportHistory={reportHistory || []} onUpdateReportStatus={handleUpdateReportStatus} onUpdateReportInsight={handleUpdateReportInsight} onDeleteReport={handleDeleteReport} onCreateCertificate={handleCreateCertificate} onNavigate={(v, p) => handleNavigate(v,p)} onCreateRevisionRequest={handleCreateRevisionRequest} />,
+                'certificates': <Dashboard key={activeWorkspaceId} activeWorkspaceId={activeWorkspaceId} customRules={customRules || []} reportHistory={reportHistory || []} onUpdateReportStatus={handleUpdateReportStatus} onUpdateReportInsight={handleUpdateReportInsight} onDeleteReport={handleDeleteReport} onCreateCertificate={handleCreateCertificate} onNavigate={(v, p) => handleNavigate(v,p)} onCreateRevisionRequest={handleCreateRevisionRequest} />,
               }[mainView]
             }
              <FeedbackWidget activeWorkspaceId={activeWorkspaceId} />
